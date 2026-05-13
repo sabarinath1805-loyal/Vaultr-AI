@@ -8,7 +8,6 @@ import React from "react";
 import { toast } from "sonner";
 import useChatStore from "@/app/hooks/useChatStore";
 import { useRouter } from "next/navigation";
-import { SnowflakeIcon } from "@/components/icons/snowflake";
 
 export interface ChatProps {
   id: string;
@@ -115,11 +114,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       {messages.length === 0 ? (
         <div className="flex h-full w-full flex-col items-center">
           <div className="flex w-full translate-y-[40vh] flex-col items-center gap-8">
-            <div className="inline-flex items-center gap-2.5 text-[var(--text)]">
-              <SnowflakeIcon size={26} />
+            <div className="text-center text-[var(--text)]">
               <h1 className="font-display text-[40px] font-normal leading-none">
-                Hi, Counselor
+                Hey, I&apos;m Lex — your private legal AI.
               </h1>
+              <p className="mt-2 text-[13px] text-[var(--text-muted)]">
+                Ask me anything about your contracts or legal research.
+              </p>
             </div>
             <div className="flex w-full flex-col items-center">
               <ChatBottombar

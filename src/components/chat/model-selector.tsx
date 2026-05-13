@@ -2,7 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
-import { LEX_MODELS, getDefaultModel, ollamaIdToLexName } from "@/lib/models";
+import {
+  LEX_MODELS,
+  getDefaultModel,
+  ollamaIdToLexName,
+  sortModelsByLexOrder,
+} from "@/lib/models";
 import useChatStore from "@/app/hooks/useChatStore";
 
 interface ModelSelectorProps {
@@ -27,15 +32,16 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
         const modelIds = Array.isArray(data?.models)
           ? data.models.map(({ name }: { name: string }) => name)
           : [];
-        const installedLexModels = LEX_MODELS.filter((model) =>
-          modelIds.includes(model.ollamaId)
-        ).map((model) => model.ollamaId);
+        const orderedModels = sortModelsByLexOrder(modelIds);
 
         if (!cancelled) {
           setIsOllamaRunning(modelIds.length > 0);
-          setAvailableModels(installedLexModels);
-          if (!selectedModel) {
-            setSelectedModel(installedLexModels[0] ?? getDefaultModel().ollamaId);
+          setAvailableModels(orderedModels);
+          if (
+            orderedModels.length > 0 &&
+            (!selectedModel || !orderedModels.includes(selectedModel))
+          ) {
+            setSelectedModel(orderedModels[0]);
           }
         }
       } catch {
@@ -56,7 +62,9 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
     };
   }, [selectedModel, setSelectedModel]);
 
-  const selectedLabel = selectedModel
+  const selectedLabel = !isOllamaRunning
+    ? "Ollama not running"
+    : selectedModel
     ? ollamaIdToLexName(selectedModel)
     : getDefaultModel().name;
   const options = availableModels.length
