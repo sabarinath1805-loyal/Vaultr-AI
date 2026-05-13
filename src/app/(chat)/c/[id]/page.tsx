@@ -1,7 +1,7 @@
 "use client";
 
 import { ChatLayout } from "@/components/chat/chat-layout";
-import React, { Suspense } from "react";
+import React from "react";
 import { notFound } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 
@@ -9,7 +9,26 @@ export default function Page({ params }: { params: { id: string } }) {
   const id = params.id;
 
   const getChatById = useChatStore((state) => state.getChatById);
+  const loadChatById = useChatStore((state) => state.loadChatById);
   const chat = getChatById(id);
+  const [isLoadingChat, setIsLoadingChat] = React.useState(!chat);
+
+  React.useEffect(() => {
+    if (chat) {
+      setIsLoadingChat(false);
+      return;
+    }
+
+    loadChatById(id).then((loadedChat) => {
+      if (!loadedChat) {
+        setIsLoadingChat(false);
+      }
+    });
+  }, [chat, id, loadChatById]);
+
+  if (isLoadingChat) {
+    return null;
+  }
 
   if (!chat) {
     return notFound();
