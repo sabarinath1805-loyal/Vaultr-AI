@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",
@@ -55,6 +58,7 @@
     "zustand": "^5.0.0-rc.2"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.1",
     "@types/lodash": "^4.17.14",
     "@types/node": "^22.5.5",
     "@types/react": "^18.3.8",
