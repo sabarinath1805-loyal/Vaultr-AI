@@ -19,6 +19,7 @@ export function toClientMessage(message: MessageRecord): Message {
     id: message.id,
     role: message.role,
     content: message.content,
+    createdAt: new Date(message.createdAt * 1000),
   };
 }
 

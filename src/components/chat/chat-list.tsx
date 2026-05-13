@@ -31,7 +31,7 @@ export default function ChatList({
             />
           ))}
           {loadingSubmit && (
-            <div className="max-w-[680px] text-left">
+            <div className="animate-message-in max-w-[680px] text-left">
               <div className="mb-1.5 text-[11px] text-[var(--text-muted)]">Lex</div>
               <div className="text-sm leading-[1.65] text-[var(--text-muted)]">
                 Thinking…
