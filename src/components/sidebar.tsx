@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { MoreHorizontal, SquarePen, Trash2 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { Message } from "ai/react";
-import Image from "next/image";
-import { Suspense, useEffect } from "react";
-import UserSettings from "./user-settings";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import {
+  BarChart3,
+  ChevronDown,
+  ChevronsUpDown,
+  Folder,
+  Grid2X2,
+  MoreHorizontal,
+  PanelLeft,
+  Shield,
+  Square,
+  Trash2,
+} from "lucide-react";
+import { SnowflakeIcon } from "@/components/icons/snowflake";
 import {
   Dialog,
   DialogContent,
@@ -15,33 +23,30 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "./ui/dialog";
+} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
-import { useRouter } from "next/navigation";
+} from "@/components/ui/dropdown-menu";
 import useChatStore from "@/app/hooks/useChatStore";
 
-interface SidebarProps {
-  isCollapsed: boolean;
-  messages: Message[];
-  onClick?: () => void;
-  isMobile: boolean;
-  chatId: string;
-  closeSidebar?: () => void;
-}
+const navItems = [
+  { href: "/", label: "Assistant", icon: Square },
+  { href: "/vault", label: "Vault", icon: Folder },
+  { href: "/models", label: "Models", icon: Grid2X2 },
+  { href: "/contract-scanner", label: "Contract Scanner", icon: Shield },
+  { href: "/workflows", label: "Workflows", icon: BarChart3 },
+];
 
-export function Sidebar({
-  messages,
-  isCollapsed,
-  isMobile,
-  chatId,
-  closeSidebar,
-}: SidebarProps) {
+const navClass =
+  "flex h-9 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 text-sm text-[var(--text)] transition-[color,background-color] duration-150";
+
+export function Sidebar() {
+  const pathname = usePathname();
   const router = useRouter();
-
+  const [historyOpen, setHistoryOpen] = useState(true);
   const chats = useChatStore((state) => state.chats);
   const handleDelete = useChatStore((state) => state.handleDelete);
   const loadChats = useChatStore((state) => state.loadChats);
@@ -50,125 +55,160 @@ export function Sidebar({
     loadChats();
   }, [loadChats]);
 
-  return (
-    <div
-      data-collapsed={isCollapsed}
-      className="relative justify-between group lg:bg-accent/20 lg:dark:bg-card/35 flex flex-col h-full gap-4 p-2 data-[collapsed=true]:p-2 "
-    >
-      <div className=" flex flex-col justify-between p-2 max-h-fit overflow-y-auto">
-        <Button
-          onClick={() => {
-            router.push("/");
-            if (closeSidebar) {
-              closeSidebar();
-            }
-          }}
-          variant="ghost"
-          className="flex justify-between w-full h-14 text-sm xl:text-lg font-normal items-center "
-        >
-          <div className="flex gap-3 items-center ">
-            {!isCollapsed && !isMobile && (
-              <Image
-                src="/ollama.png"
-                alt="AI"
-                width={28}
-                height={28}
-                className="dark:invert hidden 2xl:block"
-              />
-            )}
-            New chat
-          </div>
-          <SquarePen size={18} className="shrink-0 w-4 h-4" />
-        </Button>
+  const activeChatId = pathname.startsWith("/c/") ? pathname.split("/")[2] : "";
+  const sortedChats = Object.entries(chats).sort(
+    ([, a], [, b]) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
 
-        <div className="flex flex-col pt-10 gap-2">
-          <p className="pl-4 text-xs text-muted-foreground">Your chats</p>
-          <Suspense fallback>
-            {chats &&
-              Object.entries(chats)
-                .sort(
-                  ([, a], [, b]) =>
-                    new Date(b.updatedAt).getTime() -
-                    new Date(a.updatedAt).getTime()
-                )
-                .map(([id, chat]) => (
-                  <Link
-                    key={id}
-                    href={`/c/${id}`}
-                    className={cn(
-                      {
-                        [buttonVariants({ variant: "secondaryLink" })]:
-                          id === chatId,
-                        [buttonVariants({ variant: "ghost" })]: id !== chatId,
-                      },
-                      "flex justify-between w-full h-14 text-base font-normal items-center "
-                    )}
-                  >
-                    <div className="flex gap-3 items-center truncate">
-                      <div className="flex flex-col">
-                        <span className="text-xs font-normal ">
-                          {chat.messages.length > 0
-                            ? chat.messages[0].content
-                            : ""}
-                        </span>
-                      </div>
-                    </div>
+  const isNavActive = (href: string) => {
+    if (href === "/") {
+      return pathname === "/" || pathname.startsWith("/c/");
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
+  return (
+    <aside className="flex h-screen w-[var(--sidebar-w)] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)]">
+      <div className="flex items-center justify-between px-4 py-[14px]">
+        <Link href="/" className="flex items-center gap-2 text-[var(--text)]">
+          <SnowflakeIcon size={16} />
+          <span className="text-sm font-medium">Vaultr</span>
+        </Link>
+        <button
+          type="button"
+          className="flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[rgb(240,238,234)] hover:text-[var(--text)]"
+          aria-label="Collapse sidebar"
+        >
+          <PanelLeft size={16} />
+        </button>
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-2">
+        <nav className="flex flex-col gap-1">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const active = isNavActive(href);
+            return (
+              <Link
+                key={label}
+                href={href}
+                className={`${navClass} ${
+                  active
+                    ? "bg-[rgb(238,236,232)] font-medium"
+                    : "font-normal hover:bg-[rgb(240,238,234)]"
+                }`}
+              >
+                <Icon
+                  size={16}
+                  className={
+                    active ? "text-[var(--text)]" : "text-[var(--text-muted)]"
+                  }
+                />
+                <span className="truncate">{label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="pt-4">
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((open) => !open)}
+            className="flex w-full items-center justify-between px-3 pb-1.5 text-[11px] font-medium uppercase tracking-[0.02em] text-[var(--text-muted)] transition-[color,background-color] duration-150"
+          >
+            <span>Assistant History</span>
+            <ChevronDown
+              size={14}
+              className={`transition-transform duration-150 ${
+                historyOpen ? "" : "-rotate-90"
+              }`}
+            />
+          </button>
+
+          {historyOpen && (
+            <div className="flex flex-col gap-0.5">
+              {sortedChats.map(([id, chat]) => {
+                const storedTitle = chat.title === "New chat" ? "Assistant" : chat.title;
+                const title =
+                  chat.messages[0]?.content.trim() || storedTitle || "Untitled";
+                const active = id === activeChatId;
+                return (
+                  <div key={id} className="group flex items-center">
+                    <Link
+                      href={`/c/${id}`}
+                      className={`min-w-0 flex-1 truncate rounded-[var(--radius-sm)] px-3 py-1.5 text-[13px] text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[rgb(240,238,234)] ${
+                        active ? "font-semibold" : "font-normal"
+                      }`}
+                      title={title}
+                    >
+                      {title}
+                    </Link>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          className="flex justify-end items-center"
-                          onClick={(e) => e.stopPropagation()}
+                        <button
+                          type="button"
+                          className="mr-1 hidden h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[rgb(240,238,234)] hover:text-[var(--text)] group-hover:flex"
+                          aria-label="Chat options"
                         >
-                          <MoreHorizontal size={15} className="shrink-0" />
-                        </Button>
+                          <MoreHorizontal size={14} />
+                        </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent className=" ">
+                      <DropdownMenuContent className="border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-none">
                         <Dialog>
                           <DialogTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="w-full flex gap-2 hover:text-red-500 text-red-500 justify-start items-center"
-                              onClick={(e) => e.stopPropagation()}
+                            <DropdownMenuItem
+                              className="gap-2 text-[rgb(229,62,62)] focus:bg-[var(--surface)] focus:text-[rgb(229,62,62)]"
+                              onSelect={(event) => event.preventDefault()}
                             >
-                              <Trash2 className="shrink-0 w-4 h-4" />
-                              Delete chat
-                            </Button>
+                              <Trash2 size={14} />
+                              Delete
+                            </DropdownMenuItem>
                           </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader className="space-y-4">
+                          <DialogContent className="border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-none">
+                            <DialogHeader>
                               <DialogTitle>Delete chat?</DialogTitle>
                               <DialogDescription>
-                                Are you sure you want to delete this chat? This
-                                action cannot be undone.
+                                This removes the chat and all saved messages.
                               </DialogDescription>
-                              <div className="flex justify-end gap-2">
-                                <Button variant="outline">Cancel</Button>
-                                <Button
-                                  variant="destructive"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDelete(id);
-                                    router.push("/");
-                                  }}
-                                >
-                                  Delete
-                                </Button>
-                              </div>
                             </DialogHeader>
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                className="rounded-[var(--radius-sm)] bg-[rgb(229,62,62)] px-4 py-2 text-sm text-white"
+                                onClick={async () => {
+                                  await handleDelete(id);
+                                  if (id === activeChatId) {
+                                    router.push("/");
+                                  }
+                                }}
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </DialogContent>
                         </Dialog>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </Link>
-                ))}
-          </Suspense>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="justify-end px-2 py-2 w-full border-t">
-        <UserSettings />
+      <div className="flex items-center gap-2 border-t border-[var(--border)] p-3">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--border)] text-xs font-medium text-[var(--text)]">
+          L
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-medium text-[var(--text)]">
+            Local User
+          </div>
+          <div className="text-[11px] text-[var(--text-muted)]">Solo</div>
+        </div>
+        <ChevronsUpDown size={14} className="text-[var(--text-muted)]" />
       </div>
-    </div>
+    </aside>
   );
 }

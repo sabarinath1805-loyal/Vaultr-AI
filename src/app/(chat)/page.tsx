@@ -27,12 +27,12 @@ export default function Home() {
   const onOpenChange = (isOpen: boolean) => {
     if (userName) return setOpen(isOpen);
 
-    setUserName("Anonymous");
+    setUserName("Local User");
     setOpen(isOpen);
   };
 
   return (
-    <main className="flex h-[calc(100dvh)] flex-col items-center ">
+    <main className="h-screen">
       <Dialog open={open} onOpenChange={onOpenChange}>
         <ChatLayout
           key={id}
@@ -43,7 +43,7 @@ export default function Home() {
         />
         <DialogContent className="flex flex-col space-y-4">
           <DialogHeader className="space-y-2">
-            <DialogTitle>Welcome to Ollama!</DialogTitle>
+            <DialogTitle>Welcome to Vaultr</DialogTitle>
             <DialogDescription>
               Enter your name to get started. This is just to personalize your
               experience.

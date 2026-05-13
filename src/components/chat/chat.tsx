@@ -1,6 +1,5 @@
 "use client";
 
-import ChatTopbar from "./chat-topbar";
 import ChatList from "./chat-list";
 import ChatBottombar from "./chat-bottombar";
 import { Attachment, ChatRequestOptions, generateId } from "ai";
@@ -9,7 +8,7 @@ import React from "react";
 import { toast } from "sonner";
 import useChatStore from "@/app/hooks/useChatStore";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { SnowflakeIcon } from "@/components/icons/snowflake";
 
 export interface ChatProps {
   id: string;
@@ -17,7 +16,7 @@ export interface ChatProps {
   isMobile?: boolean;
 }
 
-export default function Chat({ initialMessages, id, isMobile }: ChatProps) {
+export default function Chat({ initialMessages, id }: ChatProps) {
   const {
     messages,
     input,
@@ -83,7 +82,7 @@ export default function Chat({ initialMessages, id, isMobile }: ChatProps) {
 
     const requestOptions: ChatRequestOptions = {
       body: {
-        selectedModel: selectedModel,
+        selectedModel,
       },
       ...(base64Images && {
         data: {
@@ -112,34 +111,31 @@ export default function Chat({ initialMessages, id, isMobile }: ChatProps) {
   };
 
   return (
-    <div className="flex flex-col w-full max-w-3xl h-full">
-      <ChatTopbar
-        isLoading={isLoading}
-        chatId={id}
-        messages={messages}
-        setMessages={setMessages}
-      />
-
+    <div className="flex h-full w-full flex-col bg-[var(--bg)]">
       {messages.length === 0 ? (
-        <div className="flex flex-col h-full w-full items-center gap-4 justify-center">
-          <Image
-            src="/ollama.png"
-            alt="AI"
-            width={40}
-            height={40}
-            className="h-16 w-14 object-contain dark:invert"
-          />
-          <p className="text-center text-base text-muted-foreground">
-            How can I help you today?
-          </p>
-          <ChatBottombar
-            input={input}
-            handleInputChange={handleInputChange}
-            handleSubmit={onSubmit}
-            isLoading={isLoading}
-            stop={handleStop}
-            setInput={setInput}
-          />
+        <div className="flex h-full w-full flex-col items-center">
+          <div className="flex w-full translate-y-[40vh] flex-col items-center gap-8">
+            <div className="inline-flex items-center gap-2.5 text-[var(--text)]">
+              <SnowflakeIcon size={26} />
+              <h1 className="font-display text-[40px] font-normal leading-none">
+                Hi, Counselor
+              </h1>
+            </div>
+            <div className="flex w-full flex-col items-center">
+              <ChatBottombar
+                input={input}
+                handleInputChange={handleInputChange}
+                handleSubmit={onSubmit}
+                isLoading={isLoading}
+                stop={handleStop}
+                setInput={setInput}
+              />
+              <p className="-mt-2 text-center text-xs text-[var(--text-faint)]">
+                Lex is not a substitute for legal advice. Always verify with
+                primary sources.
+              </p>
+            </div>
+          </div>
         </div>
       ) : (
         <>
@@ -152,7 +148,7 @@ export default function Chat({ initialMessages, id, isMobile }: ChatProps) {
 
               const requestOptions: ChatRequestOptions = {
                 body: {
-                  selectedModel: selectedModel,
+                  selectedModel,
                 },
               };
 
@@ -160,14 +156,16 @@ export default function Chat({ initialMessages, id, isMobile }: ChatProps) {
               return reload(requestOptions);
             }}
           />
-          <ChatBottombar
-            input={input}
-            handleInputChange={handleInputChange}
-            handleSubmit={onSubmit}
-            isLoading={isLoading}
-            stop={handleStop}
-            setInput={setInput}
-          />
+          <div className="sticky bottom-0 bg-[var(--bg)] pt-2">
+            <ChatBottombar
+              input={input}
+              handleInputChange={handleInputChange}
+              handleSubmit={onSubmit}
+              isLoading={isLoading}
+              stop={handleStop}
+              setInput={setInput}
+            />
+          </div>
         </>
       )}
     </div>
