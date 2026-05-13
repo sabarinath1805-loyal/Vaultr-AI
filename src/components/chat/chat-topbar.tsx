@@ -19,7 +19,6 @@ import { Button } from "../ui/button";
 import { CaretSortIcon, HamburgerMenuIcon } from "@radix-ui/react-icons";
 import { Sidebar } from "../sidebar";
 import { Message } from "ai/react";
-import { getSelectedModel } from "@/lib/model-helper";
 import useChatStore from "@/app/hooks/useChatStore";
 
 interface ChatTopbarProps {
