@@ -6,12 +6,8 @@ import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Message } from "ai/react";
 import Image from "next/image";
-import { Suspense, useEffect, useState } from "react";
-import SidebarSkeleton from "./sidebar-skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Suspense, useEffect } from "react";
 import UserSettings from "./user-settings";
-import { ScrollArea, Scrollbar } from "@radix-ui/react-scroll-area";
-import PullModel from "./pull-model";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +21,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { TrashIcon } from "@radix-ui/react-icons";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 
@@ -49,6 +44,11 @@ export function Sidebar({
 
   const chats = useChatStore((state) => state.chats);
   const handleDelete = useChatStore((state) => state.handleDelete);
+  const loadChats = useChatStore((state) => state.loadChats);
+
+  useEffect(() => {
+    loadChats();
+  }, [loadChats]);
 
   return (
     <div
@@ -88,8 +88,8 @@ export function Sidebar({
               Object.entries(chats)
                 .sort(
                   ([, a], [, b]) =>
-                    new Date(b.createdAt).getTime() -
-                    new Date(a.createdAt).getTime()
+                    new Date(b.updatedAt).getTime() -
+                    new Date(a.updatedAt).getTime()
                 )
                 .map(([id, chat]) => (
                   <Link
