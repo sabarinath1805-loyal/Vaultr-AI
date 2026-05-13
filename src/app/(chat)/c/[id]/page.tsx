@@ -8,9 +8,9 @@ import useChatStore from "@/app/hooks/useChatStore";
 export default function Page({ params }: { params: { id: string } }) {
   const id = params.id;
 
-  const getChatById = useChatStore((state) => state.getChatById);
+  const chats = useChatStore((state) => state.chats);
   const loadChatById = useChatStore((state) => state.loadChatById);
-  const chat = getChatById(id);
+  const chat = chats[id];
   const [isLoadingChat, setIsLoadingChat] = React.useState(!chat);
 
   React.useEffect(() => {
@@ -35,7 +35,7 @@ export default function Page({ params }: { params: { id: string } }) {
   }
 
   return (
-    <main className="flex h-[calc(100dvh)] flex-col items-center ">
+    <main className="h-screen">
       <ChatLayout
         key={id}
         id={id}

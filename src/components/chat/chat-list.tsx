@@ -1,13 +1,6 @@
 import { Message } from "ai/react";
-import React from "react";
-import ChatMessage from "./chat-message";
-import { ChatMessageList } from "../ui/chat/chat-message-list";
-import {
-  ChatBubble,
-  ChatBubbleAvatar,
-  ChatBubbleMessage,
-} from "../ui/chat/chat-bubble";
 import { ChatRequestOptions } from "ai";
+import ChatMessage from "./chat-message";
 
 interface ChatListProps {
   messages: Message[];
@@ -25,29 +18,28 @@ export default function ChatList({
   reload,
 }: ChatListProps) {
   return (
-    <div className="flex-1 w-full overflow-y-auto">
-      <ChatMessageList>
-        {messages.map((message, index) => (
-          <ChatMessage
-            key={message.id || index}
-            message={message}
-            isLast={index === messages.length - 1}
-            isLoading={isLoading}
-            reload={reload}
-          />
-        ))}
-        {loadingSubmit && (
-          <ChatBubble variant="received">
-            <ChatBubbleAvatar
-              src="/ollama.png"
-              width={6}
-              height={6}
-              className="object-contain dark:invert"
+    <div className="flex min-h-0 flex-1 overflow-y-auto px-6">
+      <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-end py-6">
+        <div className="flex flex-col gap-6">
+          {messages.map((message, index) => (
+            <ChatMessage
+              key={message.id || index}
+              message={message}
+              isLast={index === messages.length - 1}
+              isLoading={isLoading}
+              reload={reload}
             />
-            <ChatBubbleMessage isLoading />
-          </ChatBubble>
-        )}
-      </ChatMessageList>
+          ))}
+          {loadingSubmit && (
+            <div className="max-w-[680px] text-left">
+              <div className="mb-1.5 text-[11px] text-[var(--text-muted)]">Lex</div>
+              <div className="text-sm leading-[1.65] text-[var(--text-muted)]">
+                Thinking…
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

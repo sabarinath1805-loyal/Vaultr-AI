@@ -1,10 +1,9 @@
 "use client";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import React, { useMemo, useRef, useState } from "react";
-import { CodeBlock, dracula, github } from "react-code-blocks";
+import { CodeBlock, github } from "react-code-blocks";
 import { Button } from "./ui/button";
 import { toast } from "sonner";
-import { useTheme } from "next-themes";
 
 interface ButtonCodeblockProps {
   code: string;
@@ -13,7 +12,6 @@ interface ButtonCodeblockProps {
 export default function CodeDisplayBlock({ code }: ButtonCodeblockProps) {
   const [isCopied, setIsCopied] = useState(false);
   const isCopiedRef = useRef(false);
-  const { resolvedTheme } = useTheme();
 
   const filteredCode = useMemo(
     () => code.split("\n").slice(1).join("\n") || code,
@@ -28,17 +26,7 @@ export default function CodeDisplayBlock({ code }: ButtonCodeblockProps) {
     [code]
   );
 
-  const customStyle = useMemo(
-    () =>
-      resolvedTheme === "dark"
-        ? { background: "#303033" }
-        : { background: "#fcfcfc" },
-    [resolvedTheme]
-  );
-  const codeTheme = useMemo(
-    () => (resolvedTheme === "dark" ? dracula : github),
-    [resolvedTheme]
-  );
+  const customStyle = useMemo(() => ({ background: "var(--surface)" }), []);
 
   const copyToClipboard = () => {
     if (isCopiedRef.current) return; // Prevent multiple triggers
@@ -72,7 +60,7 @@ export default function CodeDisplayBlock({ code }: ButtonCodeblockProps) {
         text={trimmedCode}
         language={language}
         showLineNumbers={false}
-        theme={codeTheme}
+        theme={github}
       />
     </div>
   );

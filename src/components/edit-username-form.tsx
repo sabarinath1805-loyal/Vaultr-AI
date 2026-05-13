@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import React from "react";
-import { ModeToggle } from "./mode-toggle";
 import { toast } from "sonner";
 import useChatStore from "@/app/hooks/useChatStore";
 
@@ -46,10 +45,6 @@ export default function EditUsernameForm({ setOpen }: EditUsernameFormProps) {
 
   return (
     <Form {...form}>
-      <div className="w-full flex flex-col gap-4 pt-4">
-        <FormLabel>Theme</FormLabel>
-        <ModeToggle />
-      </div>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
         <FormField
           control={form.control}
