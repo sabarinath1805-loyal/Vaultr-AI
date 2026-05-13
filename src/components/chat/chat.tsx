@@ -57,7 +57,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
   const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    window.history.replaceState({}, "", `/c/${id}`);
 
     if (!selectedModel) {
       toast.error("Please select a model");
@@ -68,6 +67,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       id: generateId(),
       role: "user",
       content: input,
+      createdAt: new Date(),
     };
 
     setLoadingSubmit(true);
@@ -94,6 +94,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     handleSubmit(e, requestOptions);
     saveMessages(id, [...messages, userMessage]);
     setBase64Images(null);
+    router.replace(`/c/${id}`);
   };
 
   const removeLatestMessage = () => {
