@@ -1,6 +1,6 @@
 'use client'
 
-import { set, z } from "zod"
+import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import React from "react"
+import useChatStore from "@/app/hooks/useChatStore"
  
 const formSchema = z.object({
     username: z.string().min(2, {
@@ -27,6 +28,8 @@ interface UsernameFormProps {
 }
 
 export default function UsernameForm({ setOpen }: UsernameFormProps) {
+    const setUserName = useChatStore((state) => state.setUserName);
+
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -36,8 +39,7 @@ export default function UsernameForm({ setOpen }: UsernameFormProps) {
 
 
       function onSubmit(values: z.infer<typeof formSchema>) {
-        localStorage.setItem("ollama_user", values.username)
-        window.dispatchEvent(new Event("storage"));
+        setUserName(values.username)
         setOpen(false)
       }
 

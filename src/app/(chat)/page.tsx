@@ -18,6 +18,11 @@ export default function Home() {
   const [open, setOpen] = React.useState(false);
   const userName = useChatStore((state) => state.userName);
   const setUserName = useChatStore((state) => state.setUserName);
+  const loadChats = useChatStore((state) => state.loadChats);
+
+  React.useEffect(() => {
+    loadChats();
+  }, [loadChats]);
 
   const onOpenChange = (isOpen: boolean) => {
     if (userName) return setOpen(isOpen);
