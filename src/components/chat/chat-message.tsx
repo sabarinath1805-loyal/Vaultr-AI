@@ -1,46 +1,23 @@
 import React, { memo, useMemo, useState } from "react";
-import { motion } from "framer-motion";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { RefreshCcw } from "lucide-react";
-import Image from "next/image";
-import {
-  ChatBubble,
-  ChatBubbleAvatar,
-  ChatBubbleMessage,
-} from "../ui/chat/chat-bubble";
-import ButtonWithTooltip from "../button-with-tooltip";
-import { Button } from "../ui/button";
-import CodeDisplayBlock from "../code-display-block";
 
 export type ChatMessageProps = {
   message: Message;
   isLast: boolean;
   isLoading: boolean | undefined;
-  reload: (chatRequestOptions?: ChatRequestOptions) => Promise<string | null | undefined>;
-};
-
-const MOTION_CONFIG = {
-  initial: { opacity: 0, scale: 1, y: 20, x: 0 },
-  animate: { opacity: 1, scale: 1, y: 0, x: 0 },
-  exit: { opacity: 0, scale: 1, y: 20, x: 0 },
-  transition: {
-    opacity: { duration: 0.1 },
-    layout: {
-      type: "spring",
-      bounce: 0.3,
-      duration: 0.2,
-    },
-  },
+  reload: (
+    chatRequestOptions?: ChatRequestOptions
+  ) => Promise<string | null | undefined>;
 };
 
 function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
 
-  // Extract "think" content from Deepseek R1 models and clean message (rest) content
   const { thinkContent, cleanContent } = useMemo(() => {
     const getThinkContent = (content: string) => {
       const match = content.match(/<think>([\s\S]*?)(?:<\/think>|$)/);
@@ -48,12 +25,13 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
     };
 
     return {
-      thinkContent: message.role === "assistant" ? getThinkContent(message.content) : null,
-      cleanContent: message.content.replace(/<think>[\s\S]*?(?:<\/think>|$)/g, '').trim(),
+      thinkContent:
+        message.role === "assistant" ? getThinkContent(message.content) : null,
+      cleanContent: message.content
+        .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
+        .trim(),
     };
   }, [message.content, message.role]);
-
-  const contentParts = useMemo(() => cleanContent.split("```"), [cleanContent]);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -61,105 +39,77 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
     setTimeout(() => setIsCopied(false), 1500);
   };
 
-  const renderAttachments = () => (
-    <div className="flex gap-2">
-      {message.experimental_attachments
-        ?.filter((attachment) => attachment.contentType?.startsWith("image/"))
-        .map((attachment, index) => (
-          <Image
-            key={`${message.id}-${index}`}
-            src={attachment.url}
-            width={200}
-            height={200}
-            alt="attached image"
-            className="rounded-md object-contain"
-          />
-        ))}
-    </div>
-  );
-
-  const renderThinkingProcess = () => (
-    thinkContent && message.role === "assistant" && (
-      <details className="mb-2 text-sm" open>
-        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-          Thinking process
-        </summary>
-        <div className="mt-2 text-muted-foreground">
-          <Markdown remarkPlugins={[remarkGfm]}>{thinkContent}</Markdown>
-        </div>
-      </details>
-    )
-  );
-
-  const renderContent = () => (
-    contentParts.map((part, index) => (
-      index % 2 === 0 ? (
-        <Markdown key={index} remarkPlugins={[remarkGfm]}>{part}</Markdown>
-      ) : (
-        <pre className="whitespace-pre-wrap" key={index}>
-          <CodeDisplayBlock code={part} />
-        </pre>
-      )
-    ))
-  );
-
-  const renderActionButtons = () => (
-    message.role === "assistant" && (
-      <div className="pt-2 flex gap-1 items-center text-muted-foreground">
-        {!isLoading && (
-          <ButtonWithTooltip side="bottom" toolTipText="Copy">
-            <Button
-              onClick={handleCopy}
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4"
-            >
-              {isCopied ? (
-                <CheckIcon className="w-3.5 h-3.5 transition-all" />
-              ) : (
-                <CopyIcon className="w-3.5 h-3.5 transition-all" />
-              )}
-            </Button>
-          </ButtonWithTooltip>
-        )}
-        {!isLoading && isLast && (
-          <ButtonWithTooltip side="bottom" toolTipText="Regenerate">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-4 w-4"
-              onClick={() => reload()}
-            >
-              <RefreshCcw className="w-3.5 h-3.5 scale-100 transition-all" />
-            </Button>
-          </ButtonWithTooltip>
-        )}
+  if (message.role === "user") {
+    return (
+      <div className="ml-auto max-w-[480px] rounded-[var(--radius-lg)] bg-[var(--surface)] px-[14px] py-2.5 text-sm leading-normal text-[var(--text)]">
+        {message.content}
       </div>
-    )
-  );
+    );
+  }
 
   return (
-    <motion.div {...MOTION_CONFIG} className="flex flex-col gap-2 whitespace-pre-wrap">
-      <ChatBubble variant={message.role === "user" ? "sent" : "received"}>
-        <ChatBubbleAvatar
-          src={message.role === "assistant" ? "/ollama.png" : ""}
-          width={6}
-          height={6}
-          className="object-contain dark:invert"
-          fallback={message.role === "user" ? "US" : ""}
-        />
-        <ChatBubbleMessage>
-          {renderThinkingProcess()}
-          {renderAttachments()}
-          {renderContent()}
-          {renderActionButtons()}
-        </ChatBubbleMessage>
-      </ChatBubble>
-    </motion.div>
+    <div className="max-w-[680px] text-left text-sm leading-[1.65] text-[var(--text)]">
+      <div className="mb-1.5 text-[11px] leading-none text-[var(--text-muted)]">
+        Lex
+      </div>
+      {thinkContent && (
+        <details className="mb-3 text-sm text-[var(--text-muted)]">
+          <summary className="cursor-pointer transition-[color,background-color] duration-150 hover:text-[var(--text)]">
+            Thinking process
+          </summary>
+          <div className="mt-2">
+            <Markdown remarkPlugins={[remarkGfm]}>{thinkContent}</Markdown>
+          </div>
+        </details>
+      )}
+      {message.experimental_attachments?.some((attachment) =>
+        attachment.contentType?.startsWith("image/")
+      ) && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {message.experimental_attachments
+            ?.filter((attachment) => attachment.contentType?.startsWith("image/"))
+            .map((attachment, index) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${message.id}-${index}`}
+                src={attachment.url}
+                alt="attached"
+                className="max-h-[200px] rounded-[var(--radius-md)] object-contain"
+              />
+            ))}
+        </div>
+      )}
+      <div className="prose prose-sm max-w-none prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface)] prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[var(--text)]">
+        <Markdown remarkPlugins={[remarkGfm]}>{cleanContent}</Markdown>
+      </div>
+      <div className="flex gap-2 pt-2 text-[var(--text-muted)]">
+        {!isLoading && (
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+            aria-label="Copy response"
+          >
+            {isCopied ? (
+              <CheckIcon className="h-3.5 w-3.5" />
+            ) : (
+              <CopyIcon className="h-3.5 w-3.5" />
+            )}
+          </button>
+        )}
+        {!isLoading && isLast && (
+          <button
+            type="button"
+            onClick={() => reload()}
+            className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+            aria-label="Regenerate response"
+          >
+            <RefreshCcw className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 
-export default memo(ChatMessage, (prevProps, nextProps) => {
-  if (nextProps.isLast) return false;
-  return prevProps.isLast === nextProps.isLast && prevProps.message === nextProps.message;
-});
+export default memo(ChatMessage);

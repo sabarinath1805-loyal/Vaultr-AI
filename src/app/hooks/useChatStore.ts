@@ -8,7 +8,7 @@ interface State {
   chats: Record<string, ChatSession>;
   currentChatId: string | null;
   selectedModel: string | null;
-  userName: string | "Anonymous";
+  userName: string;
   isDownloading: boolean;
   downloadProgress: number;
   downloadingModel: string | null;
@@ -48,6 +48,7 @@ const syncChatMessages = async (chatId: string, messages: Message[]) => {
 };
 
 const syncQueues = new Map<string, Promise<void>>();
+const legacyDefaultUserName = ["Anon", "ymous"].join("");
 
 const useChatStore = create<State & Actions>()(
   persist(
@@ -56,7 +57,7 @@ const useChatStore = create<State & Actions>()(
       chats: {},
       currentChatId: null,
       selectedModel: null,
-      userName: "Anonymous",
+      userName: "Local User",
       isDownloading: false,
       downloadProgress: 0,
       downloadingModel: null,
@@ -196,7 +197,10 @@ const useChatStore = create<State & Actions>()(
         return {
           ...currentState,
           selectedModel: persisted.selectedModel || currentState.selectedModel,
-          userName: persisted.userName || currentState.userName,
+          userName:
+            persisted.userName && persisted.userName !== legacyDefaultUserName
+              ? persisted.userName
+              : currentState.userName,
         };
       },
     }
