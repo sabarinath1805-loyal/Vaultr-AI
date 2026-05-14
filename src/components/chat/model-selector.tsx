@@ -40,7 +40,9 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
         if (!cancelled) {
           setIsOllamaRunning(true);
           setAvailableModels(orderedModels);
-          if (orderedModels.length > 0 && !orderedModels.includes(selectedModel || "")) {
+          if (orderedModels.length === 0 && selectedModel) {
+            setSelectedModel(null);
+          } else if (orderedModels.length > 0 && !orderedModels.includes(selectedModel || "")) {
             setSelectedModel(orderedModels[0]);
           }
         }
@@ -48,6 +50,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
         if (!cancelled) {
           setIsOllamaRunning(false);
           setAvailableModels([]);
+          if (selectedModel) setSelectedModel(null);
         }
       }
     }
