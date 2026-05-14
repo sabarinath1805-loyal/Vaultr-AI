@@ -41,7 +41,7 @@ const navItems = [
 ];
 
 const navClass =
-  "flex h-9 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 text-sm text-[var(--text)] transition-[color,background-color] duration-150";
+  "flex h-9 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 text-sm text-[var(--text)] transition-[background-color] duration-150";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -69,7 +69,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-[var(--sidebar-w)] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)]">
+    <aside className="flex h-screen w-[var(--sidebar-w)] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ease-in-out">
       <div className="flex items-center justify-between px-4 py-[14px]">
         <Link href="/" className="flex items-center gap-2 text-[var(--text)]">
           <SnowflakeIcon size={16} />
@@ -127,6 +127,11 @@ export function Sidebar() {
 
           {historyOpen && (
             <div className="flex flex-col gap-0.5">
+              {sortedChats.length === 0 && (
+                <div className="px-3 py-6 text-center text-[13px] text-[var(--text-faint)]">
+                  No conversations yet
+                </div>
+              )}
               {sortedChats.map(([id, chat]) => {
                 const storedTitle = chat.title === "New chat" ? "Assistant" : chat.title;
                 const title =

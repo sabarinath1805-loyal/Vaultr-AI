@@ -1,11 +1,10 @@
+import { OLLAMA_DEFAULT_URL } from "@/lib/lex";
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET(req: Request) {
-  const OLLAMA_URL = process.env.OLLAMA_URL;
-  console.log('OLLAMA_URL:', process.env.OLLAMA_URL);
-  const res = await fetch(
-    OLLAMA_URL + "/api/tags"
-  );
+export async function GET() {
+  const ollamaUrl = process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
+  const res = await fetch(`${ollamaUrl}/api/tags`);
   return new Response(res.body, res);
 }
