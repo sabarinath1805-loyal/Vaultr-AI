@@ -9,13 +9,12 @@ import { SnowflakeIcon } from "@/components/icons/snowflake";
 import useChatStore from "@/app/hooks/useChatStore";
 import { BUILT_IN_WORKFLOWS, type BuiltInWorkflow, type WorkflowType } from "@/components/workflows/builtin-workflows";
 
-type Tab = "all" | "builtin" | "custom" | "hidden";
+type Tab = "all" | "builtin" | "custom";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "all", label: "All Workflows" },
   { id: "builtin", label: "Built-in" },
   { id: "custom", label: "Custom" },
-  { id: "hidden", label: "Hidden" },
 ];
 
 const typeStyles: Record<WorkflowType, string> = {
@@ -42,8 +41,7 @@ export default function WorkflowsPage() {
   const [practiceFilter, setPracticeFilter] = useState("");
   const [selected, setSelected] = useState<BuiltInWorkflow | null>(BUILT_IN_WORKFLOWS[0]);
   const router = useRouter();
-  const setPendingComposerText = useChatStore((state) => state.setPendingComposerText);
-  const setPendingWorkflowTitle = useChatStore((state) => state.setPendingWorkflowTitle);
+  const setPendingWorkflow = useChatStore((state) => state.setPendingWorkflow);
 
   const practices = useMemo(
     () => Array.from(new Set(BUILT_IN_WORKFLOWS.map((workflow) => workflow.practice))).sort(),
@@ -51,7 +49,7 @@ export default function WorkflowsPage() {
   );
 
   const filtered = BUILT_IN_WORKFLOWS.filter((workflow) => {
-    if (activeTab === "custom" || activeTab === "hidden") return false;
+    if (activeTab === "custom") return false;
     if (typeFilter && workflow.type !== typeFilter) return false;
     if (practiceFilter && workflow.practice !== practiceFilter) return false;
     if (search && !workflow.title.toLowerCase().includes(search.toLowerCase())) return false;
@@ -59,8 +57,11 @@ export default function WorkflowsPage() {
   });
 
   const applyWorkflow = (workflow: BuiltInWorkflow) => {
-    setPendingComposerText(workflowPrompt(workflow));
-    setPendingWorkflowTitle(workflow.title);
+    setPendingWorkflow({
+      id: workflow.id,
+      title: workflow.title,
+      prompt: workflowPrompt(workflow),
+    });
     router.push("/");
   };
 

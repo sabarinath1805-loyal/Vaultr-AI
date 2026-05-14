@@ -1,0 +1,290 @@
+"use client";
+
+import { useState } from "react";
+import { Check, X } from "lucide-react";
+import useChatStore from "@/app/hooks/useChatStore";
+
+type Tab = "general" | "ollama";
+
+const tabs: { id: Tab; label: string }[] = [
+  { id: "general", label: "General" },
+  { id: "ollama", label: "Ollama Settings" },
+];
+
+const fieldClass =
+  "flex h-9 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3 py-1 text-sm text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--text-muted)]";
+
+export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState<Tab>("general");
+
+  return (
+    <main className="flex h-screen flex-col overflow-y-auto bg-white">
+      <header className="mx-auto flex h-16 w-full max-w-5xl shrink-0 items-end px-6 pb-2 md:h-24 md:pb-4">
+        <h1 className="font-display text-4xl font-normal text-[var(--text)]">
+          Settings
+        </h1>
+      </header>
+
+      <div className="mx-auto w-full max-w-5xl flex-1 px-6 pb-10 pt-4 md:pt-6">
+        <div className="grid grid-cols-1 gap-y-6 md:grid-cols-[224px_minmax(0,1fr)] md:gap-x-10">
+          <nav aria-label="Settings" className="z-10 -ml-3 min-w-0 self-start md:sticky md:top-4">
+            <ul className="flex gap-1 md:flex-col">
+              {tabs.map((tab) => (
+                <li key={tab.id}>
+                  <button
+                    type="button"
+                    aria-current={activeTab === tab.id ? "page" : undefined}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex h-9 w-full items-center whitespace-nowrap rounded-lg px-3 text-left text-sm font-medium transition-colors ${
+                      activeTab === tab.id
+                        ? "bg-[var(--surface)] text-[var(--text)]"
+                        : "text-[var(--text-muted)] hover:bg-[var(--sidebar-bg)] hover:text-[var(--text)]"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          <div className="min-w-0">
+            {activeTab === "general" ? <GeneralSettings /> : <OllamaSettings />}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function GeneralSettings() {
+  const userName = useChatStore((state) => state.userName);
+  const setUserName = useChatStore((state) => state.setUserName);
+  const organisation = useChatStore((state) => state.organisation);
+  const setOrganisation = useChatStore((state) => state.setOrganisation);
+  const clearAllChats = useChatStore((state) => state.clearAllChats);
+  const [displayName, setDisplayName] = useState(userName);
+  const [orgDraft, setOrgDraft] = useState(organisation);
+  const [nameSaved, setNameSaved] = useState(false);
+  const [orgSaved, setOrgSaved] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">Profile</h2>
+        <div className="max-w-xl space-y-4">
+          <div>
+            <label className="mb-2 block text-sm text-[var(--text-muted)]">
+              Display Name
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                className={fieldClass}
+                placeholder="Local User"
+              />
+              <SaveButton
+                saved={nameSaved}
+                disabled={!displayName.trim()}
+                onClick={() => {
+                  setUserName(displayName.trim());
+                  setNameSaved(true);
+                  setTimeout(() => setNameSaved(false), 1600);
+                }}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-2 block text-sm text-[var(--text-muted)]">
+              Organisation
+            </label>
+            <div className="flex gap-2">
+              <input
+                value={orgDraft}
+                onChange={(event) => setOrgDraft(event.target.value)}
+                className={fieldClass}
+                placeholder="Optional"
+              />
+              <SaveButton
+                saved={orgSaved}
+                onClick={() => {
+                  setOrganisation(orgDraft.trim());
+                  setOrgSaved(true);
+                  setTimeout(() => setOrgSaved(false), 1600);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-2 text-2xl font-medium text-[var(--text)]">Usage Plan</h2>
+        <p className="text-sm text-[var(--text-muted)]">
+          Solo ·{" "}
+          <button type="button" className="underline underline-offset-2">
+            Upgrade to Enterprise
+          </button>
+        </p>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-2 text-2xl font-medium text-[var(--text)]">Danger Zone</h2>
+        <p className="mb-4 text-sm text-[var(--text-muted)]">
+          Permanently delete all local Vaultr conversations.
+        </p>
+        <button
+          type="button"
+          onClick={async () => {
+            if (window.confirm("Delete all conversations? This cannot be undone.")) {
+              await clearAllChats();
+            }
+          }}
+          className="rounded-[var(--radius-sm)] border border-[rgb(229,62,62)] px-4 py-2 text-sm font-medium text-[rgb(229,62,62)] transition-colors hover:bg-[rgb(255,240,240)]"
+        >
+          Clear all conversations
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function OllamaSettings() {
+  const ollamaUrl = useChatStore((state) => state.ollamaUrl);
+  const setOllamaUrl = useChatStore((state) => state.setOllamaUrl);
+  const serperApiKey = useChatStore((state) => state.serperApiKey);
+  const setSerperApiKey = useChatStore((state) => state.setSerperApiKey);
+  const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
+  const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
+  const [ollamaDraft, setOllamaDraft] = useState(ollamaUrl);
+  const [serperDraft, setSerperDraft] = useState(serperApiKey);
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "down">("idle");
+  const [serperSaved, setSerperSaved] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">
+          Ollama Connection
+        </h2>
+        <div className="max-w-xl">
+          <label className="mb-2 block text-sm text-[var(--text-muted)]">
+            Ollama URL
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={ollamaDraft}
+              onChange={(event) => setOllamaDraft(event.target.value)}
+              className={fieldClass}
+              placeholder="http://localhost:11434"
+            />
+            <button
+              type="button"
+              onClick={async () => {
+                setOllamaUrl(ollamaDraft.trim() || "http://localhost:11434");
+                try {
+                  const response = await fetch("/api/tags", { cache: "no-store" });
+                  setConnectionStatus(response.ok ? "connected" : "down");
+                } catch {
+                  setConnectionStatus("down");
+                }
+              }}
+              className="min-w-[128px] rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#333]"
+            >
+              Test Connection
+            </button>
+          </div>
+          {connectionStatus !== "idle" && (
+            <p
+              className={`mt-2 flex items-center gap-1 text-sm ${
+                connectionStatus === "connected"
+                  ? "text-[rgb(22,163,74)]"
+                  : "text-[rgb(229,62,62)]"
+              }`}
+            >
+              {connectionStatus === "connected" ? (
+                <>
+                  <Check className="h-4 w-4" /> Connected
+                </>
+              ) : (
+                <>
+                  <X className="h-4 w-4" /> Not running
+                </>
+              )}
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">Web Search</h2>
+        <div className="max-w-xl">
+          <label className="mb-2 block text-sm text-[var(--text-muted)]">
+            Serper API Key
+          </label>
+          <div className="flex gap-2">
+            <input
+              value={serperDraft}
+              onChange={(event) => setSerperDraft(event.target.value)}
+              className={fieldClass}
+            />
+            <SaveButton
+              saved={serperSaved}
+              onClick={() => {
+                setSerperApiKey(serperDraft.trim());
+                setSerperSaved(true);
+                setTimeout(() => setSerperSaved(false), 1600);
+              }}
+            />
+          </div>
+          <p className="mt-2 text-sm text-[var(--text-muted)]">
+            Used to give Lex access to web search results.
+          </p>
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">Thinking Mode</h2>
+        <button
+          type="button"
+          onClick={() => setThinkingModeDefault(!thinkingModeDefault)}
+          className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium text-[var(--text)]">
+              Enable thinking mode by default
+            </span>
+            <span className="mt-1 block text-sm text-[var(--text-muted)]">
+              Shows Lex&apos;s reasoning process. Works with Lex Nano, Core, Pro, Elite and Max.
+            </span>
+          </span>
+          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${thinkingModeDefault ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
+            <span className={`h-4 w-4 rounded-full bg-white transition-transform ${thinkingModeDefault ? "translate-x-4" : "translate-x-0"}`} />
+          </span>
+        </button>
+      </section>
+    </div>
+  );
+}
+
+function SaveButton({
+  saved,
+  disabled,
+  onClick,
+}: {
+  saved: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled || saved}
+      onClick={onClick}
+      className="min-w-[80px] rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {saved ? "Saved" : "Save"}
+    </button>
+  );
+}
