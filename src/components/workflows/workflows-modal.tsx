@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Search, X } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 import { BUILT_IN_WORKFLOWS, type BuiltInWorkflow } from "./builtin-workflows";
 
 interface WorkflowsModalProps {
@@ -52,6 +52,14 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
             <span>›</span>
             <span>Add workflow</span>
           </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--sidebar-bg)] hover:text-[var(--text)]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New workflow
+            </button>
           <button
             type="button"
             onClick={onClose}
@@ -60,6 +68,7 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
           >
             <X className="h-4 w-4" />
           </button>
+          </div>
         </div>
 
         <div className="flex min-h-0 flex-1 overflow-hidden">
