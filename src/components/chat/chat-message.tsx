@@ -5,6 +5,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { ChevronRight, RefreshCcw } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export type ChatMessageProps = {
   message: Message;
@@ -18,6 +19,7 @@ export type ChatMessageProps = {
 function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
+  const router = useRouter();
 
   const { thinkContent, cleanContent } = useMemo(() => {
     const getThinkContent = (content: string) => {
@@ -63,6 +65,23 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
             {timestamp}
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (message.content === "LEX_MODEL_REQUIRED") {
+    return (
+      <div className="animate-message-in w-full max-w-[680px]">
+        <div className="rounded-[var(--radius-md)] border border-[rgb(229,62,62)] bg-[rgb(255,240,240)] p-4 text-sm text-[var(--text)]">
+          <div>Lex requires a dedicated legal model. Please install a Lex model to start chatting.</div>
+          <button
+            type="button"
+            onClick={() => router.push("/models")}
+            className="mt-3 rounded-[var(--radius-sm)] bg-[var(--text)] px-3 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#333]"
+          >
+            → Install a Lex Model
+          </button>
+        </div>
       </div>
     );
   }

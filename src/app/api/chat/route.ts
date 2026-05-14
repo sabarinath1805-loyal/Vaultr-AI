@@ -1,4 +1,5 @@
 import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
+import { isLexModel } from "@/lib/models";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -14,6 +15,18 @@ export async function POST(req: Request) {
     thinking,
     ollamaUrl: requestedOllamaUrl,
   } = await req.json();
+  if (!isLexModel(selectedModel)) {
+    return new Response(
+      `0:${JSON.stringify("LEX_MODEL_REQUIRED")}\n`,
+      {
+        status: 400,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "X-Vercel-AI-Data-Stream": "v1",
+        },
+      }
+    );
+  }
   const ollamaUrl = requestedOllamaUrl || process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
   const initialMessages = messages.slice(0, -1).slice(-10);
   const currentMessage = messages[messages.length - 1];
