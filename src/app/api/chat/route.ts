@@ -1,18 +1,34 @@
-import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from '@/lib/lex';
+import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
-  const { messages, selectedModel, data } = await req.json();
-  const ollamaUrl = process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
+  const {
+    messages,
+    selectedModel,
+    data,
+    workflow,
+    webSearch,
+    serperApiKey,
+    thinking,
+    ollamaUrl: requestedOllamaUrl,
+  } = await req.json();
+  const ollamaUrl = requestedOllamaUrl || process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
   const initialMessages = messages.slice(0, -1).slice(-10);
   const currentMessage = messages[messages.length - 1];
+  const searchContext = webSearch
+    ? await getWebSearchContext(currentMessage.content, serperApiKey)
+    : "";
+  const workflowContext = workflow?.prompt
+    ? `\n\nWorkflow context (${workflow.title}):\n${workflow.prompt}`
+    : "";
+  const systemContent = `${LEX_SYSTEM_PROMPT}${workflowContext}${searchContext}`;
   const userContent = data?.images?.length
     ? [
-        { type: 'text', text: currentMessage.content },
+        { type: "text", text: currentMessage.content },
         ...data.images.map((imageUrl: string) => ({
-          type: 'image_url',
+          type: "image_url",
           image_url: { url: imageUrl },
         })),
       ]
@@ -20,18 +36,21 @@ export async function POST(req: Request) {
 
   try {
     const response = await fetch(`${ollamaUrl}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         model: selectedModel,
         stream: true,
+        ...(thinking ? { think: true } : {}),
         messages: [
-          { role: 'system', content: LEX_SYSTEM_PROMPT },
-          ...initialMessages.map((message: { role: string; content: string }) => ({
-            role: message.role,
-            content: message.content,
-          })),
-          { role: 'user', content: userContent },
+          { role: 'system', content: systemContent },
+          ...initialMessages.map(
+            (message: { role: string; content: string }) => ({
+              role: message.role,
+              content: message.content,
+            })
+          ),
+          { role: "user", content: userContent },
         ],
       }),
     });
@@ -42,7 +61,7 @@ export async function POST(req: Request) {
 
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
-    let buffer = '';
+    let buffer = "";
     const stream = new ReadableStream({
       async start(controller) {
         const reader = response.body!.getReader();
@@ -52,24 +71,49 @@ export async function POST(req: Request) {
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop() || '';
+            buffer = lines.pop() || "";
 
             for (const line of lines) {
               const trimmed = line.trim();
-              if (!trimmed.startsWith('data:')) continue;
+              if (!trimmed.startsWith("data:")) continue;
               const payload = trimmed.slice(5).trim();
-              if (!payload || payload === '[DONE]') continue;
+              if (!payload || payload === "[DONE]") continue;
 
               try {
                 const parsed = JSON.parse(payload);
-                const token = parsed.choices?.[0]?.delta?.content;
-                if (token) controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
+                const delta = parsed.choices?.[0]?.delta;
+                const thinkingToken = delta?.thinking;
+                const token = delta?.content;
+                if (thinkingToken) {
+                  controller.enqueue(
+                    encoder.encode(
+                      `0:${JSON.stringify(`<think>${thinkingToken}</think>`)}\n`
+                    )
+                  );
+                }
+                if (token) {
+                  controller.enqueue(
+                    encoder.encode(`0:${JSON.stringify(token)}\n`)
+                  );
+                }
               } catch {
                 continue;
               }
             }
           }
-          controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: 'stop', usage: { promptTokens: 0, completionTokens: 0 } })}\n`));
+          if (webSearch) {
+            controller.enqueue(
+              encoder.encode(`0:${JSON.stringify("\n\n<web-search-used />")}\n`)
+            );
+          }
+          controller.enqueue(
+            encoder.encode(
+              `d:${JSON.stringify({
+                finishReason: "stop",
+                usage: { promptTokens: 0, completionTokens: 0 },
+              })}\n`
+            )
+          );
           controller.close();
         } catch (error) {
           controller.error(error);
@@ -81,20 +125,57 @@ export async function POST(req: Request) {
 
     return new Response(stream, {
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'X-Vercel-AI-Data-Stream': 'v1',
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Vercel-AI-Data-Stream": "v1",
       },
     });
   } catch {
     return new Response(
-      `3:${JSON.stringify('Ollama is not running. Start Ollama to chat with Lex.')}\n`,
+      `3:${JSON.stringify(
+        "Ollama is not running. Start Ollama to chat with Lex."
+      )}\n`,
       {
         status: 503,
         headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'X-Vercel-AI-Data-Stream': 'v1',
+          "Content-Type": "text/plain; charset=utf-8",
+          "X-Vercel-AI-Data-Stream": "v1",
         },
       }
     );
+  }
+}
+
+async function getWebSearchContext(query: string, apiKey?: string) {
+  if (!apiKey?.trim()) {
+    return "\n\nAdd a Serper API key in Settings to use web search.";
+  }
+
+  try {
+    const response = await fetch("https://google.serper.dev/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-API-KEY": apiKey.trim(),
+      },
+      body: JSON.stringify({ q: query, num: 5 }),
+    });
+
+    if (!response.ok) {
+      return "\n\nAdd a Serper API key in Settings to use web search.";
+    }
+
+    const data = await response.json();
+    const results = Array.isArray(data?.organic) ? data.organic.slice(0, 5) : [];
+
+    if (results.length === 0) return "";
+
+    return `\n\nWeb search results for '${query}':\n${results
+      .map(
+        (result: { title?: string; snippet?: string; link?: string }, index: number) =>
+          `${index + 1}. ${result.title || "Untitled"}\n${result.snippet || ""}\n${result.link || ""}`
+      )
+      .join("\n\n")}\n\nUse these results to inform your response if relevant.`;
+  } catch {
+    return "\n\nAdd a Serper API key in Settings to use web search.";
   }
 }

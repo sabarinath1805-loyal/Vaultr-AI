@@ -164,7 +164,7 @@ export default function VaultPage() {
                     Vault
                   </p>
                   <p className="mt-1 max-w-xs text-xs text-[var(--text-faint)]">
-                    Upload documents into the vault and commence chats and contract scans with them.
+                    Store and organize your legal documents. Upload files and attach them to Lex chats for document-aware legal analysis.
                   </p>
                   <button
                     type="button"

@@ -106,3 +106,15 @@ export function sortModelsByLexOrder(modelIds: string[]): string[] {
     installed.has(modelId)
   );
 }
+
+export const THINKING_CAPABLE_MODEL_IDS = [
+  "qwen3:8b",
+  "qwen3:14b",
+  "qwen3:30b",
+  "deepseek-r1:14b",
+  "deepseek-r1:32b",
+];
+
+export function isThinkingCapableModel(modelId: string | null | undefined): boolean {
+  return !!modelId && THINKING_CAPABLE_MODEL_IDS.includes(modelId);
+}

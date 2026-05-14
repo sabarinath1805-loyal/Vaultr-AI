@@ -6,11 +6,12 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Plus, Search, X } from "lucide-react";
 import { BUILT_IN_WORKFLOWS, type BuiltInWorkflow } from "./builtin-workflows";
+import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 
 interface WorkflowsModalProps {
   open: boolean;
   onClose: () => void;
-  onUse: (prompt: string) => void;
+  onUse: (workflow: AttachedWorkflow) => void;
 }
 
 function workflowPrompt(workflow: BuiltInWorkflow) {
@@ -178,7 +179,11 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
           <button
             type="button"
             onClick={() => {
-              onUse(workflowPrompt(selected));
+              onUse({
+                id: selected.id,
+                title: selected.title,
+                prompt: workflowPrompt(selected),
+              });
               onClose();
             }}
             className="rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-1.5 text-sm font-medium text-white transition-[background-color] duration-150 hover:bg-[rgb(51,51,51)]"
