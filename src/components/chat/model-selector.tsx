@@ -12,9 +12,10 @@ import useChatStore from "@/app/hooks/useChatStore";
 
 interface ModelSelectorProps {
   disabled?: boolean;
+  direction?: "up" | "down";
 }
 
-export function ModelSelector({ disabled }: ModelSelectorProps) {
+export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
@@ -37,10 +38,7 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
         if (!cancelled) {
           setIsOllamaRunning(modelIds.length > 0);
           setAvailableModels(orderedModels);
-          if (
-            orderedModels.length > 0 &&
-            (!selectedModel || !orderedModels.includes(selectedModel))
-          ) {
+          if (orderedModels.length > 0 && !orderedModels.includes(selectedModel || "")) {
             setSelectedModel(orderedModels[0]);
           }
         }
@@ -48,9 +46,6 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
         if (!cancelled) {
           setIsOllamaRunning(false);
           setAvailableModels([]);
-          if (!selectedModel) {
-            setSelectedModel(getDefaultModel().ollamaId);
-          }
         }
       }
     }
@@ -64,12 +59,13 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
 
   const selectedLabel = !isOllamaRunning
     ? "Ollama not running"
-    : selectedModel
+    : selectedModel && availableModels.includes(selectedModel)
     ? ollamaIdToLexName(selectedModel)
     : getDefaultModel().name;
-  const options = availableModels.length
-    ? availableModels
-    : LEX_MODELS.map((model) => model.ollamaId);
+  const menuPosition =
+    direction === "down"
+      ? "top-full mt-2"
+      : "bottom-full mb-2";
 
   return (
     <div className="relative">
@@ -91,13 +87,19 @@ export function ModelSelector({ disabled }: ModelSelectorProps) {
             className="fixed inset-0 z-40 cursor-default bg-transparent"
             onClick={() => setOpen(false)}
           />
-          <div className="absolute bottom-full right-0 z-50 mb-2 min-w-[180px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-1.5 text-[var(--text)] shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
+          <div
+            className={`absolute right-0 z-50 min-w-[180px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-1.5 text-[var(--text)] shadow-[0_4px_16px_rgba(0,0,0,0.08)] ${menuPosition}`}
+          >
             {!isOllamaRunning ? (
               <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">
                 Ollama not running
               </div>
+            ) : availableModels.length === 0 ? (
+              <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">
+                No Lex models installed
+              </div>
             ) : (
-              options.map((modelId) => (
+              availableModels.map((modelId) => (
                 <button
                   key={modelId}
                   type="button"
