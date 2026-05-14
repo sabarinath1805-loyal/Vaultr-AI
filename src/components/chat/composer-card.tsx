@@ -3,7 +3,7 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Check, File, FileText, FolderOpen, Library, Square, X } from "lucide-react";
+import { ArrowRight, Brain, Check, File, FileText, FolderOpen, Globe, Library, Square, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { WorkflowsModal } from "@/components/workflows/workflows-modal";
@@ -11,7 +11,8 @@ import { AddDocButton } from "@/components/chat/add-doc-button";
 import { AddDocumentsModal } from "@/components/shared/add-documents-modal";
 import type { LocalDocument } from "@/lib/local-documents";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
-import useChatStore from "@/app/hooks/useChatStore";
+import useChatStore, { type AttachedWorkflow } from "@/app/hooks/useChatStore";
+import { isThinkingCapableModel } from "@/lib/models";
 
 interface ComposerCardProps {
   input: string;
@@ -41,18 +42,28 @@ export function ComposerCard({
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const [attachedDocuments, setAttachedDocuments] = React.useState<LocalDocument[]>([]);
   const [docSelectorOpen, setDocSelectorOpen] = React.useState(false);
-  const [selectedWorkflow, setSelectedWorkflow] = React.useState<string | null>(null);
+  const [selectedWorkflow, setSelectedWorkflow] = React.useState<AttachedWorkflow | null>(null);
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
+  const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
   const documents = useLocalVaultStore((state) => state.documents);
   const pendingAttachedDocumentIds = useChatStore((state) => state.pendingAttachedDocumentIds);
   const setPendingAttachedDocumentIds = useChatStore((state) => state.setPendingAttachedDocumentIds);
-  const pendingWorkflowTitle = useChatStore((state) => state.pendingWorkflowTitle);
-  const setPendingWorkflowTitle = useChatStore((state) => state.setPendingWorkflowTitle);
+  const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
+  const setPendingWorkflow = useChatStore((state) => state.setPendingWorkflow);
+  const composerResetToken = useChatStore((state) => state.composerResetToken);
+  const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
+  const selectedModel = useChatStore((state) => state.selectedModel);
+  const ollamaUrl = useChatStore((state) => state.ollamaUrl);
   const router = useRouter();
 
   React.useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  React.useEffect(() => {
+    setThinkingEnabled(thinkingModeDefault);
+  }, [thinkingModeDefault]);
 
   React.useEffect(() => {
     if (pendingAttachedDocumentIds.length === 0) return;
@@ -67,10 +78,20 @@ export function ComposerCard({
   }, [documents, pendingAttachedDocumentIds, setPendingAttachedDocumentIds]);
 
   React.useEffect(() => {
-    if (!pendingWorkflowTitle) return;
-    setSelectedWorkflow(pendingWorkflowTitle);
-    setPendingWorkflowTitle(null);
-  }, [pendingWorkflowTitle, setPendingWorkflowTitle]);
+    if (!pendingWorkflow) return;
+    setSelectedWorkflow(pendingWorkflow);
+    setPendingWorkflow(null);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [pendingWorkflow, setPendingWorkflow]);
+
+  React.useEffect(() => {
+    setSelectedWorkflow(null);
+    setAttachedDocuments([]);
+    setWebSearchEnabled(false);
+    setThinkingEnabled(thinkingModeDefault);
+    if (setInput) setInput("");
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [composerResetToken, setInput, thinkingModeDefault]);
 
   const submitFromTextarea = () => {
     const form = textareaRef.current?.form;
@@ -104,21 +125,38 @@ export function ComposerCard({
     event: React.FormEvent<HTMLFormElement>,
     options?: ChatRequestOptions
   ) => {
-    handleSubmit(event, options);
+    const metadata = {
+      workflow: selectedWorkflow,
+      attachedDocuments: attachedDocuments.map((doc) => ({
+        id: doc.id,
+        filename: doc.filename,
+      })),
+      webSearch: webSearchEnabled,
+      thinking: thinkingEnabled && isThinkingCapableModel(selectedModel),
+    };
+
+    handleSubmit(event, {
+      ...options,
+      body: {
+        ...options?.body,
+        ...metadata,
+        serperApiKey: useChatStore.getState().serperApiKey,
+        ollamaUrl,
+      },
+    });
     if (input.trim()) {
       setSelectedWorkflow(null);
       setAttachedDocuments([]);
+      setWebSearchEnabled(false);
     }
   };
 
-  const useWorkflowPrompt = (prompt: string) => {
-    if (setInput) {
-      setInput(prompt);
-    }
-    const workflow = prompt.match(/^##\s+(.+)$/m)?.[1] ?? "Workflow";
+  const useWorkflowPrompt = (workflow: AttachedWorkflow) => {
     setSelectedWorkflow(workflow);
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
+
+  const thinkingSupported = isThinkingCapableModel(selectedModel);
 
   return (
     <>
@@ -129,7 +167,7 @@ export function ComposerCard({
               {selectedWorkflow && (
                 <div className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-blue-600 py-0.5 pl-2.5 pr-1 text-xs text-white shadow backdrop-blur-sm">
                   <Library className="h-2.5 w-2.5 shrink-0" />
-                  <span className="max-w-[140px] truncate">{selectedWorkflow}</span>
+                  <span className="max-w-[140px] truncate">{selectedWorkflow.title}</span>
                   <button
                     type="button"
                     onClick={() => setSelectedWorkflow(null)}
@@ -218,6 +256,38 @@ export function ComposerCard({
             </div>
 
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="Web search"
+                onClick={() => setWebSearchEnabled((enabled) => !enabled)}
+                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
+                  webSearchEnabled
+                    ? "bg-[var(--surface)] text-[var(--text)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                }`}
+                aria-pressed={webSearchEnabled}
+                aria-label="Web search"
+              >
+                <Globe className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                title={thinkingSupported ? "Thinking mode" : "Thinking mode requires Lex Nano, Core, Pro, Elite or Max"}
+                onClick={() => {
+                  if (thinkingSupported) {
+                    setThinkingEnabled((enabled) => !enabled);
+                  }
+                }}
+                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
+                  thinkingEnabled && thinkingSupported
+                    ? "bg-[var(--surface)] text-[var(--text)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                } ${thinkingSupported ? "" : "cursor-not-allowed opacity-50"}`}
+                aria-pressed={thinkingEnabled && thinkingSupported}
+                aria-label="Thinking mode"
+              >
+                <Brain className="h-4 w-4" />
+              </button>
               <ModelSelector disabled={isLoading} direction={modelSelectorDirection} />
               <button
                 type={isLoading ? "button" : "submit"}
