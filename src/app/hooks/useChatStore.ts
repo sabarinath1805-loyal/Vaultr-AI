@@ -9,13 +9,24 @@ interface State {
   currentChatId: string | null;
   pendingComposerText: string | null;
   pendingAttachedDocumentIds: string[];
-  pendingWorkflowTitle: string | null;
+  pendingWorkflow: AttachedWorkflow | null;
+  composerResetToken: number;
   selectedModel: string | null;
   userName: string;
+  organisation: string;
+  ollamaUrl: string;
+  serperApiKey: string;
+  thinkingModeDefault: boolean;
   isDownloading: boolean;
   downloadProgress: number;
   downloadingModel: string | null;
   hasLoadedChats: boolean;
+}
+
+export interface AttachedWorkflow {
+  id: string;
+  title: string;
+  prompt: string;
 }
 
 interface Actions {
@@ -23,7 +34,8 @@ interface Actions {
   setCurrentChatId: (chatId: string | null) => void;
   setPendingComposerText: (text: string | null) => void;
   setPendingAttachedDocumentIds: (documentIds: string[]) => void;
-  setPendingWorkflowTitle: (title: string | null) => void;
+  setPendingWorkflow: (workflow: AttachedWorkflow | null) => void;
+  resetComposerState: () => void;
   setSelectedModel: (selectedModel: string) => void;
   loadChats: () => Promise<void>;
   loadChatById: (chatId: string) => Promise<ChatSession | undefined>;
@@ -33,6 +45,10 @@ interface Actions {
   handleDelete: (chatId: string, messageId?: string) => Promise<void>;
   clearAllChats: () => Promise<void>;
   setUserName: (userName: string) => void;
+  setOrganisation: (organisation: string) => void;
+  setOllamaUrl: (ollamaUrl: string) => void;
+  setSerperApiKey: (serperApiKey: string) => void;
+  setThinkingModeDefault: (enabled: boolean) => void;
   startDownload: (modelName: string) => void;
   stopDownload: () => void;
   setDownloadProgress: (progress: number) => void;
@@ -69,9 +85,14 @@ const useChatStore = create<State & Actions>()(
       currentChatId: null,
       pendingComposerText: null,
       pendingAttachedDocumentIds: [],
-      pendingWorkflowTitle: null,
+      pendingWorkflow: null,
+      composerResetToken: 0,
       selectedModel: null,
       userName: "Local User",
+      organisation: "",
+      ollamaUrl: "http://localhost:11434",
+      serperApiKey: "[REDACTED]",
+      thinkingModeDefault: false,
       isDownloading: false,
       downloadProgress: 0,
       downloadingModel: null,
@@ -79,12 +100,25 @@ const useChatStore = create<State & Actions>()(
 
       setBase64Images: (base64Images) => set({ base64Images }),
       setUserName: (userName) => set({ userName }),
+      setOrganisation: (organisation) => set({ organisation }),
+      setOllamaUrl: (ollamaUrl) => set({ ollamaUrl }),
+      setSerperApiKey: (serperApiKey) => set({ serperApiKey }),
+      setThinkingModeDefault: (enabled) => set({ thinkingModeDefault: enabled }),
 
       setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
       setPendingComposerText: (text) => set({ pendingComposerText: text }),
       setPendingAttachedDocumentIds: (documentIds) =>
         set({ pendingAttachedDocumentIds: documentIds }),
-      setPendingWorkflowTitle: (title) => set({ pendingWorkflowTitle: title }),
+      setPendingWorkflow: (workflow) => set({ pendingWorkflow: workflow }),
+      resetComposerState: () =>
+        set((state) => ({
+          base64Images: null,
+          currentChatId: null,
+          pendingComposerText: null,
+          pendingAttachedDocumentIds: [],
+          pendingWorkflow: null,
+          composerResetToken: state.composerResetToken + 1,
+        })),
       setSelectedModel: (selectedModel) => set({ selectedModel }),
       loadChats: async () => {
         const response = await fetch("/api/chats");
@@ -197,7 +231,7 @@ const useChatStore = create<State & Actions>()(
         });
       },
       clearAllChats: async () => {
-        set({ chats: {}, currentChatId: null });
+        set({ chats: {}, currentChatId: null, pendingComposerText: null, pendingAttachedDocumentIds: [], pendingWorkflow: null });
         await fetch("/api/chats", {
           method: "DELETE",
         });
@@ -214,6 +248,10 @@ const useChatStore = create<State & Actions>()(
       partialize: (state) => ({
         selectedModel: state.selectedModel,
         userName: state.userName,
+        organisation: state.organisation,
+        ollamaUrl: state.ollamaUrl,
+        serperApiKey: state.serperApiKey,
+        thinkingModeDefault: state.thinkingModeDefault,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<State>;
@@ -225,6 +263,13 @@ const useChatStore = create<State & Actions>()(
             persisted.userName && persisted.userName !== legacyDefaultUserName
               ? persisted.userName
               : currentState.userName,
+          organisation: persisted.organisation || currentState.organisation,
+          ollamaUrl: persisted.ollamaUrl || currentState.ollamaUrl,
+          serperApiKey: persisted.serperApiKey || currentState.serperApiKey,
+          thinkingModeDefault:
+            typeof persisted.thinkingModeDefault === "boolean"
+              ? persisted.thinkingModeDefault
+              : currentState.thinkingModeDefault,
         };
       },
     }
