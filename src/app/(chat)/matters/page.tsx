@@ -24,7 +24,12 @@ export default function MattersPage() {
   }, []);
 
   useEffect(() => {
-    const closeMenus = () => setOpenMenuId(null);
+    const closeMenus = (event: MouseEvent) => {
+      if (event.target instanceof HTMLElement && event.target.closest("[data-matter-actions]")) {
+        return;
+      }
+      setOpenMenuId(null);
+    };
     document.addEventListener("click", closeMenus);
     return () => document.removeEventListener("click", closeMenus);
   }, []);
@@ -152,7 +157,7 @@ function MatterRow({
       <div className="text-[var(--text-muted)]">
         {new Date(matter.createdAt).toLocaleDateString()}
       </div>
-      <div className="relative flex items-center">
+      <div className="relative flex items-center" data-matter-actions>
         <button
           type="button"
           onClick={(event) => {
