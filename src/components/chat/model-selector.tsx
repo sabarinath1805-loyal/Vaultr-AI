@@ -73,7 +73,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
         type="button"
         disabled={disabled}
         onClick={() => setOpen((value) => !value)}
-        className="flex items-center gap-1 rounded-[var(--radius-sm)] border-0 bg-transparent px-1 py-1 text-[13px] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:text-[var(--text)] disabled:cursor-not-allowed"
+        className="flex h-8 items-center gap-1 rounded-lg border-0 bg-transparent px-2 text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)] disabled:cursor-not-allowed"
       >
         <span>{selectedLabel}</span>
         <ChevronDown size={13} />

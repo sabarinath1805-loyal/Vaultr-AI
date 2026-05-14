@@ -8,6 +8,7 @@ export function WorkflowsRouteModal() {
   const router = useRouter();
   const currentChatId = useChatStore((state) => state.currentChatId);
   const setPendingComposerText = useChatStore((state) => state.setPendingComposerText);
+  const setPendingWorkflowTitle = useChatStore((state) => state.setPendingWorkflowTitle);
 
   const returnToComposer = () => {
     router.push(currentChatId ? `/c/${currentChatId}` : "/");
@@ -20,6 +21,7 @@ export function WorkflowsRouteModal() {
         onClose={returnToComposer}
         onUse={(prompt) => {
           setPendingComposerText(prompt);
+          setPendingWorkflowTitle(prompt.match(/^##\s+(.+)$/m)?.[1] ?? "Workflow");
           returnToComposer();
         }}
       />

@@ -130,11 +130,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     <div className="flex h-full w-full flex-col bg-[var(--bg)]">
       {messages.length === 0 ? (
         <div className="flex h-full w-full flex-col items-center">
-          <div className="flex w-full pt-[40vh] -translate-y-1/2 flex-col items-center gap-8">
+          <div className="flex w-full pt-[40vh] -translate-y-1/2 flex-col items-center gap-7">
             <div className="text-center text-[var(--text)]">
               {isOpenEmptyChat ? (
                 <>
-                  <h1 className="font-display text-[36px] font-normal leading-none">
+                  <h1 className="font-display text-[36px] font-normal leading-none tracking-[-0.02em]">
                     Hey, I&apos;m Lex — your private legal AI.
                   </h1>
                   <p className="mt-2 text-[13px] text-[var(--text-muted)]">
@@ -142,7 +142,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   </p>
                 </>
               ) : (
-                <h1 className="flex items-center justify-center gap-2 font-display text-[40px] font-normal leading-none">
+                <h1 className="flex items-center justify-center gap-2 font-display text-[40px] font-normal leading-none tracking-[-0.02em]">
                   <SnowflakeIcon size={16} className="mt-1 shrink-0 text-[var(--text)]" />
                   Hi, Counselor
                 </h1>
