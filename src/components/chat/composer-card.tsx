@@ -217,6 +217,7 @@ export function ComposerCard({
               minRows={1}
               maxRows={8}
               className="max-h-48 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-6 text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:outline-none"
+              style={{ lineHeight: 1.5, verticalAlign: "top" }}
             />
           </div>
 
@@ -258,12 +259,12 @@ export function ComposerCard({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                title="Web search"
+                title={webSearchEnabled ? "Web search on" : "Web search off"}
                 onClick={() => setWebSearchEnabled((enabled) => !enabled)}
                 className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   webSearchEnabled
-                    ? "bg-[var(--surface)] text-[var(--text)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                    ? "text-[#3b82f6]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
                 }`}
                 aria-pressed={webSearchEnabled}
                 aria-label="Web search"
@@ -272,7 +273,7 @@ export function ComposerCard({
               </button>
               <button
                 type="button"
-                title={thinkingSupported ? "Thinking mode" : "Thinking mode requires Lex Nano, Core, Pro, Elite or Max"}
+                title={thinkingSupported ? (thinkingEnabled ? "Thinking mode on" : "Thinking mode off") : "Thinking mode requires Lex Nano, Core, Pro, Elite or Max"}
                 onClick={() => {
                   if (thinkingSupported) {
                     setThinkingEnabled((enabled) => !enabled);
@@ -280,8 +281,8 @@ export function ComposerCard({
                 }}
                 className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   thinkingEnabled && thinkingSupported
-                    ? "bg-[var(--surface)] text-[var(--text)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                    ? "text-[#8b5cf6]"
+                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
                 } ${thinkingSupported ? "" : "cursor-not-allowed opacity-50"}`}
                 aria-pressed={thinkingEnabled && thinkingSupported}
                 aria-label="Thinking mode"

@@ -103,8 +103,8 @@ export function Sidebar() {
           title="Vaultr"
           onClick={() => resetComposerState()}
         >
-          <SnowflakeIcon size={16} />
-          {!collapsed && <span className="text-sm font-medium">Vaultr</span>}
+          <SnowflakeIcon size={18} />
+          {!collapsed && <span className="text-[15px] font-medium">Vaultr</span>}
         </Link>
         <button
           type="button"

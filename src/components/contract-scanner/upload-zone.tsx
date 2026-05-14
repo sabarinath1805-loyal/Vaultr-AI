@@ -1,6 +1,7 @@
 "use client";
 
 import { Brain, FileText, Shield, Upload, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface UploadZoneProps {
   file: File | null;
@@ -41,6 +42,7 @@ export function UploadZone({
   onRemoveFile,
   onScan,
 }: UploadZoneProps) {
+  const router = useRouter();
   const handleFiles = (files: FileList | null) => {
     const selected = files?.[0];
     if (selected) onFileSelected(selected);
@@ -50,7 +52,16 @@ export function UploadZone({
     <div className="space-y-6 px-6 pb-8">
       {error && (
         <div className="rounded-[var(--radius-md)] border border-[rgb(229,62,62)] bg-[rgb(255,240,240)] px-4 py-3 text-[13px] text-[rgb(197,48,48)]">
-          {error}
+          <div>{error}</div>
+          {error.includes("requires a Lex model") && (
+            <button
+              type="button"
+              onClick={() => router.push("/models")}
+              className="mt-3 rounded-[var(--radius-sm)] bg-[var(--text)] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#333]"
+            >
+              → Install a Lex Model
+            </button>
+          )}
         </div>
       )}
 
