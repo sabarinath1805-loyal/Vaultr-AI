@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { LEX_MODELS } from "@/lib/models";
+import { LEX_MODELS, isLexModel } from "@/lib/models";
 import useChatStore from "@/app/hooks/useChatStore";
 
 interface DownloadState {
@@ -19,6 +19,23 @@ export default function ModelsPage() {
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
+  const syncSelectedModel = useCallback((modelIds: string[]) => {
+    const firstLexModel = LEX_MODELS.find((model) =>
+      modelIds.includes(model.ollamaId)
+    );
+
+    if (!selectedModel && firstLexModel) {
+      setSelectedModel(firstLexModel.ollamaId);
+      return;
+    }
+
+    if (
+      selectedModel &&
+      (!isLexModel(selectedModel) || !modelIds.includes(selectedModel))
+    ) {
+      setSelectedModel(firstLexModel?.ollamaId || null);
+    }
+  }, [selectedModel, setSelectedModel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,6 +52,7 @@ export default function ModelsPage() {
         if (!cancelled) {
           setInstalledModels(modelIds);
           setIsOllamaRunning(true);
+          syncSelectedModel(modelIds);
         }
       } catch {
         if (!cancelled) {
@@ -49,7 +67,7 @@ export default function ModelsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [syncSelectedModel]);
 
   const refreshModels = async () => {
     const response = await fetch("/api/tags");
@@ -60,6 +78,7 @@ export default function ModelsPage() {
       : [];
     setInstalledModels(modelIds);
     setIsOllamaRunning(true);
+    syncSelectedModel(modelIds);
   };
 
   const downloadModel = async (ollamaId: string, label: string) => {
