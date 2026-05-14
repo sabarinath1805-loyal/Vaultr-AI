@@ -88,7 +88,7 @@ export const LEX_MODELS: LexModel[] = [
 
 export function ollamaIdToLexName(ollamaId: string): string {
   const model = LEX_MODELS.find((m) => m.ollamaId === ollamaId);
-  return model ? model.name : ollamaId;
+  return model ? model.name : "Lex Model";
 }
 
 export function lexNameToOllamaId(lexName: string): string | undefined {
@@ -102,12 +102,7 @@ export function getDefaultModel(): LexModel {
 
 export function sortModelsByLexOrder(modelIds: string[]): string[] {
   const installed = new Set(modelIds);
-  const knownModels = LEX_MODELS.map((model) => model.ollamaId).filter((modelId) =>
+  return LEX_MODELS.map((model) => model.ollamaId).filter((modelId) =>
     installed.has(modelId)
   );
-  const unknownModels = modelIds.filter(
-    (modelId) => !LEX_MODELS.some((model) => model.ollamaId === modelId)
-  );
-
-  return [...knownModels, ...unknownModels];
 }

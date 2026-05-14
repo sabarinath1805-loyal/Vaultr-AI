@@ -11,7 +11,7 @@ interface UploadZoneProps {
 }
 
 function formatFileSize(size: number) {
-  return `${(size / 1024 / 1024).toFixed(2)} MB`;
+  return `${Math.max(size / 1024 / 1024, 0.01).toFixed(2)} MB`;
 }
 
 export function UploadZone({

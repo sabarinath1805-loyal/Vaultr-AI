@@ -12,6 +12,7 @@ interface ChatBottombarProps {
   stop: () => void;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   input: string;
+  modelSelectorDirection?: "up" | "down";
 }
 
 export default function ChatBottombar({
@@ -20,6 +21,8 @@ export default function ChatBottombar({
   handleSubmit,
   isLoading,
   stop,
+  setInput,
+  modelSelectorDirection,
 }: ChatBottombarProps) {
   return (
     <div className="flex w-full justify-center px-6 pb-5">
@@ -29,6 +32,8 @@ export default function ChatBottombar({
         handleSubmit={handleSubmit}
         isLoading={isLoading}
         stop={stop}
+        setInput={setInput}
+        modelSelectorDirection={modelSelectorDirection}
       />
     </div>
   );
