@@ -5,7 +5,7 @@ import { createChat, deleteAllChats, listChatsWithMessages } from "@/lib/db/chat
 import { toClientChat } from "@/lib/api/chats";
 import { CONTRACT_ANALYSIS_PROMPT } from "@/lib/contract-scanner";
 import { OLLAMA_DEFAULT_URL } from "@/lib/lex";
-import { getDefaultModel } from "@/lib/models";
+import { isLexModel } from "@/lib/models";
 import { extractPdfText } from "@/lib/file-extraction/pdf-extractor";
 import { extractDocxText } from "@/lib/file-extraction/docx-extractor";
 
@@ -64,6 +64,12 @@ export async function POST(req: Request) {
         { status: 413 }
       );
     }
+    if (typeof selectedModel !== "string" || !isLexModel(selectedModel)) {
+      return NextResponse.json(
+        { error: "Contract Scanner requires a Lex model. Please install one first." },
+        { status: 400 }
+      );
+    }
 
     try {
       const contractText = await extractText(file);
@@ -72,11 +78,7 @@ export async function POST(req: Request) {
       const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
 
       const result = await generateText({
-        model: ollama(
-          typeof selectedModel === "string" && selectedModel
-            ? selectedModel
-            : getDefaultModel().ollamaId
-        ),
+        model: ollama(selectedModel),
         messages: [{ role: "user", content: prompt }],
       });
 

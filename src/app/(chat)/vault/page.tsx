@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { ChevronDown, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
+import { ChevronDown, FileText, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { HeaderSearchBtn } from "@/components/shared/header-search-btn";
 import { ToolbarTabs } from "@/components/shared/toolbar-tabs";
 import { NewVaultModal } from "@/components/vault/new-vault-modal";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { useReturnDocumentsToComposer } from "@/components/vault/vault-route-bridge";
+import { formatBytes, LocalDocument } from "@/lib/local-documents";
 
 const CHECK_W = "w-8 shrink-0";
 const NAME_COL_W = "w-[300px] shrink-0";
@@ -25,9 +27,11 @@ export default function VaultPage() {
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
   const attachDocumentsToProject = useLocalVaultStore((state) => state.attachDocumentsToProject);
+  const deleteDocument = useLocalVaultStore((state) => state.deleteDocument);
   const returnDocumentsToComposer = useReturnDocumentsToComposer();
   const rows = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -65,9 +69,15 @@ export default function VaultPage() {
           )}
           <button
             type="button"
-            className="flex items-center justify-center p-1.5 text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-            onClick={() => setNewVaultOpen(true)}
-            aria-label="Create vault"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--text)] text-white transition-colors hover:bg-[#333]"
+            onClick={() => {
+              if (selectedProject) {
+                fileInputRef.current?.click();
+              } else {
+                setNewVaultOpen(true);
+              }
+            }}
+            aria-label={selectedProject ? "Add documents" : "Create vault"}
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -80,6 +90,8 @@ export default function VaultPage() {
           documents={selectedDocuments}
           onAddDocuments={(files) => attachDocumentsToProject(selectedProject.id, files)}
           onAttach={(ids) => returnDocumentsToComposer(ids)}
+          onDelete={deleteDocument}
+          onScan={(docId) => router.push(`/contract-scanner?document=${docId}`)}
           fileInputRef={fileInputRef}
         />
       ) : (
@@ -188,12 +200,16 @@ function VaultDetail({
   documents,
   onAddDocuments,
   onAttach,
+  onDelete,
+  onScan,
   fileInputRef,
 }: {
   projectId: string;
-  documents: { id: string; filename: string }[];
+  documents: LocalDocument[];
   onAddDocuments: (files: File[]) => void;
   onAttach: (ids: string[]) => void;
+  onDelete: (id: string) => void;
+  onScan: (id: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
 }) {
   return (
@@ -226,24 +242,102 @@ function VaultDetail({
           </button>
         </div>
       ) : (
-        <div className="rounded-[var(--radius-md)] border border-[var(--border)]">
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="flex items-center justify-between border-b border-[var(--border)] px-4 py-3 text-[13px] last:border-b-0"
+        <div>
+          <div className="mb-4 flex justify-end">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#333]"
             >
-              <span className="font-medium text-[var(--text)]">{doc.filename}</span>
-              <button
-                type="button"
-                onClick={() => onAttach([doc.id])}
-                className="text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-              >
-                Attach to Assistant
-              </button>
-            </div>
-          ))}
+              + Add Documents
+            </button>
+          </div>
+          <div className="grid gap-3">
+            {documents.map((doc) => (
+              <VaultDocumentCard
+                key={doc.id}
+                document={doc}
+                onAttach={() => onAttach([doc.id])}
+                onDelete={() => onDelete(doc.id)}
+                onScan={() => onScan(doc.id)}
+              />
+            ))}
+          </div>
         </div>
       )}
     </section>
+  );
+}
+
+function VaultDocumentCard({
+  document,
+  onAttach,
+  onDelete,
+  onScan,
+}: {
+  document: LocalDocument;
+  onAttach: () => void;
+  onDelete: () => void;
+  onScan: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const type = document.fileType?.toUpperCase() || "FILE";
+  const iconColor =
+    document.fileType === "pdf"
+      ? "text-[rgb(197,48,48)] bg-[rgb(255,240,240)]"
+      : document.fileType === "docx" || document.fileType === "doc"
+      ? "text-[rgb(37,99,235)] bg-[rgb(239,246,255)]"
+      : "text-[var(--text-muted)] bg-[var(--surface)]";
+
+  return (
+    <article className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-5 py-4">
+      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] ${iconColor}`}>
+        <FileText className="h-4 w-4" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-sm font-medium text-[var(--text)]">
+          {document.filename}
+        </div>
+        <div className="mt-1 text-xs text-[var(--text-muted)]">
+          {formatBytes(document.sizeBytes)} · Uploaded {new Date(document.createdAt).toLocaleDateString()} · {type}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onAttach}
+        className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+      >
+        Attach to Assistant
+      </button>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => setMenuOpen((open) => !open)}
+          className="rounded-[var(--radius-sm)] p-2 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+          aria-label={`${document.filename} actions`}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 top-9 z-10 min-w-[180px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+            <button type="button" onClick={onScan} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+              Send to Contract Scanner
+            </button>
+            <button type="button" className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+              Download
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm(`Delete ${document.filename}?`)) onDelete();
+              }}
+              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[rgb(229,62,62)] hover:bg-[var(--surface)]"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </article>
   );
 }

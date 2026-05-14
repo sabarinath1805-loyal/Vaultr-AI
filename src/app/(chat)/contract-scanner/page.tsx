@@ -4,6 +4,7 @@ import { UploadZone } from "@/components/contract-scanner/upload-zone";
 import { ResultsDisplay } from "@/components/contract-scanner/results-display";
 import useChatStore from "@/app/hooks/useChatStore";
 import useContractScannerStore from "@/app/hooks/useContractScannerStore";
+import { isLexModel } from "@/lib/models";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
@@ -33,6 +34,10 @@ export default function ContractScannerPage() {
 
   const scanContract = async () => {
     if (!file) return;
+    if (!isLexModel(selectedModel)) {
+      setError("Contract Scanner requires a Lex model. Please install one first.");
+      return;
+    }
 
     setIsScanning(true);
     setError(null);

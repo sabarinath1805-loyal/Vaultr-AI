@@ -36,7 +36,7 @@ interface Actions {
   setPendingAttachedDocumentIds: (documentIds: string[]) => void;
   setPendingWorkflow: (workflow: AttachedWorkflow | null) => void;
   resetComposerState: () => void;
-  setSelectedModel: (selectedModel: string) => void;
+  setSelectedModel: (selectedModel: string | null) => void;
   loadChats: () => Promise<void>;
   loadChatById: (chatId: string) => Promise<ChatSession | undefined>;
   getChatById: (chatId: string) => ChatSession | undefined;

@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app-shell";
 export const metadata: Metadata = {
   title: "Vaultr",
   description: "Vaultr legal AI assistant",
+  icons: { icon: "/favicon.ico", apple: "/apple-touch-icon.png" },
 };
 
 export const viewport = {

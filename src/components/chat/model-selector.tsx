@@ -5,6 +5,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   LEX_MODELS,
+  isLexModel,
   ollamaIdToLexName,
   sortModelsByLexOrder,
 } from "@/lib/models";
@@ -34,12 +35,14 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
         const modelIds = Array.isArray(data?.models)
           ? data.models.map(({ name }: { name: string }) => name)
           : [];
-        const orderedModels = sortModelsByLexOrder(modelIds);
+        const orderedModels = sortModelsByLexOrder(modelIds.filter(isLexModel));
 
         if (!cancelled) {
-          setIsOllamaRunning(modelIds.length > 0);
+          setIsOllamaRunning(true);
           setAvailableModels(orderedModels);
-          if (orderedModels.length > 0 && !orderedModels.includes(selectedModel || "")) {
+          if (orderedModels.length === 0 && selectedModel) {
+            setSelectedModel(null);
+          } else if (orderedModels.length > 0 && !orderedModels.includes(selectedModel || "")) {
             setSelectedModel(orderedModels[0]);
           }
         }
@@ -47,6 +50,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
         if (!cancelled) {
           setIsOllamaRunning(false);
           setAvailableModels([]);
+          if (selectedModel) setSelectedModel(null);
         }
       }
     }
