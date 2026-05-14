@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   BarChart3,
+  Briefcase,
   ChevronDown,
   ChevronsUpDown,
   Folder,
@@ -35,6 +36,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 const navItems = [
   { href: "/", label: "Assistant", icon: Square },
   { href: "/vault", label: "Vault", icon: Folder },
+  { href: "/matters", label: "Matters", icon: Briefcase },
   { href: "/models", label: "Models", icon: Grid2X2 },
   { href: "/contract-scanner", label: "Contract Scanner", icon: Shield },
   { href: "/workflows", label: "Workflows", icon: BarChart3 },

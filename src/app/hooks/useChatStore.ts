@@ -7,6 +7,7 @@ interface State {
   base64Images: string[] | null;
   chats: Record<string, ChatSession>;
   currentChatId: string | null;
+  pendingComposerText: string | null;
   selectedModel: string | null;
   userName: string;
   isDownloading: boolean;
@@ -17,7 +18,8 @@ interface State {
 
 interface Actions {
   setBase64Images: (base64Images: string[] | null) => void;
-  setCurrentChatId: (chatId: string) => void;
+  setCurrentChatId: (chatId: string | null) => void;
+  setPendingComposerText: (text: string | null) => void;
   setSelectedModel: (selectedModel: string) => void;
   loadChats: () => Promise<void>;
   loadChatById: (chatId: string) => Promise<ChatSession | undefined>;
@@ -60,6 +62,7 @@ const useChatStore = create<State & Actions>()(
       base64Images: null,
       chats: {},
       currentChatId: null,
+      pendingComposerText: null,
       selectedModel: null,
       userName: "Local User",
       isDownloading: false,
@@ -71,6 +74,7 @@ const useChatStore = create<State & Actions>()(
       setUserName: (userName) => set({ userName }),
 
       setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
+      setPendingComposerText: (text) => set({ pendingComposerText: text }),
       setSelectedModel: (selectedModel) => set({ selectedModel }),
       loadChats: async () => {
         const response = await fetch("/api/chats");
