@@ -27,6 +27,12 @@ export function ComposerCard({
   isLoading,
   stop,
 }: ComposerCardProps) {
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  React.useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -40,6 +46,7 @@ export function ComposerCard({
       className="w-[680px] max-w-[calc(100%-48px)] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] px-4 py-[14px] shadow-[0_1px_6px_rgba(0,0,0,0.06)]"
     >
       <TextareaAutosize
+        ref={textareaRef}
         value={input}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}

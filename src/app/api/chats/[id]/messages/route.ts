@@ -26,6 +26,12 @@ export async function POST(
     id: body.id,
     role: body.role,
     content: body.content,
+    createdAt:
+      typeof body.createdAt === "number"
+        ? body.createdAt
+        : typeof body.createdAt === "string"
+          ? Math.floor(new Date(body.createdAt).getTime() / 1000)
+          : undefined,
   });
 
   return NextResponse.json({ message: toClientMessage(message) });
@@ -42,16 +48,39 @@ export async function PUT(
   }
 
   const invalidMessage = body.messages.find(
-    (message: { role?: string; content?: unknown }) =>
+    (message: { role?: string; content?: unknown; createdAt?: unknown }) =>
       (message.role !== "user" && message.role !== "assistant") ||
-      typeof message.content !== "string"
+      typeof message.content !== "string" ||
+      (message.createdAt !== undefined &&
+        typeof message.createdAt !== "number" &&
+        typeof message.createdAt !== "string")
   );
 
   if (invalidMessage) {
     return NextResponse.json({ error: "Invalid message" }, { status: 400 });
   }
 
-  const messages = replaceMessages(params.id, body.messages);
+  const messages = replaceMessages(
+    params.id,
+    body.messages.map(
+      (message: {
+        id?: string;
+        role: "user" | "assistant";
+        content: string;
+        createdAt?: number | string;
+      }) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        createdAt:
+          typeof message.createdAt === "number"
+            ? message.createdAt
+            : typeof message.createdAt === "string"
+              ? Math.floor(new Date(message.createdAt).getTime() / 1000)
+              : undefined,
+      })
+    )
+  );
 
   return NextResponse.json({ messages: messages.map(toClientMessage) });
 }

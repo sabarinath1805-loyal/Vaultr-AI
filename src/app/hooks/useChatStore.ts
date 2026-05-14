@@ -42,6 +42,10 @@ const syncChatMessages = async (chatId: string, messages: Message[]) => {
         id: message.id,
         role: message.role,
         content: message.content,
+        createdAt:
+          message.createdAt instanceof Date
+            ? Math.floor(message.createdAt.getTime() / 1000)
+            : undefined,
       })),
     }),
   });

@@ -18,6 +18,13 @@ export interface MessageRecord {
   createdAt: number;
 }
 
+export interface MessageInput {
+  id?: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt?: number;
+}
+
 export interface ChatWithMessages extends ChatRecord {
   messages: MessageRecord[];
 }
@@ -83,12 +90,8 @@ export function deleteChat(id: string) {
   db.delete(chats).where(eq(chats.id, id)).run();
 }
 
-export function addMessage(chatId: string, message: {
-  id?: string;
-  role: "user" | "assistant";
-  content: string;
-}): MessageRecord {
-  const timestamp = now();
+export function addMessage(chatId: string, message: MessageInput): MessageRecord {
+  const timestamp = message.createdAt ?? now();
   const chat = db.select().from(chats).where(eq(chats.id, chatId)).get();
 
   if (!chat) {
@@ -129,11 +132,7 @@ export function addMessage(chatId: string, message: {
 
 export function replaceMessages(
   chatId: string,
-  replacementMessages: {
-    id?: string;
-    role: "user" | "assistant";
-    content: string;
-  }[]
+  replacementMessages: MessageInput[]
 ): MessageRecord[] {
   const timestamp = now();
   const chat = db.select().from(chats).where(eq(chats.id, chatId)).get();
@@ -148,7 +147,7 @@ export function replaceMessages(
       chatId,
       role: message.role,
       content: message.content,
-      createdAt: timestamp + index,
+      createdAt: message.createdAt ?? timestamp + index,
     })
   );
 

@@ -39,16 +39,31 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
     setTimeout(() => setIsCopied(false), 1500);
   };
 
+  const timestamp =
+    message.createdAt instanceof Date
+      ? message.createdAt.toLocaleTimeString([], {
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : null;
+
   if (message.role === "user") {
     return (
-      <div className="ml-auto max-w-[480px] rounded-[var(--radius-lg)] bg-[var(--surface)] px-[14px] py-2.5 text-sm leading-normal text-[var(--text)]">
-        {message.content}
+      <div className="animate-message-in ml-auto max-w-[480px]">
+        <div className="rounded-[var(--radius-lg)] bg-[var(--surface)] px-[14px] py-2.5 text-sm leading-normal text-[var(--text)]">
+          {message.content}
+        </div>
+        {timestamp && (
+          <div className="mt-1.5 text-right text-[11px] text-[var(--text-faint)]">
+            {timestamp}
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="max-w-[680px] text-left text-sm leading-[1.65] text-[var(--text)]">
+    <div className="animate-message-in w-full max-w-[680px] text-left text-sm leading-[1.65] text-[var(--text)]">
       <div className="mb-1.5 text-[11px] leading-none text-[var(--text-muted)]">
         Lex
       </div>
@@ -82,6 +97,11 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
       <div className="prose prose-sm max-w-none prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface)] prose-code:px-1 prose-code:py-0.5 prose-code:font-mono prose-code:text-[var(--text)]">
         <Markdown remarkPlugins={[remarkGfm]}>{cleanContent}</Markdown>
       </div>
+      {timestamp && (
+        <div className="pt-1 text-[11px] text-[var(--text-faint)]">
+          {timestamp}
+        </div>
+      )}
       <div className="flex gap-2 pt-2 text-[var(--text-muted)]">
         {!isLoading && (
           <button
