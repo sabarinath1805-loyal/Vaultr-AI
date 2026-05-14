@@ -3,12 +3,14 @@
 import { useState } from "react";
 import { Check, X } from "lucide-react";
 import useChatStore from "@/app/hooks/useChatStore";
+import { LEX_MODELS } from "@/lib/models";
 
-type Tab = "general" | "ollama";
+type Tab = "general" | "ollama" | "privacy";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "general", label: "General" },
   { id: "ollama", label: "Ollama Settings" },
+  { id: "privacy", label: "Privacy" },
 ];
 
 const fieldClass =
@@ -49,7 +51,9 @@ export default function SettingsPage() {
           </nav>
 
           <div className="min-w-0">
-            {activeTab === "general" ? <GeneralSettings /> : <OllamaSettings />}
+            {activeTab === "general" && <GeneralSettings />}
+            {activeTab === "ollama" && <OllamaSettings />}
+            {activeTab === "privacy" && <PrivacySettings />}
           </div>
         </div>
       </div>
@@ -63,6 +67,8 @@ function GeneralSettings() {
   const organisation = useChatStore((state) => state.organisation);
   const setOrganisation = useChatStore((state) => state.setOrganisation);
   const clearAllChats = useChatStore((state) => state.clearAllChats);
+  const themePreference = useChatStore((state) => state.themePreference);
+  const setThemePreference = useChatStore((state) => state.setThemePreference);
   const [displayName, setDisplayName] = useState(userName);
   const [orgDraft, setOrgDraft] = useState(organisation);
   const [nameSaved, setNameSaved] = useState(false);
@@ -71,7 +77,7 @@ function GeneralSettings() {
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">Profile</h2>
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Profile</h2>
         <div className="max-w-xl space-y-4">
           <div>
             <label className="mb-2 block text-sm text-[var(--text-muted)]">
@@ -120,7 +126,7 @@ function GeneralSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-2 text-2xl font-medium text-[var(--text)]">Usage Plan</h2>
+        <h2 className="font-display mb-2 text-2xl font-medium text-[var(--text)]">Usage Plan</h2>
         <p className="text-sm text-[var(--text-muted)]">
           Solo ·{" "}
           <button type="button" className="underline underline-offset-2">
@@ -130,7 +136,27 @@ function GeneralSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-2 text-2xl font-medium text-[var(--text)]">Danger Zone</h2>
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Appearance</h2>
+        <div className="flex max-w-xl gap-2">
+          {(["light", "dark", "system"] as const).map((theme) => (
+            <button
+              key={theme}
+              type="button"
+              onClick={() => setThemePreference(theme)}
+              className={`rounded-[var(--radius-sm)] px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                themePreference === theme
+                  ? "bg-[var(--text)] text-[var(--bg)]"
+                  : "bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              {theme}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="font-display mb-2 text-2xl font-medium text-[var(--text)]">Danger Zone</h2>
         <p className="mb-4 text-sm text-[var(--text-muted)]">
           Permanently delete all local Vaultr conversations.
         </p>
@@ -157,6 +183,9 @@ function OllamaSettings() {
   const setSerperApiKey = useChatStore((state) => state.setSerperApiKey);
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
+  const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
+  const setDefaultModelPreference = useChatStore((state) => state.setDefaultModelPreference);
+  const chats = useChatStore((state) => state.chats);
   const [ollamaDraft, setOllamaDraft] = useState(ollamaUrl);
   const [serperDraft, setSerperDraft] = useState(serperApiKey);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "down">("idle");
@@ -165,7 +194,7 @@ function OllamaSettings() {
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
           Ollama Connection
         </h2>
         <div className="max-w-xl">
@@ -218,7 +247,7 @@ function OllamaSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">Web Search</h2>
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Web Search</h2>
         <div className="max-w-xl">
           <label className="mb-2 block text-sm text-[var(--text-muted)]">
             Serper API Key
@@ -245,7 +274,7 @@ function OllamaSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-2xl font-medium text-[var(--text)]">Thinking Mode</h2>
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Thinking Mode</h2>
         <button
           type="button"
           onClick={() => setThinkingModeDefault(!thinkingModeDefault)}
@@ -264,7 +293,120 @@ function OllamaSettings() {
           </span>
         </button>
       </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Data</h2>
+        <div className="max-w-xl space-y-4">
+          <label className="block">
+            <span className="mb-2 block text-sm text-[var(--text-muted)]">
+              Default model
+            </span>
+            <select
+              value={defaultModelPreference}
+              onChange={(event) => setDefaultModelPreference(event.target.value)}
+              className={fieldClass}
+            >
+              {LEX_MODELS.map((model) => (
+                <option key={model.ollamaId} value={model.ollamaId}>
+                  {model.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              const date = new Date().toISOString().slice(0, 10);
+              const blob = new Blob([JSON.stringify({ chats }, null, 2)], {
+                type: "application/json",
+              });
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement("a");
+              link.href = url;
+              link.download = `vaultr-export-${date}.json`;
+              link.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="rounded-[var(--radius-sm)] border border-[var(--text)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface)]"
+          >
+            Export conversations
+          </button>
+        </div>
+      </section>
     </div>
+  );
+}
+
+function PrivacySettings() {
+  const autoCleanupConversations = useChatStore((state) => state.autoCleanupConversations);
+  const setAutoCleanupConversations = useChatStore(
+    (state) => state.setAutoCleanupConversations
+  );
+
+  return (
+    <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
+          Data Storage
+        </h2>
+        <div className="space-y-1 text-[13px] text-[var(--text-muted)]">
+          <p>All data stored locally on your device.</p>
+          <p>Location: ~/Library/Application Support/Vaultr</p>
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
+          Auto-cleanup
+        </h2>
+        <ToggleRow
+          label="Auto-delete conversations older than 30 days"
+          enabled={autoCleanupConversations}
+          onClick={() => setAutoCleanupConversations(!autoCleanupConversations)}
+        />
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
+          Security
+        </h2>
+        <ToggleRow
+          label="Require password on launch"
+          enabled={false}
+          disabled
+          onClick={() => undefined}
+        />
+        <p className="mt-2 text-[13px] text-[var(--text-faint)]">
+          Coming in Enterprise plan
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function ToggleRow({
+  label,
+  enabled,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  enabled: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <span className="text-sm font-medium text-[var(--text)]">{label}</span>
+      <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${enabled ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
+        <span className={`h-4 w-4 rounded-full bg-white transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`} />
+      </span>
+    </button>
   );
 }
 

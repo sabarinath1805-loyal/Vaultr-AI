@@ -177,14 +177,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-[var(--bg)]">
+    <div className="h-full w-full bg-[var(--bg)]">
       {messages.length === 0 ? (
-        <div className="grid h-[calc(100vh-0px)] w-full grid-rows-[40vh_1fr]">
-          <div className="flex w-full flex-col items-center justify-end">
+        <div className="relative h-screen w-full overflow-hidden">
+          <div className="absolute left-1/2 top-[42%] w-full max-w-[720px] -translate-x-1/2 -translate-y-1/2 px-6">
             <div className="text-center text-[var(--text)]">
               {isOpenEmptyChat ? (
                 <>
-                  <h1 className="greeting flex items-center justify-center gap-3 text-[36px] font-normal leading-none tracking-[-0.02em]">
+                  <h1 className="font-display flex items-center justify-center gap-3 text-[36px] font-normal leading-none tracking-[-0.02em]">
                     <SnowflakeIcon size={28} className="shrink-0 text-[var(--text)]" />
                     Hey, I&apos;m Lex — your private legal AI.
                   </h1>
@@ -193,13 +193,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   </p>
                 </>
               ) : (
-                <h1 className="greeting mb-8 flex items-center justify-center gap-3 text-[40px] font-normal leading-none tracking-[-0.02em]">
+                <h1 className="font-display mb-8 flex items-center justify-center gap-3 text-[40px] font-normal leading-none tracking-[-0.02em]">
                   <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
                   Hi, Counselor
                 </h1>
               )}
             </div>
-            <div className="mb-2 flex w-full flex-col items-center">
+            <div className="flex w-full flex-col items-center">
               <ChatBottombar
                 input={input}
                 handleInputChange={handleInputChange}
@@ -211,8 +211,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               />
             </div>
           </div>
-          <div />
-          <p className="fixed bottom-4 left-[calc(var(--sidebar-w)+50%)] z-[5] -translate-x-1/2 whitespace-nowrap text-center text-xs text-[var(--text-faint)]">
+          <p className="fixed bottom-4 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-center text-xs text-[var(--text-faint)]">
             Lex is not a substitute for legal advice. Always verify with
             primary sources.
           </p>

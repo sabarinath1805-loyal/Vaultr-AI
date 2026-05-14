@@ -13,6 +13,7 @@ interface LocalVaultState {
   createProject: (name: string, cmNumber?: string | null, documentIds?: string[]) => LocalProject;
   deleteDocuments: (ids: string[]) => void;
   deleteDocument: (id: string) => void;
+  deleteProject: (projectId: string) => void;
   renameProject: (projectId: string, name: string) => void;
   attachDocumentsToProject: (projectId: string, files: File[]) => LocalDocument[];
 }
@@ -79,6 +80,14 @@ const useLocalVaultStore = create<LocalVaultState>()(
         }));
       },
       deleteDocument: (id) => get().deleteDocuments([id]),
+      deleteProject: (projectId) => {
+        set((state) => ({
+          projects: state.projects.filter((project) => project.id !== projectId),
+          documents: state.documents.map((doc) =>
+            doc.projectId === projectId ? { ...doc, projectId: null } : doc
+          ),
+        }));
+      },
       renameProject: (projectId, name) => {
         set((state) => ({
           projects: state.projects.map((project) =>
