@@ -90,6 +90,10 @@ export function deleteChat(id: string) {
   db.delete(chats).where(eq(chats.id, id)).run();
 }
 
+export function deleteAllChats() {
+  db.delete(chats).run();
+}
+
 export function addMessage(chatId: string, message: MessageInput): MessageRecord {
   const timestamp = message.createdAt ?? now();
   const chat = db.select().from(chats).where(eq(chats.id, chatId)).get();

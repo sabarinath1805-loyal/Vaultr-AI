@@ -175,7 +175,7 @@ export function ComposerCard({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               name="message"
-              placeholder="Ask a question about your documents..."
+              placeholder="Ask Lex a legal question..."
               minRows={1}
               maxRows={8}
               className="max-h-48 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-6 text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:outline-none"
@@ -228,7 +228,7 @@ export function ComposerCard({
                   }
                 }}
                 disabled={!isLoading && !input.trim()}
-                className="relative flex h-8 w-8 items-center justify-center rounded-[10px] border border-white/30 bg-gradient-to-b from-neutral-700 to-black text-white backdrop-blur-xl transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:from-neutral-600 disabled:to-black disabled:opacity-50"
+                className="relative flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--text)] text-white transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
                 aria-label={isLoading ? "Stop response" : "Send message"}
               >
                 {isLoading ? (

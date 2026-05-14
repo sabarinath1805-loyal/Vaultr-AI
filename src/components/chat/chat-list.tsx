@@ -18,7 +18,7 @@ export default function ChatList({
   reload,
 }: ChatListProps) {
   return (
-    <div className="flex min-h-0 flex-1 overflow-y-auto px-6">
+    <div className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-6">
       <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-end py-6">
         <div className="flex flex-col gap-6">
           {messages.map((message, index) => (
