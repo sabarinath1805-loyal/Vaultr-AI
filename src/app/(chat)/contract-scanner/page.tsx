@@ -59,13 +59,17 @@ export default function ContractScannerPage() {
 
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)]">
-      <h1 className="px-6 pb-4 pt-8 text-lg font-semibold text-[var(--text)]">
-        Contract Scanner
-      </h1>
-      <p className="px-6 pb-6 text-[13px] text-[var(--text-muted)]">
-        Upload a contract and Lex will identify risks, flag problem clauses, and
-        give you negotiation recommendations. 100% local.
-      </p>
+      <div className="flex items-center justify-between px-6 pb-4 pt-8">
+        <div>
+          <h1 className="text-lg font-semibold text-[var(--text)]">
+            Contract Scanner
+          </h1>
+          <p className="mt-1 max-w-2xl text-[13px] text-[var(--text-muted)]">
+            Upload a contract and Lex will identify risks, flag problem clauses, and
+            give you negotiation recommendations. 100% local.
+          </p>
+        </div>
+      </div>
 
       {analysis ? (
         <ResultsDisplay analysis={analysis} onReset={reset} />
