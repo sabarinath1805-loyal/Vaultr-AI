@@ -19,8 +19,12 @@ export default function ModelsPage() {
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
+  const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const syncSelectedModel = useCallback((modelIds: string[]) => {
-    const firstLexModel = LEX_MODELS.find((model) =>
+    const preferredLexModel = LEX_MODELS.find(
+      (model) => model.ollamaId === defaultModelPreference && modelIds.includes(model.ollamaId)
+    );
+    const firstLexModel = preferredLexModel || LEX_MODELS.find((model) =>
       modelIds.includes(model.ollamaId)
     );
 
@@ -35,7 +39,7 @@ export default function ModelsPage() {
     ) {
       setSelectedModel(firstLexModel?.ollamaId || null);
     }
-  }, [selectedModel, setSelectedModel]);
+  }, [defaultModelPreference, selectedModel, setSelectedModel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,7 +182,7 @@ export default function ModelsPage() {
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)] px-6 py-8">
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-lg font-semibold text-[var(--text)]">Models</h1>
+        <h1 className="font-display text-lg font-semibold text-[var(--text)]">Models</h1>
         <p className="mb-8 mt-1 text-[13px] text-[var(--text-muted)]">
           Manage your local Lex models. All models run 100% on your device.
         </p>

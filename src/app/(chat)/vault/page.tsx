@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, FileText, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { HeaderSearchBtn } from "@/components/shared/header-search-btn";
@@ -26,12 +26,15 @@ export default function VaultPage() {
   const [search, setSearch] = useState("");
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
   const attachDocumentsToProject = useLocalVaultStore((state) => state.attachDocumentsToProject);
   const deleteDocument = useLocalVaultStore((state) => state.deleteDocument);
+  const deleteProject = useLocalVaultStore((state) => state.deleteProject);
+  const renameProject = useLocalVaultStore((state) => state.renameProject);
   const returnDocumentsToComposer = useReturnDocumentsToComposer();
   const rows = useMemo(() => {
     const q = search.toLowerCase().trim();
@@ -41,6 +44,12 @@ export default function VaultPage() {
   const selectedDocuments = selectedProject
     ? documents.filter((doc) => selectedProject.documentIds.includes(doc.id))
     : [];
+
+  useEffect(() => {
+    const closeMenus = () => setOpenMenuId(null);
+    document.addEventListener("click", closeMenus);
+    return () => document.removeEventListener("click", closeMenus);
+  }, []);
 
   return (
     <main className="h-screen flex-1 overflow-y-auto bg-white">
@@ -153,18 +162,43 @@ export default function VaultPage() {
                         <div className="w-32 shrink-0 text-left">
                           {new Date(project.createdAt).toLocaleDateString()}
                         </div>
-                        <button
-                          type="button"
-                          className="flex w-8 shrink-0 justify-center text-[var(--text-faint)] hover:text-[var(--text-muted)]"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            returnDocumentsToComposer(project.documentIds);
-                          }}
-                          title="Attach vault documents to composer"
-                          aria-label={`Attach ${project.name} documents`}
-                        >
-                          <MoreHorizontal className="h-4 w-4" />
-                        </button>
+                        <div className="relative flex w-8 shrink-0 justify-center">
+                          <button
+                            type="button"
+                            className="rounded-[var(--radius-sm)] p-1 text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setOpenMenuId(openMenuId === project.id ? null : project.id);
+                            }}
+                            aria-label={`${project.name} actions`}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </button>
+                          {openMenuId === project.id && (
+                            <ActionMenu
+                              onClose={() => setOpenMenuId(null)}
+                              items={[
+                                { label: "Open", onClick: () => setSelectedProjectId(project.id) },
+                                {
+                                  label: "Rename",
+                                  onClick: () => {
+                                    const name = window.prompt("Rename vault", project.name);
+                                    if (name?.trim()) renameProject(project.id, name.trim());
+                                  },
+                                },
+                                {
+                                  label: "Delete",
+                                  destructive: true,
+                                  onClick: () => {
+                                    if (window.confirm(`Delete ${project.name}?`)) {
+                                      deleteProject(project.id);
+                                    }
+                                  },
+                                },
+                              ]}
+                            />
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -339,5 +373,36 @@ function VaultDocumentCard({
         )}
       </div>
     </article>
+  );
+}
+
+function ActionMenu({
+  items,
+  onClose,
+}: {
+  items: { label: string; destructive?: boolean; onClick: () => void }[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+      onClick={(event) => event.stopPropagation()}
+    >
+      {items.map((item) => (
+        <button
+          key={item.label}
+          type="button"
+          onClick={() => {
+            item.onClick();
+            onClose();
+          }}
+          className={`block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] hover:bg-[var(--surface)] ${
+            item.destructive ? "text-[rgb(229,62,62)]" : "text-[var(--text)]"
+          }`}
+        >
+          {item.label}
+        </button>
+      ))}
+    </div>
   );
 }
