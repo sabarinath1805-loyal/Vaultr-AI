@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
+import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 
 export interface ChatProps {
   id: string;
@@ -64,6 +65,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const base64Images = useChatStore((state) => state.base64Images);
   const setBase64Images = useChatStore((state) => state.setBase64Images);
   const selectedModel = useChatStore((state) => state.selectedModel);
+  const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
+  const serperApiKey = useChatStore((state) => state.serperApiKey);
   const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
   const pendingComposerText = useChatStore((state) => state.pendingComposerText);
   const setPendingComposerText = useChatStore((state) => state.setPendingComposerText);
@@ -83,8 +86,30 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setPendingComposerText(null);
   }, [pendingComposerText, setInput, setPendingComposerText]);
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  React.useEffect(() => {
+    if (!input.trim() && loadingSubmit) {
+      setLoadingSubmit(false);
+    }
+  }, [input, loadingSubmit]);
+
+  const onSubmit = (
+    e: React.FormEvent<HTMLFormElement>,
+    options?: ChatRequestOptions
+  ) => {
     e.preventDefault();
+    const requestBody = options?.body as
+      | {
+          workflow?: AttachedWorkflow | null;
+          webSearch?: boolean;
+          thinking?: boolean;
+          serperApiKey?: string;
+        }
+      | undefined;
+    const workflow = (requestBody?.workflow ||
+      pendingWorkflow) as AttachedWorkflow | null;
+    const webSearch = requestBody?.webSearch === true;
+    const thinking = requestBody?.thinking === true;
+
 
     if (!selectedModel) {
       toast.error("Please select a model");
@@ -110,6 +135,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     const requestOptions: ChatRequestOptions = {
       body: {
         selectedModel,
+        workflow,
+        webSearch,
+        serperApiKey: requestBody?.serperApiKey || serperApiKey,
+        thinking,
       },
       ...(base64Images && {
         data: {

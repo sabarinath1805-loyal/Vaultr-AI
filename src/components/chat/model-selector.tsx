@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import { useRouter } from "next/navigation";
 import {
   LEX_MODELS,
-  getDefaultModel,
   ollamaIdToLexName,
   sortModelsByLexOrder,
 } from "@/lib/models";
@@ -21,6 +21,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
+  const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +62,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
     ? "Ollama not running"
     : selectedModel && availableModels.includes(selectedModel)
     ? ollamaIdToLexName(selectedModel)
-    : getDefaultModel().name;
+    : "Install a Lex Model";
   const menuPosition =
     direction === "down"
       ? "top-full mt-2"
@@ -96,7 +97,17 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
               </div>
             ) : availableModels.length === 0 ? (
               <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">
-                No Lex models installed
+                <div>No Lex models installed</div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    router.push("/models");
+                  }}
+                  className="mt-1 text-[13px] text-[var(--text)] transition-colors hover:text-[var(--text-muted)]"
+                >
+                  → Go to Models page
+                </button>
               </div>
             ) : (
               availableModels.map((modelId) => (

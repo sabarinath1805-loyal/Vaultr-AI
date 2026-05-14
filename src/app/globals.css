@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital@0&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,7 +6,7 @@
 
 :root {
   --font-body: 'DM Sans', sans-serif;
-  --font-display: 'DM Serif Display', Georgia, serif;
+  --font-display: 'DM Serif Display', serif;
   --bg: #ffffff;
   --sidebar-bg: #f9f9f8;
   --border: #e8e6e1;
@@ -42,6 +42,12 @@
   body {
     background-color: var(--bg);
     color: var(--text);
+    font-family: var(--font-body);
+  }
+  input,
+  textarea,
+  select,
+  button {
     font-family: var(--font-body);
   }
 }
