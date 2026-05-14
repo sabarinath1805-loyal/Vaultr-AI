@@ -8,6 +8,8 @@ interface State {
   chats: Record<string, ChatSession>;
   currentChatId: string | null;
   pendingComposerText: string | null;
+  pendingAttachedDocumentIds: string[];
+  pendingWorkflowTitle: string | null;
   selectedModel: string | null;
   userName: string;
   isDownloading: boolean;
@@ -20,6 +22,8 @@ interface Actions {
   setBase64Images: (base64Images: string[] | null) => void;
   setCurrentChatId: (chatId: string | null) => void;
   setPendingComposerText: (text: string | null) => void;
+  setPendingAttachedDocumentIds: (documentIds: string[]) => void;
+  setPendingWorkflowTitle: (title: string | null) => void;
   setSelectedModel: (selectedModel: string) => void;
   loadChats: () => Promise<void>;
   loadChatById: (chatId: string) => Promise<ChatSession | undefined>;
@@ -63,6 +67,8 @@ const useChatStore = create<State & Actions>()(
       chats: {},
       currentChatId: null,
       pendingComposerText: null,
+      pendingAttachedDocumentIds: [],
+      pendingWorkflowTitle: null,
       selectedModel: null,
       userName: "Local User",
       isDownloading: false,
@@ -75,6 +81,9 @@ const useChatStore = create<State & Actions>()(
 
       setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
       setPendingComposerText: (text) => set({ pendingComposerText: text }),
+      setPendingAttachedDocumentIds: (documentIds) =>
+        set({ pendingAttachedDocumentIds: documentIds }),
+      setPendingWorkflowTitle: (title) => set({ pendingWorkflowTitle: title }),
       setSelectedModel: (selectedModel) => set({ selectedModel }),
       loadChats: async () => {
         const response = await fetch("/api/chats");

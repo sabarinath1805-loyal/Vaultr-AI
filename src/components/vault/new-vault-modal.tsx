@@ -1,0 +1,156 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { Upload, Users, X } from "lucide-react";
+import { FileDirectory } from "@/components/shared/file-directory";
+import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
+
+interface NewVaultModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
+  const documents = useLocalVaultStore((state) => state.documents);
+  const projects = useLocalVaultStore((state) => state.projects);
+  const addDocuments = useLocalVaultStore((state) => state.addDocuments);
+  const createProject = useLocalVaultStore((state) => state.createProject);
+  const [name, setName] = useState("");
+  const [cmNumber, setCmNumber] = useState("");
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [showMembers, setShowMembers] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setCmNumber("");
+    setSelectedDocIds(new Set());
+    setPendingFiles([]);
+    setShowMembers(false);
+  }, [open]);
+
+  if (!open) return null;
+
+  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!name.trim()) return;
+    const uploaded = pendingFiles.length ? addDocuments(pendingFiles) : [];
+    createProject(name.trim(), cmNumber.trim() || null, [
+      ...Array.from(selectedDocIds),
+      ...uploaded.map((doc) => doc.id),
+    ]);
+    onClose();
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+      <div className="flex h-[600px] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
+            <span>Vault</span>
+            <span>›</span>
+            <span>Create New</span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
+            aria-label="Close create vault"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-5 pt-3">
+            <input
+              type="text"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Vault name"
+              className="w-full bg-transparent font-display text-2xl text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
+              autoFocus
+            />
+            <input
+              type="text"
+              value={cmNumber}
+              onChange={(event) => setCmNumber(event.target.value)}
+              placeholder="Add a CM number..."
+              className="mt-1.5 w-full bg-transparent text-sm text-[var(--text-muted)] outline-none placeholder:text-[var(--text-faint)]"
+            />
+
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowMembers((value) => !value)}
+                className="flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--sidebar-bg)]"
+              >
+                <Users className="h-3 w-3 text-[var(--text-faint)]" />
+                Members
+              </button>
+            </div>
+
+            {showMembers && (
+              <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--sidebar-bg)] px-3 py-2 text-xs text-[var(--text-faint)]">
+                Local-only Vaultr workspaces stay on this device.
+              </div>
+            )}
+
+            <div className="mt-4 space-y-2">
+              <p className="text-xs font-medium text-[var(--text)]">Select documents</p>
+              <FileDirectory
+                standaloneDocs={documents.filter((doc) => !doc.projectId)}
+                directoryProjects={projects}
+                allDocuments={documents}
+                selectedIds={selectedDocIds}
+                onChange={setSelectedDocIds}
+                emptyMessage="No existing documents"
+              />
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center justify-between border-t border-[var(--border)] px-6 py-4">
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.txt"
+                className="hidden"
+                onChange={(event) => setPendingFiles(Array.from(event.target.files || []))}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--sidebar-bg)]"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                Upload files{pendingFiles.length > 0 ? ` (${pendingFiles.length})` : ""}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-lg px-4 py-2 text-sm text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={!name.trim()}
+                className="rounded-lg bg-[var(--text)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:opacity-40"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>,
+    document.body
+  );
+}
