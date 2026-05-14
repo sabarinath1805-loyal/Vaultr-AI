@@ -8,7 +8,6 @@ import {
   Briefcase,
   ChevronDown,
   ChevronsUpDown,
-  Download,
   Edit3,
   Folder,
   Grid2X2,
@@ -17,7 +16,6 @@ import {
   Shield,
   Square,
   Trash2,
-  X,
 } from "lucide-react";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import {
@@ -53,14 +51,12 @@ export function Sidebar() {
   const router = useRouter();
   const [historyOpen, setHistoryOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const chats = useChatStore((state) => state.chats);
   const handleDelete = useChatStore((state) => state.handleDelete);
   const clearAllChatsAction = useChatStore((state) => state.clearAllChats);
   const loadChats = useChatStore((state) => state.loadChats);
-  const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
+  const resetComposerState = useChatStore((state) => state.resetComposerState);
   const userName = useChatStore((state) => state.userName);
-  const setUserName = useChatStore((state) => state.setUserName);
 
   useEffect(() => {
     loadChats();
@@ -91,16 +87,6 @@ export function Sidebar() {
     router.push("/");
   };
 
-  const exportConversations = () => {
-    const blob = new Blob([JSON.stringify(chats, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "vaultr-conversations.json";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   const isNavActive = (href: string) => {
     if (href === "/") {
       return pathname === "/" || pathname.startsWith("/c/");
@@ -111,7 +97,12 @@ export function Sidebar() {
   return (
     <aside className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ease-in-out ${collapsed ? "w-10" : "w-[var(--sidebar-w)]"}`}>
       <div className={`flex items-center ${collapsed ? "justify-center px-1" : "justify-between px-4"} py-[14px]`}>
-        <Link href="/" className="flex items-center gap-2 text-[var(--text)]" title="Vaultr">
+        <Link
+          href="/"
+          className="flex items-center gap-2 text-[var(--text)]"
+          title="Vaultr"
+          onClick={() => resetComposerState()}
+        >
           <SnowflakeIcon size={16} />
           {!collapsed && <span className="text-sm font-medium">Vaultr</span>}
         </Link>
@@ -167,7 +158,7 @@ export function Sidebar() {
           <button
             type="button"
             onClick={() => {
-              setCurrentChatId(null);
+              resetComposerState();
               router.push("/");
             }}
             className="mt-4 flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-[7px] text-[13px] text-[var(--text)] transition-colors hover:bg-[rgb(240,238,234)]"
@@ -280,7 +271,7 @@ export function Sidebar() {
         </div>}
       </div>
 
-      <button type="button" onClick={() => setSettingsOpen(true)} className={`flex items-center gap-2 border-t border-[var(--border)] p-3 text-left transition-colors hover:bg-[rgb(240,238,234)] ${collapsed ? "justify-center px-1" : ""}`}>
+      <button type="button" onClick={() => router.push("/settings")} className={`flex items-center gap-2 border-t border-[var(--border)] p-3 text-left transition-colors hover:bg-[rgb(240,238,234)] ${collapsed ? "justify-center px-1" : ""}`}>
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--border)] text-xs font-medium text-[var(--text)]">
           L
         </div>
@@ -294,108 +285,6 @@ export function Sidebar() {
           <ChevronsUpDown size={14} className="text-[var(--text-muted)]" />
         </>)}
       </button>
-      {settingsOpen && (
-        <AccountPanel
-          userName={userName}
-          onUserNameChange={setUserName}
-          onClose={() => setSettingsOpen(false)}
-          onClearAll={clearAllChats}
-          onExport={exportConversations}
-        />
-      )}
     </aside>
-  );
-}
-
-function TogglePreference({ label, storageKey }: { label: string; storageKey: string }) {
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
-    setEnabled(window.localStorage.getItem(storageKey) === "true");
-  }, [storageKey]);
-
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        setEnabled((value) => {
-          window.localStorage.setItem(storageKey, String(!value));
-          return !value;
-        });
-      }}
-      className="flex w-full items-center justify-between py-2 text-left text-[13px] text-[var(--text)]"
-    >
-      <span>{label}</span>
-      <span className={`flex h-5 w-9 items-center rounded-full p-0.5 transition-colors ${enabled ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
-        <span className={`h-4 w-4 rounded-full bg-white transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`} />
-      </span>
-    </button>
-  );
-}
-
-function AccountPanel({
-  userName,
-  onUserNameChange,
-  onClose,
-  onClearAll,
-  onExport,
-}: {
-  userName: string;
-  onUserNameChange: (name: string) => void;
-  onClose: () => void;
-  onClearAll: () => Promise<void>;
-  onExport: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
-      <div
-        className="w-[400px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-[var(--text)]">Account</h2>
-          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] p-1 text-[var(--text-muted)] hover:bg-[var(--surface)]" aria-label="Close account panel">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="mt-5 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[var(--border)] text-lg font-medium text-[var(--text)]">L</div>
-          <div className="min-w-0 flex-1">
-            <input
-              value={userName}
-              onChange={(event) => onUserNameChange(event.target.value)}
-              className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1 text-[13px] font-medium text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
-              aria-label="Account name"
-            />
-            <div className="mt-1 text-[12px] text-[var(--text-muted)]">
-              Plan: Solo · <span className="underline underline-offset-2">Upgrade to Enterprise</span>
-            </div>
-          </div>
-        </div>
-
-        <section className="mt-6">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.02em] text-[var(--text-muted)]">Preferences</h3>
-          <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] px-3">
-            <TogglePreference label="Show thinking process" storageKey="vaultr-show-thinking" />
-            <div className="border-t border-[var(--border)]" />
-            <TogglePreference label="Compact message view" storageKey="vaultr-compact-messages" />
-          </div>
-        </section>
-
-        <section className="mt-5">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.02em] text-[var(--text-muted)]">Data</h3>
-          <div className="mt-2 flex flex-col gap-2">
-            <button type="button" onClick={onClearAll} className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-left text-[13px] text-[rgb(229,62,62)] transition-colors hover:bg-[rgb(255,240,240)]">
-              Clear all conversations
-            </button>
-            <button type="button" onClick={onExport} className="flex items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-left text-[13px] text-[var(--text)] transition-colors hover:bg-[var(--surface)]">
-              <Download className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-              Export conversations
-            </button>
-          </div>
-        </section>
-      </div>
-    </div>
   );
 }
