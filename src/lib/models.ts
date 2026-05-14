@@ -96,6 +96,10 @@ export function lexNameToOllamaId(lexName: string): string | undefined {
   return model?.ollamaId;
 }
 
+export function isLexModel(modelId: string | null | undefined): boolean {
+  return !!modelId && LEX_MODELS.some((model) => model.ollamaId === modelId);
+}
+
 export function getDefaultModel(): LexModel {
   return LEX_MODELS[0];
 }
