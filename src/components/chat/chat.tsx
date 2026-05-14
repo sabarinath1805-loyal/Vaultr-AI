@@ -41,11 +41,23 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       setLoadingSubmit(false);
       router.replace(`/c/${id}`);
     },
-    onError: (error) => {
+    onError: async (error) => {
       setLoadingSubmit(false);
-      router.replace("/");
       console.error(error.message);
       console.error(error.cause);
+
+      const errorMessage: Message = {
+        id: generateId(),
+        role: "assistant",
+        content: "Ollama is not running. Start Ollama to chat with Lex.",
+        createdAt: new Date(),
+      };
+
+      const savedMessages = getMessagesById(id);
+      const nextMessages = [...savedMessages, errorMessage];
+      setMessages(nextMessages);
+      await saveMessages(id, nextMessages);
+      router.replace(`/c/${id}`);
     },
   });
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);

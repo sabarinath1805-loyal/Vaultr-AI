@@ -59,14 +59,14 @@ export default function ContractScannerPage() {
 
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)]">
-      <div className="flex items-center justify-between px-6 pb-4 pt-8">
+      <div className="flex items-center justify-between px-6 pb-6 pt-8">
         <div>
-          <h1 className="text-lg font-semibold text-[var(--text)]">
+          <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
             Contract Scanner
           </h1>
-          <p className="mt-1 max-w-2xl text-[13px] text-[var(--text-muted)]">
-            Upload a contract and Lex will identify risks, flag problem clauses, and
-            give you negotiation recommendations. 100% local.
+          <p className="mt-2 max-w-[600px] text-sm leading-[1.6] text-[var(--text-muted)]">
+            Upload any contract and Lex will identify risks, flag problem clauses, and give you
+            negotiation recommendations. 100% local — your documents never leave your device.
           </p>
         </div>
       </div>
@@ -79,6 +79,7 @@ export default function ContractScannerPage() {
           error={error}
           isScanning={isScanning}
           onFileSelected={handleFileSelected}
+          onRemoveFile={() => setFile(null)}
           onScan={scanContract}
         />
       )}

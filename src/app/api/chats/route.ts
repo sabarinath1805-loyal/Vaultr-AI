@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createOllama } from "ollama-ai-provider";
 import { generateText } from "ai";
-import { createChat, listChatsWithMessages } from "@/lib/db/chats";
+import { createChat, deleteAllChats, listChatsWithMessages } from "@/lib/db/chats";
 import { toClientChat } from "@/lib/api/chats";
 import { CONTRACT_ANALYSIS_PROMPT } from "@/lib/contract-scanner";
 import { OLLAMA_DEFAULT_URL } from "@/lib/lex";
@@ -100,4 +100,10 @@ export async function POST(req: Request) {
   const chat = createChat(body.id);
 
   return NextResponse.json({ chat: toClientChat({ ...chat, messages: [] }) });
+}
+
+export async function DELETE() {
+  deleteAllChats();
+
+  return NextResponse.json({ ok: true });
 }

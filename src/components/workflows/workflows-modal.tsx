@@ -13,6 +13,18 @@ interface WorkflowsModalProps {
   onUse: (prompt: string) => void;
 }
 
+function workflowPrompt(workflow: BuiltInWorkflow) {
+  if (workflow.prompt) return workflow.prompt;
+  const columns = workflow.columnsConfig || [];
+  return [
+    `## ${workflow.title}`,
+    "",
+    `Review the selected documents using this ${workflow.practice} workflow.`,
+    "",
+    ...columns.map((column) => `### ${column.name}\n${column.prompt || ""}`),
+  ].join("\n");
+}
+
 export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
   const [selected, setSelected] = useState<BuiltInWorkflow>(BUILT_IN_WORKFLOWS[0]);
   const [search, setSearch] = useState("");
@@ -43,7 +55,7 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
       onClick={onClose}
     >
       <div
-        className="flex h-[600px] w-[min(900px,calc(100vw-48px))] flex-col rounded-[var(--radius-lg)] border border-[var(--border)] bg-white font-sans shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="flex h-[600px] w-[min(900px,calc(100vw-48px))] flex-col rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4">
@@ -149,7 +161,7 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
                   em: ({ children }) => <em className="italic">{children}</em>,
                 }}
               >
-                {selected.prompt}
+                {workflowPrompt(selected)}
               </ReactMarkdown>
             </div>
           </div>
@@ -166,7 +178,7 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
           <button
             type="button"
             onClick={() => {
-              onUse(selected.prompt);
+              onUse(workflowPrompt(selected));
               onClose();
             }}
             className="rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-1.5 text-sm font-medium text-white transition-[background-color] duration-150 hover:bg-[rgb(51,51,51)]"

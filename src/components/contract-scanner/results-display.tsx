@@ -53,8 +53,8 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
   ].join("\n\n");
 
   return (
-    <div className="space-y-4 px-6 pb-8">
-      <article className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-6">
+    <div className="space-y-5 px-6 pb-8">
+      <article className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-2xl text-[var(--text)]">
@@ -64,19 +64,19 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
               Between {analysis.parties.join(" and ")}
             </p>
           </div>
-          <RiskBadge risk={analysis.overall_risk} large />
+          <div className="shrink-0">
+            <RiskBadge risk={analysis.overall_risk} large />
+          </div>
         </div>
         <p className="mt-4 text-sm leading-[1.6] text-[var(--text)]">
           {analysis.summary}
         </p>
       </article>
 
-      <div className="text-[13px]">
-        <span className={riskClasses.HIGH.text}>{counts.high} High Risk</span>
+      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px]">
+        <span className={riskClasses.HIGH.text}>{counts.high} High</span>
         <span className="px-2 text-[var(--border)]">·</span>
-        <span className={riskClasses.MEDIUM.text}>{counts.medium} Medium Risk</span>
-        <span className="px-2 text-[var(--border)]">·</span>
-        <span className={riskClasses.LOW.text}>{counts.low} Low Risk</span>
+        <span className={riskClasses.MEDIUM.text}>{counts.medium} Medium</span>
         <span className="px-2 text-[var(--border)]">·</span>
         <span className="text-[var(--text-muted)]">
           {counts.standard} Standard Clauses
