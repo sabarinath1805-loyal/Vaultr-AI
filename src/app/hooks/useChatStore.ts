@@ -31,6 +31,7 @@ interface Actions {
   getMessagesById: (chatId: string) => Message[];
   saveMessages: (chatId: string, messages: Message[]) => Promise<void>;
   handleDelete: (chatId: string, messageId?: string) => Promise<void>;
+  clearAllChats: () => Promise<void>;
   setUserName: (userName: string) => void;
   startDownload: (modelName: string) => void;
   stopDownload: () => void;
@@ -192,6 +193,12 @@ const useChatStore = create<State & Actions>()(
         }
 
         await fetch(`/api/chats/${chatId}`, {
+          method: "DELETE",
+        });
+      },
+      clearAllChats: async () => {
+        set({ chats: {}, currentChatId: null });
+        await fetch("/api/chats", {
           method: "DELETE",
         });
       },

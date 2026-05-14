@@ -13,6 +13,7 @@ interface LocalVaultState {
   createProject: (name: string, cmNumber?: string | null, documentIds?: string[]) => LocalProject;
   deleteDocuments: (ids: string[]) => void;
   renameProject: (projectId: string, name: string) => void;
+  attachDocumentsToProject: (projectId: string, files: File[]) => LocalDocument[];
 }
 
 const useLocalVaultStore = create<LocalVaultState>()(
@@ -83,6 +84,7 @@ const useLocalVaultStore = create<LocalVaultState>()(
           ),
         }));
       },
+      attachDocumentsToProject: (projectId, files) => get().addDocuments(files, projectId),
     }),
     {
       name: "vaultr-local-vault",
