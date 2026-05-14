@@ -46,7 +46,12 @@ export default function VaultPage() {
     : [];
 
   useEffect(() => {
-    const closeMenus = () => setOpenMenuId(null);
+    const closeMenus = (event: MouseEvent) => {
+      if (event.target instanceof HTMLElement && event.target.closest("[data-vault-actions]")) {
+        return;
+      }
+      setOpenMenuId(null);
+    };
     document.addEventListener("click", closeMenus);
     return () => document.removeEventListener("click", closeMenus);
   }, []);
@@ -162,7 +167,7 @@ export default function VaultPage() {
                         <div className="w-32 shrink-0 text-left">
                           {new Date(project.createdAt).toLocaleDateString()}
                         </div>
-                        <div className="relative flex w-8 shrink-0 justify-center">
+                        <div className="relative flex w-8 shrink-0 justify-center" data-vault-actions>
                           <button
                             type="button"
                             className="rounded-[var(--radius-sm)] p-1 text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
