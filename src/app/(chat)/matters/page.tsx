@@ -1,56 +1,64 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Briefcase, MoreHorizontal, X } from "lucide-react";
+import { Briefcase, MoreHorizontal, Plus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { generateUUID } from "@/lib/utils";
-
-interface Matter {
-  id: string;
-  name: string;
-  client: string;
-  type: "Litigation" | "Corporate" | "Real Estate" | "Employment" | "Finance" | "Other";
-  status: "Active" | "On Hold" | "Closed";
-  createdAt: string;
-}
-
-const matterTypes: Matter["type"][] = [
-  "Litigation",
-  "Corporate",
-  "Real Estate",
-  "Employment",
-  "Finance",
-  "Other",
-];
-
-const matterStatuses: Matter["status"][] = ["Active", "On Hold", "Closed"];
-const storageKey = "vaultr-matters";
+import {
+  MATTER_STATUSES,
+  MATTER_TYPES,
+  Matter,
+  readMatters,
+  writeMatters,
+} from "@/lib/matters";
 
 export default function MattersPage() {
   const [matters, setMatters] = useState<Matter[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingMatter, setEditingMatter] = useState<Matter | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(storageKey);
-      if (saved) setMatters(JSON.parse(saved));
-    } catch {
-      setMatters([]);
-    }
+    setMatters(readMatters());
   }, []);
 
   const persistMatters = (next: Matter[]) => {
     setMatters(next);
-    window.localStorage.setItem(storageKey, JSON.stringify(next));
+    writeMatters(next);
+  };
+
+  const openCreateModal = () => {
+    setEditingMatter(null);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (matter: Matter) => {
+    setEditingMatter(matter);
+    setModalOpen(true);
+    setOpenMenuId(null);
   };
 
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)]">
-      <h1 className="px-6 pb-4 pt-8 text-lg font-semibold text-[var(--text)]">
-        Matters
-      </h1>
-      <p className="px-6 pb-6 text-[13px] text-[var(--text-muted)]">
-        Manage your client matters and cases. Link documents, chats, and contract scans to each matter.
-      </p>
+      <div className="flex items-start justify-between px-6 pb-6 pt-8">
+        <div>
+          <h1 className="page-title text-[28px] font-normal text-[var(--text)]">
+            Matters
+          </h1>
+          <p className="mt-2 text-[13px] text-[var(--text-muted)]">
+            Manage your client matters and cases. Link documents, chats, and contract scans to each matter.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={openCreateModal}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--text)] text-white transition-colors hover:bg-[#333]"
+          aria-label="New Matter"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
 
       <div className="px-6">
         {matters.length === 0 ? (
@@ -59,7 +67,7 @@ export default function MattersPage() {
             <p className="mt-3 text-sm text-[var(--text-muted)]">No matters yet</p>
             <button
               type="button"
-              onClick={() => setModalOpen(true)}
+              onClick={openCreateModal}
               className="mt-4 rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white transition-[background-color] duration-150 hover:bg-[rgb(51,51,51)]"
             >
               + New Matter
@@ -76,35 +84,20 @@ export default function MattersPage() {
               <div>Actions</div>
             </div>
             {matters.map((matter) => (
-              <div
+              <MatterRow
                 key={matter.id}
-                className="grid grid-cols-[1.3fr_1fr_1fr_1fr_1fr_80px] items-center border-b border-[var(--border)] px-4 py-3 text-[13px] last:border-b-0"
-              >
-                <div className="font-medium text-[var(--text)]">{matter.name}</div>
-                <div className="text-[var(--text-muted)]">{matter.client || "—"}</div>
-                <div className="text-[var(--text-muted)]">{matter.type}</div>
-                <div className="text-[var(--text-muted)]">{matter.status}</div>
-                <div className="text-[var(--text-muted)]">
-                  {new Date(matter.createdAt).toLocaleDateString()}
-                </div>
-                <div className="group relative flex items-center">
-                  <button type="button" className="rounded-[var(--radius-sm)] p-1 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]" aria-label={`${matter.name} actions`}>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </button>
-                  <div className="absolute right-0 top-7 z-10 hidden min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08)] group-focus-within:block group-hover:block">
-                    <button type="button" className="block w-full rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-[13px] text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]">
-                      Open
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => persistMatters(matters.filter((item) => item.id !== matter.id))}
-                      className="block w-full rounded-[var(--radius-sm)] px-2 py-1.5 text-left text-[13px] text-[rgb(229,62,62)] hover:bg-[var(--surface)]"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
+                matter={matter}
+                menuOpen={openMenuId === matter.id}
+                onOpen={() => router.push(`/matters/${matter.id}`)}
+                onToggleMenu={() => setOpenMenuId(openMenuId === matter.id ? null : matter.id)}
+                onEdit={() => openEditModal(matter)}
+                onDelete={() => {
+                  if (window.confirm(`Delete ${matter.name}?`)) {
+                    persistMatters(matters.filter((item) => item.id !== matter.id));
+                  }
+                  setOpenMenuId(null);
+                }}
+              />
             ))}
           </div>
         )}
@@ -114,26 +107,109 @@ export default function MattersPage() {
         <NewMatterModal
           onClose={() => setModalOpen(false)}
           onCreate={(matter) => {
-            persistMatters([matter, ...matters]);
+            persistMatters(editingMatter
+              ? matters.map((item) => (item.id === matter.id ? matter : item))
+              : [matter, ...matters]);
             setModalOpen(false);
           }}
+          matter={editingMatter}
         />
       )}
     </main>
   );
 }
 
+function MatterRow({
+  matter,
+  menuOpen,
+  onOpen,
+  onToggleMenu,
+  onEdit,
+  onDelete,
+}: {
+  matter: Matter;
+  menuOpen: boolean;
+  onOpen: () => void;
+  onToggleMenu: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div
+      className="grid cursor-pointer grid-cols-[1.3fr_1fr_1fr_1fr_1fr_80px] items-center border-b border-[var(--border)] px-4 py-3 text-[13px] last:border-b-0 hover:bg-[var(--sidebar-bg)]"
+      onClick={onOpen}
+    >
+      <div className="font-medium text-[var(--text)]">{matter.name}</div>
+      <div className="text-[var(--text-muted)]">{matter.client || "—"}</div>
+      <div className="text-[var(--text-muted)]">{matter.type}</div>
+      <div className="text-[var(--text-muted)]">{matter.status}</div>
+      <div className="text-[var(--text-muted)]">
+        {new Date(matter.createdAt).toLocaleDateString()}
+      </div>
+      <div className="relative flex items-center">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleMenu();
+          }}
+          className="rounded-[var(--radius-sm)] p-1 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+          aria-label={`${matter.name} actions`}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+        </button>
+        {menuOpen && (
+          <div className="absolute right-0 top-7 z-10 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpen();
+              }}
+              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+            >
+              Open
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onEdit();
+              }}
+              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+            >
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
+              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[rgb(229,62,62)] hover:bg-[var(--surface)]"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function NewMatterModal({
   onClose,
   onCreate,
+  matter,
 }: {
   onClose: () => void;
   onCreate: (matter: Matter) => void;
+  matter?: Matter | null;
 }) {
-  const [name, setName] = useState("");
-  const [client, setClient] = useState("");
-  const [type, setType] = useState<Matter["type"]>("Litigation");
-  const [status, setStatus] = useState<Matter["status"]>("Active");
+  const [name, setName] = useState(matter?.name || "");
+  const [client, setClient] = useState(matter?.client || "");
+  const [type, setType] = useState<Matter["type"]>(matter?.type || "Litigation");
+  const [status, setStatus] = useState<Matter["status"]>(matter?.status || "Active");
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
@@ -144,17 +220,19 @@ function NewMatterModal({
           event.preventDefault();
           if (!name.trim()) return;
           onCreate({
-            id: generateUUID(),
+            id: matter?.id || generateUUID(),
             name: name.trim(),
             client: client.trim(),
             type,
             status,
-            createdAt: new Date().toISOString(),
+            createdAt: matter?.createdAt || new Date().toISOString(),
           });
         }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-[var(--text)]">New Matter</h2>
+          <h2 className="text-base font-semibold text-[var(--text)]">
+            {matter ? "Edit Matter" : "New Matter"}
+          </h2>
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] p-1 text-[var(--text-muted)] hover:bg-[var(--surface)]" aria-label="Close new matter">
             <X className="h-4 w-4" />
           </button>
@@ -176,7 +254,7 @@ function NewMatterModal({
             onChange={(event) => setStatus(event.target.value as Matter["status"])}
             className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
           >
-            {matterStatuses.map((matterStatus) => (
+            {MATTER_STATUSES.map((matterStatus) => (
               <option key={matterStatus}>{matterStatus}</option>
             ))}
           </select>
@@ -196,7 +274,7 @@ function NewMatterModal({
             onChange={(event) => setType(event.target.value as Matter["type"])}
             className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
           >
-            {matterTypes.map((matterType) => (
+            {MATTER_TYPES.map((matterType) => (
               <option key={matterType}>{matterType}</option>
             ))}
           </select>
@@ -206,7 +284,7 @@ function NewMatterModal({
             Cancel
           </button>
           <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white hover:bg-[#333]">
-            Create Matter
+            {matter ? "Save Matter" : "Create Matter"}
           </button>
         </div>
       </form>

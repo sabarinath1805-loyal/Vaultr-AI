@@ -74,7 +74,9 @@ export function AddDocumentsModal({
   };
 
   const handleConfirm = () => {
-    const selected = documents.filter((doc) => selectedIds.has(doc.id));
+    const selected = useLocalVaultStore
+      .getState()
+      .documents.filter((doc) => selectedIds.has(doc.id));
     const projectIds = new Set(selected.map((doc) => doc.projectId).filter(Boolean));
     const projectIdValues = Array.from(projectIds);
     onSelect(selected, projectIdValues.length === 1 ? (projectIdValues[0] as string) : undefined);
