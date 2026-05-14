@@ -23,6 +23,12 @@ export default function MattersPage() {
     setMatters(readMatters());
   }, []);
 
+  useEffect(() => {
+    const closeMenus = () => setOpenMenuId(null);
+    document.addEventListener("click", closeMenus);
+    return () => document.removeEventListener("click", closeMenus);
+  }, []);
+
   const persistMatters = (next: Matter[]) => {
     setMatters(next);
     writeMatters(next);
@@ -43,7 +49,7 @@ export default function MattersPage() {
     <main className="h-screen overflow-y-auto bg-[var(--bg)]">
       <div className="flex items-start justify-between px-6 pb-6 pt-8">
         <div>
-          <h1 className="page-title text-[28px] font-normal text-[var(--text)]">
+          <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
             Matters
           </h1>
           <p className="mt-2 text-[13px] text-[var(--text-muted)]">
@@ -159,7 +165,10 @@ function MatterRow({
           <MoreHorizontal className="h-4 w-4" />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-7 z-10 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+          <div
+            className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+            onClick={(event) => event.stopPropagation()}
+          >
             <button
               type="button"
               onClick={(event) => {
@@ -230,7 +239,7 @@ function NewMatterModal({
         }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-[var(--text)]">
+          <h2 className="font-display text-base font-semibold text-[var(--text)]">
             {matter ? "Edit Matter" : "New Matter"}
           </h2>
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] p-1 text-[var(--text-muted)] hover:bg-[var(--surface)]" aria-label="Close new matter">
