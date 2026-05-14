@@ -1,18 +1,22 @@
 "use client";
 
-import { useState } from "react";
 import { UploadZone } from "@/components/contract-scanner/upload-zone";
 import { ResultsDisplay } from "@/components/contract-scanner/results-display";
-import type { ContractAnalysis } from "@/lib/contract-scanner";
 import useChatStore from "@/app/hooks/useChatStore";
+import useContractScannerStore from "@/app/hooks/useContractScannerStore";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export default function ContractScannerPage() {
-  const [file, setFile] = useState<File | null>(null);
-  const [analysis, setAnalysis] = useState<ContractAnalysis | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
+  const file = useContractScannerStore((state) => state.file);
+  const analysis = useContractScannerStore((state) => state.analysis);
+  const error = useContractScannerStore((state) => state.error);
+  const isScanning = useContractScannerStore((state) => state.isScanning);
+  const setFile = useContractScannerStore((state) => state.setFile);
+  const setAnalysis = useContractScannerStore((state) => state.setAnalysis);
+  const setError = useContractScannerStore((state) => state.setError);
+  const setIsScanning = useContractScannerStore((state) => state.setIsScanning);
+  const reset = useContractScannerStore((state) => state.reset);
   const selectedModel = useChatStore((state) => state.selectedModel);
 
   const handleFileSelected = (selectedFile: File) => {
@@ -51,12 +55,6 @@ export default function ContractScannerPage() {
     }
 
     setAnalysis(data.analysis);
-  };
-
-  const reset = () => {
-    setFile(null);
-    setAnalysis(null);
-    setError(null);
   };
 
   return (
