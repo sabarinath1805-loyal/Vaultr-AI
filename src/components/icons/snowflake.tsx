@@ -6,16 +6,16 @@ interface SnowflakeIconProps {
 export function SnowflakeIcon({ size = 16, className }: SnowflakeIconProps) {
   return (
     <svg
-      viewBox="0 0 32 32"
+      viewBox="0 0 22 22"
       fill="none"
       width={size}
       height={size}
       className={className}
     >
-      <line x1="16" y1="2" x2="16" y2="30" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <line x1="2" y1="16" x2="30" y2="16" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <line x1="5.5" y1="5.5" x2="26.5" y2="26.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-      <line x1="26.5" y1="5.5" x2="5.5" y2="26.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+      <line x1="11" y1="1" x2="11" y2="21" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="1" y1="11" x2="21" y2="11" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="4" y1="4" x2="18" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
+      <line x1="18" y1="4" x2="4" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
