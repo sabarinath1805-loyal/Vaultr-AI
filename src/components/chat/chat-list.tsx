@@ -1,6 +1,17 @@
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
+import { useEffect } from "react";
 import ChatMessage from "./chat-message";
+
+declare global {
+  interface Window {
+    __vaultrPhase16Logs?: string[];
+    __vaultrPhase16FirstTokenLogged?: boolean;
+    __vaultrPhase16RenderFalseLogged?: boolean;
+    __vaultrPhase16RenderTrueLogged?: boolean;
+    __vaultrPhase16SeenThinkingTrue?: boolean;
+  }
+}
 
 interface ChatListProps {
   messages: Message[];
@@ -17,6 +28,40 @@ export default function ChatList({
   isThinking,
   reload,
 }: ChatListProps) {
+  useEffect(() => {
+    if (!isThinking || window.__vaultrPhase16RenderTrueLogged) return;
+
+    window.__vaultrPhase16RenderTrueLogged = true;
+    window.__vaultrPhase16SeenThinkingTrue = true;
+
+    const message = `❌ THINKING ANIMATION SHOULD RENDER - isThinking is: ${isThinking}`;
+
+    console.log(message);
+    if (typeof window !== "undefined") {
+      window.__vaultrPhase16Logs = [
+        ...(window.__vaultrPhase16Logs ?? []),
+        message,
+      ];
+    }
+  }, [isThinking]);
+
+  if (
+    !isThinking &&
+    typeof window !== "undefined" &&
+    window.__vaultrPhase16SeenThinkingTrue &&
+    window.__vaultrPhase16FirstTokenLogged &&
+    !window.__vaultrPhase16RenderFalseLogged
+  ) {
+    window.__vaultrPhase16RenderFalseLogged = true;
+    const message = "❌ THINKING ANIMATION SHOULD RENDER - isThinking is: false";
+
+    console.log(message);
+    window.__vaultrPhase16Logs = [
+      ...(window.__vaultrPhase16Logs ?? []),
+      message,
+    ];
+  }
+
   return (
     <div className="h-full min-h-0 overflow-y-auto px-6 pb-[120px] pt-20">
       <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col">

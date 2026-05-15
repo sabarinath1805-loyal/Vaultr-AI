@@ -178,7 +178,7 @@ export function ComposerCard({
 
   return (
     <>
-      <form onSubmit={submitWithReset} className="w-full max-w-[780px]">
+      <form onSubmit={submitWithReset} className="w-full" style={{ maxWidth: "780px" }}>
         <div className="rounded-[16px] border border-[var(--border)] bg-[var(--bg)] md:rounded-[20px]">
           {(selectedWorkflow || attachedDocuments.length > 0) && (
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
