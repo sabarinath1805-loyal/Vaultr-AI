@@ -77,7 +77,11 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   if (message.role === "user") {
     return (
       <div className="group animate-message-in ml-auto max-w-[80%]">
-        <div className="rounded-[20px] bg-[var(--user-bubble)] px-4 py-3 text-sm leading-normal text-[var(--white)]">
+        <div
+          data-testid="user-message"
+          className="px-4 py-3 text-sm leading-normal text-[var(--white)]"
+          style={{ borderRadius: "20px", backgroundColor: "#3d3b38" }}
+        >
           {message.content}
         </div>
         <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
