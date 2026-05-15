@@ -119,7 +119,7 @@ export function UploadZone({
           />
         </label>
       ) : (
-        <div className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-6">
+        <div className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6">
           <div className="flex items-center justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--surface)]">

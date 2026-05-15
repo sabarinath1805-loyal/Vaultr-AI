@@ -51,7 +51,7 @@ export default function WorkflowsPage() {
   };
 
   return (
-    <main className="flex h-screen overflow-hidden bg-white">
+    <main className="flex h-screen overflow-hidden bg-[var(--bg)]">
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center justify-between px-8 py-4">
           <h1 className="font-display text-2xl font-normal text-[var(--text)]">Workflows</h1>
@@ -59,7 +59,7 @@ export default function WorkflowsPage() {
             <select
               value={practiceFilter}
               onChange={(event) => setPracticeFilter(event.target.value)}
-              className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3 py-2 text-xs text-[var(--text-muted)] outline-none"
+              className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--text-muted)] outline-none"
             >
               <option value="">Filter by practice</option>
               {practices.map((practice) => (
@@ -139,7 +139,7 @@ export default function WorkflowsPage() {
             <p className="mt-1 text-xs text-[var(--text-muted)]">{selected.title}</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            <div className="prose prose-sm max-w-none rounded-[var(--radius-md)] border border-[var(--border)] bg-white p-4 text-[13px] leading-relaxed text-[var(--text)]">
+            <div className="prose prose-sm max-w-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-6 py-5 text-sm leading-[1.7] text-[var(--text)] prose-headings:mb-2 prose-headings:text-[15px] prose-headings:font-semibold prose-p:mb-3 prose-p:leading-[1.7] prose-li:mb-2">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{workflowPrompt(selected)}</ReactMarkdown>
             </div>
           </div>

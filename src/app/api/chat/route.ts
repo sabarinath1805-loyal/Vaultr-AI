@@ -47,16 +47,20 @@ export async function POST(req: Request) {
       ]
     : currentMessage.content;
 
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), 120_000);
+
   try {
     const response = await fetch(`${ollamaUrl}/v1/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      signal: abortController.signal,
       body: JSON.stringify({
         model: selectedModel,
         stream: true,
         ...(thinking ? { think: true } : {}),
         messages: [
-          { role: 'system', content: systemContent },
+          { role: "system", content: systemContent },
           ...initialMessages.map(
             (message: { role: string; content: string }) => ({
               role: message.role,
@@ -67,6 +71,8 @@ export async function POST(req: Request) {
         ],
       }),
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok || !response.body) {
       throw new Error(`Ollama request failed: ${response.status}`);
@@ -87,32 +93,11 @@ export async function POST(req: Request) {
             buffer = lines.pop() || "";
 
             for (const line of lines) {
-              const trimmed = line.trim();
-              if (!trimmed.startsWith("data:")) continue;
-              const payload = trimmed.slice(5).trim();
-              if (!payload || payload === "[DONE]") continue;
-
-              try {
-                const parsed = JSON.parse(payload);
-                const delta = parsed.choices?.[0]?.delta;
-                const thinkingToken = delta?.thinking;
-                const token = delta?.content;
-                if (thinkingToken) {
-                  controller.enqueue(
-                    encoder.encode(
-                      `0:${JSON.stringify(`<think>${thinkingToken}</think>`)}\n`
-                    )
-                  );
-                }
-                if (token) {
-                  controller.enqueue(
-                    encoder.encode(`0:${JSON.stringify(token)}\n`)
-                  );
-                }
-              } catch {
-                continue;
-              }
+              enqueueSseLine(line, controller, encoder);
             }
+          }
+          if (buffer.trim()) {
+            enqueueSseLine(buffer, controller, encoder);
           }
           if (webSearch) {
             controller.enqueue(
@@ -143,9 +128,10 @@ export async function POST(req: Request) {
       },
     });
   } catch {
+    clearTimeout(timeout);
     return new Response(
       `3:${JSON.stringify(
-        "Ollama is not running. Start Ollama to chat with Lex."
+        "Lex is unavailable. Make sure Ollama is running and try again."
       )}\n`,
       {
         status: 503,
@@ -155,6 +141,34 @@ export async function POST(req: Request) {
         },
       }
     );
+  }
+}
+
+function enqueueSseLine(
+  line: string,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder
+) {
+  const trimmed = line.trim();
+  if (!trimmed.startsWith("data:")) return;
+  const payload = trimmed.slice(5).trim();
+  if (!payload || payload === "[DONE]") return;
+
+  try {
+    const parsed = JSON.parse(payload);
+    const delta = parsed.choices?.[0]?.delta;
+    const thinkingToken = delta?.thinking;
+    const token = delta?.content;
+    if (thinkingToken) {
+      controller.enqueue(
+        encoder.encode(`0:${JSON.stringify(`<think>${thinkingToken}</think>`)}\n`)
+      );
+    }
+    if (token) {
+      controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
+    }
+  } catch {
+    return;
   }
 }
 
