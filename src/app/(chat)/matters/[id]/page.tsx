@@ -52,14 +52,14 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
 
   if (!matter) {
     return (
-      <main className="h-screen bg-white p-8 text-sm text-[var(--text-muted)]">
+      <main className="h-screen bg-[var(--bg)] p-8 text-sm text-[var(--text-muted)]">
         Matter not found.
       </main>
     );
   }
 
   return (
-    <main className="h-screen overflow-y-auto bg-white px-8 py-6">
+    <main className="h-screen overflow-y-auto bg-[var(--bg)] px-8 py-6">
       <button
         type="button"
         onClick={() => router.push("/matters")}
@@ -106,7 +106,7 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
           ) : (
             <div className="grid gap-3">
               {linkedDocuments.map((doc) => (
-                <div key={doc.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-white p-4">
+                <div key={doc.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-4">
                   <div className="text-sm font-medium text-[var(--text)]">{doc.filename}</div>
                   <div className="mt-1 text-xs text-[var(--text-muted)]">
                     {formatBytes(doc.sizeBytes)} · Uploaded {new Date(doc.createdAt).toLocaleDateString()}
@@ -157,7 +157,7 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
           ) : (
             <div className="grid gap-3">
               {links.scans.map((scanId) => (
-                <div key={scanId} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-white p-4">
+                <div key={scanId} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-4">
                   <div className="text-sm font-medium text-[var(--text)]">Contract scan</div>
                   <div className="mt-1 text-xs text-[var(--text-muted)]">Risk level pending · {scanId}</div>
                 </div>

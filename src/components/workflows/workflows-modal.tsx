@@ -48,7 +48,7 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
       onClick={onClose}
     >
       <div
-        className="flex h-[600px] w-[min(900px,calc(100vw-48px))] flex-col rounded-[var(--radius-lg)] border border-[var(--border)] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="flex h-[600px] w-[min(900px,calc(100vw-48px))] flex-col rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4">
