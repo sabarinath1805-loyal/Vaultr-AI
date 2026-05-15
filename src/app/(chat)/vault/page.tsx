@@ -66,7 +66,7 @@ export default function VaultPage() {
     <main className="h-screen flex-1 overflow-y-auto bg-[var(--bg)]">
       <div className="flex items-center justify-between px-8 py-4">
         <div>
-          <h1 className="font-display text-2xl font-medium text-[var(--text)]">
+          <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
             {selectedProject ? selectedProject.name : "Vault"}
           </h1>
           {selectedProject && (
@@ -89,7 +89,7 @@ export default function VaultPage() {
           )}
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--text)] text-white transition-colors hover:bg-[#333]"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--bg-primary)] transition-colors hover:opacity-80"
             onClick={() => {
               if (selectedProject) {
                 fileInputRef.current?.click();
@@ -210,7 +210,7 @@ export default function VaultPage() {
               ) : (
                 <div className="mx-auto flex w-full max-w-xs flex-col items-start py-24">
                   <FolderOpen className="mb-4 h-8 w-8 text-[var(--text-faint)]" />
-                  <p className="font-display text-2xl font-medium text-[var(--text)]">
+                  <p className="font-display text-[28px] font-normal text-[var(--text)]">
                     Vault
                   </p>
                   <p className="mt-1 max-w-xs text-xs text-[var(--text-faint)]">
@@ -219,7 +219,7 @@ export default function VaultPage() {
                   <button
                     type="button"
                     onClick={() => setNewVaultOpen(true)}
-                    className="mt-4 inline-flex items-center gap-1 rounded-[var(--radius-md)] bg-[var(--text)] px-6 py-2.5 text-sm font-medium text-white shadow-md transition-colors hover:bg-[rgb(51,51,51)]"
+                    className="mt-4 inline-flex items-center gap-1 rounded-[var(--radius-md)] bg-[var(--accent)] px-6 py-2.5 text-sm font-medium text-[var(--bg-primary)] shadow-md transition-colors hover:opacity-80"
                   >
                     + Create New
                   </button>
@@ -298,14 +298,14 @@ function VaultDetail({
       {documents.length === 0 ? (
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] text-center">
           <FolderOpen className="h-8 w-8 text-[var(--text-faint)]" />
-          <p className="mt-3 text-sm text-[var(--text-muted)]">No documents yet</p>
+          <p className="font-display mt-3 text-[28px] font-normal text-[var(--text)]">No documents yet</p>
           <p className="mt-1 text-[13px] text-[var(--text-faint)]">
             Add documents to get started
           </p>
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="mt-4 rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#333]"
+            className="mt-4 rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-colors hover:opacity-80"
           >
             + Add Documents
           </button>
@@ -316,7 +316,7 @@ function VaultDetail({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#333]"
+              className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-colors hover:opacity-80"
             >
               + Add Documents
             </button>
@@ -353,9 +353,9 @@ function VaultDocumentCard({
   const type = document.fileType?.toUpperCase() || "FILE";
   const iconColor =
     document.fileType === "pdf"
-      ? "text-[rgb(197,48,48)] bg-[rgb(255,240,240)]"
+      ? "text-[var(--danger-hover)] bg-[var(--danger-bg)]"
       : document.fileType === "docx" || document.fileType === "doc"
-      ? "text-[rgb(37,99,235)] bg-[rgb(239,246,255)]"
+      ? "text-[var(--blue)] bg-[var(--bg-tertiary)]"
       : "text-[var(--text-muted)] bg-[var(--surface)]";
 
   return (
@@ -388,7 +388,7 @@ function VaultDocumentCard({
           <MoreHorizontal className="h-4 w-4" />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-9 z-10 min-w-[180px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+          <div className="absolute right-0 top-9 z-10 min-w-[180px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]">
             <button type="button" onClick={onScan} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
               Send to Contract Scanner
             </button>
@@ -401,7 +401,7 @@ function VaultDocumentCard({
                 onDelete();
                 setMenuOpen(false);
               }}
-              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[rgb(229,62,62)] hover:bg-[var(--surface)]"
+              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--danger)] hover:bg-[var(--surface)]"
             >
               Delete
             </button>
@@ -424,9 +424,9 @@ function RenameVaultModal({
   const [draft, setDraft] = useState(name);
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
       <form
-        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => {
           event.preventDefault();
@@ -434,7 +434,7 @@ function RenameVaultModal({
           if (nextName) onSave(nextName);
         }}
       >
-        <h2 className="text-base font-semibold">Rename Vault</h2>
+        <h2 className="font-display text-[28px] font-normal">Rename Vault</h2>
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -445,7 +445,7 @@ function RenameVaultModal({
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
             Cancel
           </button>
-          <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--text-primary)] px-4 py-2 text-[13px] font-medium text-[var(--bg)] hover:opacity-90">
+          <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-[var(--bg-primary)] hover:opacity-90">
             Save
           </button>
         </div>
@@ -464,18 +464,18 @@ function ConfirmDeleteModal({
   onDelete: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
       <div
-        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-base font-semibold">Delete {name}?</h2>
+        <h2 className="font-display text-[28px] font-normal">Delete {name}?</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
             Cancel
           </button>
-          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#c53030]">
+          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-4 py-2 text-[13px] font-medium text-[var(--white)] hover:bg-[var(--danger-hover)]">
             Delete
           </button>
         </div>
@@ -493,7 +493,7 @@ function ActionMenu({
 }) {
   return (
     <div
-      className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+      className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]"
       onClick={(event) => event.stopPropagation()}
     >
       {items.map((item) => (
@@ -505,7 +505,7 @@ function ActionMenu({
             onClose();
           }}
           className={`block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] hover:bg-[var(--surface)] ${
-            item.destructive ? "text-[rgb(229,62,62)]" : "text-[var(--text)]"
+            item.destructive ? "text-[var(--danger)]" : "text-[var(--text)]"
           }`}
         >
           {item.label}

@@ -1,7 +1,8 @@
 import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
 import { isLexModel } from "@/lib/models";
+import { extractDocumentText } from "@/lib/document-extraction";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
@@ -10,6 +11,7 @@ export async function POST(req: Request) {
     selectedModel,
     data,
     workflow,
+    attachedDocuments,
     webSearch,
     serperApiKey,
     thinking,
@@ -36,7 +38,24 @@ export async function POST(req: Request) {
   const workflowContext = workflow?.prompt
     ? `\n\nWorkflow context (${workflow.title}):\n${workflow.prompt}`
     : "";
-  const systemContent = `${LEX_SYSTEM_PROMPT}${workflowContext}${searchContext}`;
+  const documentContexts = Array.isArray(attachedDocuments)
+    ? await Promise.all(
+        attachedDocuments.map(
+          async (document: {
+            filename: string;
+            fileType?: string | null;
+            content?: string;
+            dataUrl?: string;
+          }) => {
+            const extractedText = await extractDocumentText(document);
+            if (!extractedText) return "";
+            return `\n\nThe user has attached the following document titled '${document.filename}':\n\n${extractedText}\n\nAnswer the user's question based on this document.`;
+          }
+        )
+      )
+    : [];
+  const documentContext = documentContexts.filter(Boolean).join("");
+  const systemContent = `${LEX_SYSTEM_PROMPT}${documentContext}${workflowContext}${searchContext}`;
   const userContent = data?.images?.length
     ? [
         { type: "text", text: currentMessage.content },
@@ -101,8 +120,19 @@ export async function POST(req: Request) {
           }
           if (webSearch) {
             controller.enqueue(
-              encoder.encode(`0:${JSON.stringify("\n\n<web-search-used />")}\n`)
+              encoder.encode(`0:${JSON.stringify(`\n\n<web-search-used model="${selectedModel}" />`)}\n`)
             );
+          }
+          if (Array.isArray(attachedDocuments)) {
+            for (const document of attachedDocuments) {
+              if (document?.filename) {
+                controller.enqueue(
+                  encoder.encode(
+                    `0:${JSON.stringify(`\n\n<document-analyzed filename="${document.filename}" />`)}\n`
+                  )
+                );
+              }
+            }
           }
           controller.enqueue(
             encoder.encode(

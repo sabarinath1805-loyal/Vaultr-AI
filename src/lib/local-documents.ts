@@ -5,6 +5,8 @@ export interface LocalDocument {
   sizeBytes: number;
   createdAt: string;
   projectId: string | null;
+  content?: string;
+  dataUrl?: string;
 }
 
 export interface LocalVault {
