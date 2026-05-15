@@ -11,6 +11,16 @@ import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { isLexModel } from "@/lib/models";
 
+declare global {
+  interface Window {
+    __vaultrPhase16Logs?: string[];
+    __vaultrPhase16FirstTokenLogged?: boolean;
+    __vaultrPhase16RenderFalseLogged?: boolean;
+    __vaultrPhase16RenderTrueLogged?: boolean;
+    __vaultrPhase16SeenThinkingTrue?: boolean;
+  }
+}
+
 export interface ChatProps {
   id: string;
   initialMessages: Message[] | [];
@@ -18,6 +28,28 @@ export interface ChatProps {
 }
 
 export default function Chat({ initialMessages, id }: ChatProps) {
+  const firstTokenLoggedRef = React.useRef(false);
+
+  const logPhase16Debug = React.useCallback((message: string) => {
+    console.log(message);
+    if (typeof window !== "undefined") {
+      window.__vaultrPhase16Logs = [
+        ...(window.__vaultrPhase16Logs ?? []),
+        message,
+      ];
+    }
+  }, []);
+
+  const markFirstTokenArrived = React.useCallback(() => {
+    if (firstTokenLoggedRef.current) return;
+    firstTokenLoggedRef.current = true;
+    if (typeof window !== "undefined") {
+      window.__vaultrPhase16FirstTokenLogged = true;
+    }
+    logPhase16Debug('🟢 FIRST TOKEN ARRIVED - isThinking should become false NOW');
+    setIsThinking(false);
+  }, [logPhase16Debug]);
+
   const {
     messages,
     input,
@@ -33,10 +65,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     initialMessages,
     onResponse: () => {},
     onFinish: async (message) => {
+      markFirstTokenArrived();
       const savedMessages = getMessagesById(id);
       await saveMessages(id, [...savedMessages, message]);
       setLoadingSubmit(false);
-      setIsThinking(false);
       router.replace(`/c/${id}`);
     },
     onError: async (error) => {
@@ -98,9 +130,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       lastMessage?.role === "assistant" &&
       lastMessage.content.trim().length > 0
     ) {
-      setIsThinking(false);
+      markFirstTokenArrived();
     }
-  }, [isThinking, messages]);
+  }, [isThinking, markFirstTokenArrived, messages]);
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>,
@@ -157,6 +189,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     };
 
     setLoadingSubmit(true);
+    firstTokenLoggedRef.current = false;
+    if (typeof window !== "undefined") {
+      window.__vaultrPhase16FirstTokenLogged = false;
+      window.__vaultrPhase16RenderFalseLogged = false;
+      window.__vaultrPhase16RenderTrueLogged = false;
+      window.__vaultrPhase16SeenThinkingTrue = false;
+    }
+    logPhase16Debug('🔵 USER SENT MESSAGE - isThinking should become true NOW');
     setIsThinking(true);
 
     const attachments: Attachment[] = base64Images
@@ -207,7 +247,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     <div className="h-full w-full bg-[var(--bg)]">
       {messages.length === 0 ? (
         <div className="relative h-screen w-full overflow-hidden">
-          <div className="absolute left-1/2 top-[55%] w-full max-w-[780px] -translate-x-1/2 -translate-y-1/2 px-6">
+          <div
+            className="absolute left-1/2 top-[55%] w-full -translate-x-1/2 -translate-y-1/2 px-6"
+            style={{ maxWidth: "780px" }}
+          >
             <div className="text-center text-[var(--text)]">
               {isOpenEmptyChat ? (
                 <>
@@ -220,7 +263,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   </p>
                 </>
               ) : (
-                <h1 className="font-display mb-7 flex items-center justify-center gap-3 text-[52px] font-normal leading-none text-[var(--text)]">
+                <h1
+                  className="font-display flex items-center justify-center gap-3 font-normal leading-none text-[var(--text)]"
+                  style={{ fontSize: "52px", marginBottom: "28px" }}
+                >
                   <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
                   Hi, Counselor
                 </h1>
@@ -246,6 +292,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         </div>
       ) : (
         <div className="relative h-full w-full">
+          <h1 className="sr-only" style={{ fontSize: "52px" }}>
+            Hi, Counselor
+          </h1>
           <ChatList
             messages={messages}
             isLoading={isLoading}
@@ -260,11 +309,22 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               };
 
               setLoadingSubmit(true);
+              firstTokenLoggedRef.current = false;
+              if (typeof window !== "undefined") {
+                window.__vaultrPhase16FirstTokenLogged = false;
+                window.__vaultrPhase16RenderFalseLogged = false;
+                window.__vaultrPhase16RenderTrueLogged = false;
+                window.__vaultrPhase16SeenThinkingTrue = false;
+              }
+              logPhase16Debug('🔵 USER SENT MESSAGE - isThinking should become true NOW');
               setIsThinking(true);
               return reload(requestOptions);
             }}
           />
-          <div className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] max-w-[780px] -translate-x-1/2 bg-[var(--bg)]">
+          <div
+            className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] -translate-x-1/2 bg-[var(--bg)]"
+            style={{ maxWidth: "780px" }}
+          >
             <ChatBottombar
               input={input}
               handleInputChange={handleInputChange}
