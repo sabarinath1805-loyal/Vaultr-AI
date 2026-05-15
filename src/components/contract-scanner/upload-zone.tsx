@@ -1,6 +1,6 @@
 "use client";
 
-import { Brain, FileText, Shield, Upload, X } from "lucide-react";
+import { Brain, FileText, Shield, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface UploadZoneProps {
@@ -119,46 +119,52 @@ export function UploadZone({
           />
         </label>
       ) : (
-        <div className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--surface)]">
-                <FileText className="h-5 w-5 text-[var(--text-muted)]" />
-              </div>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-medium text-[var(--text)]">{file.name}</div>
-                <div className="mt-1 text-xs text-[var(--text-muted)]">
-                  {formatFileSize(file.size)} · {file.name.split(".").pop()?.toUpperCase() || "FILE"}
-                </div>
+        <div className={`rounded-[var(--radius-lg)] border bg-[var(--bg)] p-6 ${
+          error ? "border-[var(--danger)]" : "border-[var(--border)]"
+        }`}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] bg-[var(--surface)]">
+              <FileText className="h-5 w-5 text-[var(--text-muted)]" />
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-[var(--text)]">{file.name}</div>
+              <div className="mt-1 text-xs text-[var(--text-muted)]">
+                {formatFileSize(file.size)} · {file.name.split(".").pop()?.toUpperCase() || "FILE"}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+          </div>
+          {error && (
+            <div className="mt-4 text-[13px] text-[var(--danger)]">
+              {error}
+            </div>
+          )}
+          <div className="mt-5 flex items-center gap-4">
+            <button
+              type="button"
+              onClick={onScan}
+              disabled={isScanning}
+              className="inline-flex items-center rounded-[8px] bg-[#1a1916] px-6 py-2.5 text-[14px] font-medium text-[#ffffff] transition-[background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isScanning ? (
+                <>
+                  <span className="mr-2 h-3 w-3 animate-spin rounded-full border border-[#ffffff] border-t-transparent" />
+                  Scanning...
+                </>
+              ) : error ? (
+                "Retry"
+              ) : (
+                "Scan Contract →"
+              )}
+            </button>
+            {onRemoveFile && (
               <button
                 type="button"
-                onClick={onScan}
-                disabled={isScanning}
-                className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--accent)] px-6 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-[background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-70"
+                onClick={onRemoveFile}
+                className="text-[13px] text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
               >
-                {isScanning ? (
-                  <>
-                    <span className="mr-2 h-3 w-3 animate-spin rounded-full border border-[var(--white)] border-t-transparent" />
-                    Scanning...
-                  </>
-                ) : (
-                  "Scan Contract →"
-                )}
+                Remove
               </button>
-              {onRemoveFile && (
-                <button
-                  type="button"
-                  onClick={onRemoveFile}
-                  className="flex items-center gap-1 text-[13px] text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Remove
-                </button>
-              )}
-            </div>
+            )}
           </div>
         </div>
       )}
