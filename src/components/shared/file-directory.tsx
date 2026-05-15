@@ -23,9 +23,9 @@ function formatDate(iso: string) {
 
 export function DocFileIcon({ fileType }: { fileType: string | null }) {
   if (fileType === "pdf") {
-    return <FileText className="h-3.5 w-3.5 shrink-0 text-red-500" />;
+    return <FileText className="h-3.5 w-3.5 shrink-0 text-[var(--danger)]" />;
   }
-  return <File className="h-3.5 w-3.5 shrink-0 text-blue-500" />;
+  return <File className="h-3.5 w-3.5 shrink-0 text-[var(--blue)]" />;
 }
 
 interface FileDirectoryProps {
@@ -96,7 +96,7 @@ export function FileDirectory({
   };
 
   if (allDocs.length === 0 && directoryProjects.length === 0) {
-    return <p className="py-8 text-center text-sm text-[var(--text-faint)]">{emptyMessage}</p>;
+    return <p className="font-display py-8 text-center text-[28px] font-normal text-[var(--text)]">{emptyMessage}</p>;
   }
 
   const renderDoc = (doc: LocalDocument) => {
@@ -113,7 +113,7 @@ export function FileDirectory({
             selected ? "border-[var(--text)] bg-[var(--text)]" : "border-[var(--border)]"
           }`}
         >
-          {selected && <Check className="h-2.5 w-2.5 text-white" />}
+          {selected && <Check className="h-2.5 w-2.5 text-[var(--white)]" />}
         </span>
         <DocFileIcon fileType={doc.fileType} />
         <span className="min-w-0 flex-1 truncate">{doc.filename}</span>
@@ -140,7 +140,7 @@ export function FileDirectory({
                   : "border-[var(--border)]"
               }`}
             >
-              {allStandaloneSelected && <Check className="h-2.5 w-2.5 text-white" />}
+              {allStandaloneSelected && <Check className="h-2.5 w-2.5 text-[var(--white)]" />}
             </span>
             {heading}
           </button>
@@ -148,7 +148,7 @@ export function FileDirectory({
             <button
               type="button"
               onClick={() => onDelete(Array.from(selectedIds))}
-              className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
+              className="flex items-center gap-1 text-xs text-[var(--danger)] hover:text-[var(--danger-hover)]"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Delete

@@ -45,6 +45,7 @@ interface Actions {
   getChatById: (chatId: string) => ChatSession | undefined;
   getMessagesById: (chatId: string) => Message[];
   saveMessages: (chatId: string, messages: Message[]) => Promise<void>;
+  renameChat: (chatId: string, title: string) => Promise<void>;
   handleDelete: (chatId: string, messageId?: string) => Promise<void>;
   clearAllChats: () => Promise<void>;
   setUserName: (userName: string) => void;
@@ -210,6 +211,41 @@ const useChatStore = create<State & Actions>()(
           if (syncQueues.get(chatId) === nextSync) {
             syncQueues.delete(chatId);
           }
+        }
+      },
+      renameChat: async (chatId, title) => {
+        const trimmedTitle = title.trim();
+        if (!trimmedTitle) return;
+
+        set((state) => {
+          const chat = state.chats[chatId];
+          if (!chat) return state;
+          return {
+            chats: {
+              ...state.chats,
+              [chatId]: {
+                ...chat,
+                title: trimmedTitle,
+                updatedAt: new Date().toISOString(),
+              },
+            },
+          };
+        });
+
+        const response = await fetch(`/api/chats/${chatId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: trimmedTitle }),
+        });
+
+        if (response.ok) {
+          const data = (await response.json()) as { chat: ChatSession };
+          set((state) => ({
+            chats: {
+              ...state.chats,
+              [chatId]: data.chat,
+            },
+          }));
         }
       },
       handleDelete: async (chatId, messageId) => {
