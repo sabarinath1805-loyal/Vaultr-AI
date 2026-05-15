@@ -33,10 +33,14 @@ export default function ChatList({
           {loadingSubmit && (
             <div className="animate-message-in max-w-[85%] text-left">
               <div className="mb-1.5 text-xs text-[var(--text-secondary)]">Lex</div>
-              <div className="inline-flex gap-1 text-sm leading-[1.7] text-[var(--text-secondary)]">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:120ms]" />
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:240ms]" />
+              <div className="lex-thinking inline-flex flex-col items-start gap-2 text-[13px] leading-[1.7] text-[var(--text-secondary)]">
+                <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+                  <line x1="11" y1="1" x2="11" y2="21" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="1" y1="11" x2="21" y2="11" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="4" y1="4" x2="18" y2="18" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="18" y1="4" x2="4" y2="18" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+                <span>Lex is thinking...</span>
               </div>
             </div>
           )}

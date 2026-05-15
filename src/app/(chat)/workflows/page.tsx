@@ -54,7 +54,7 @@ export default function WorkflowsPage() {
     <main className="flex h-screen overflow-hidden bg-[var(--bg)]">
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center justify-between px-8 py-4">
-          <h1 className="font-display text-2xl font-normal text-[var(--text)]">Workflows</h1>
+          <h1 className="font-display text-[28px] font-normal text-[var(--text)]">Workflows</h1>
           <div className="flex items-center gap-2">
             <select
               value={practiceFilter}
@@ -75,7 +75,7 @@ export default function WorkflowsPage() {
                 className="w-24 bg-transparent text-xs outline-none placeholder:text-[var(--text-faint)]"
               />
             </div>
-            <button type="button" className="rounded-[var(--radius-sm)] bg-[var(--text)] px-3 py-2 text-xs font-medium text-white hover:bg-[#333]">
+            <button type="button" className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-xs font-medium text-[var(--bg-primary)] hover:opacity-80">
               + New workflow
             </button>
           </div>
@@ -107,7 +107,7 @@ export default function WorkflowsPage() {
             <div />
           </div>
           {filtered.length === 0 ? (
-            <div className="px-8 py-12 text-center text-sm text-[var(--text-faint)]">No workflows found</div>
+            <div className="font-display px-8 py-12 text-center text-[28px] font-normal text-[var(--text)]">No workflows found</div>
           ) : (
             filtered.map((workflow) => (
               <button
@@ -135,11 +135,11 @@ export default function WorkflowsPage() {
       {selected && (
         <aside className="flex w-[420px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--sidebar-bg)]">
           <div className="border-b border-[var(--border)] px-5 py-4">
-            <h2 className="font-display text-sm font-semibold text-[var(--text)]">Workflow Prompt</h2>
+            <h2 className="font-display text-[28px] font-normal text-[var(--text)]">Workflow Prompt</h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">{selected.title}</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
-            <div className="prose prose-sm max-w-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-6 py-5 text-sm leading-[1.7] text-[var(--text)] prose-headings:mb-2 prose-headings:text-[15px] prose-headings:font-semibold prose-p:mb-3 prose-p:leading-[1.7] prose-li:mb-2">
+            <div className="prose prose-sm max-w-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-6 py-5 text-sm leading-[1.7] text-[var(--text)] prose-headings:mb-2 prose-headings:text-[15px] prose-headings:font-normal prose-p:mb-3 prose-p:leading-[1.7] prose-li:mb-2">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{workflowPrompt(selected)}</ReactMarkdown>
             </div>
           </div>
@@ -154,7 +154,7 @@ export default function WorkflowsPage() {
             <button
               type="button"
               onClick={() => applyWorkflow(selected)}
-              className="flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#333]"
+              className="flex items-center gap-1.5 rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80"
             >
               <Check className="h-3.5 w-3.5" />
               Use

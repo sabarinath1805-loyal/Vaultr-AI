@@ -103,6 +103,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           webSearch?: boolean;
           thinking?: boolean;
           serperApiKey?: string;
+          attachedDocuments?: {
+            id: string;
+            filename: string;
+            fileType?: string | null;
+            sizeBytes?: number;
+            content?: string;
+            dataUrl?: string;
+          }[];
         }
       | undefined;
     const workflow = (requestBody?.workflow ||
@@ -151,6 +159,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       body: {
         selectedModel,
         workflow,
+        attachedDocuments: requestBody?.attachedDocuments || [],
         webSearch,
         serperApiKey: requestBody?.serperApiKey || serperApiKey,
         thinking,
@@ -190,7 +199,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             <div className="text-center text-[var(--text)]">
               {isOpenEmptyChat ? (
                 <>
-                  <h1 className="font-display flex items-center justify-center gap-3 text-[36px] font-normal leading-none tracking-[-0.02em]">
+                  <h1 className="font-display flex items-center justify-center gap-3 text-[28px] font-normal text-[var(--text)]">
                     <SnowflakeIcon size={28} className="shrink-0 text-[var(--text)]" />
                     Hey, I&apos;m Lex — your private legal AI.
                   </h1>
@@ -199,7 +208,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   </p>
                 </>
               ) : (
-                <h1 className="font-display mb-8 flex items-center justify-center gap-3 text-[40px] font-normal leading-none tracking-[-0.02em]">
+                <h1 className="font-display mb-8 flex items-center justify-center gap-3 text-[28px] font-normal text-[var(--text)]">
                   <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
                   Hi, Counselor
                 </h1>
@@ -218,7 +227,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               />
             </div>
           </div>
-          <p className="fixed bottom-4 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-10 -translate-x-1/2 whitespace-nowrap text-center text-xs text-[#b8b6b0]">
+          <p className="fixed bottom-4 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-10 -translate-x-1/2 whitespace-nowrap text-center text-xs text-[var(--text-tertiary)]">
             Lex is not a substitute for legal advice. Always verify with
             primary sources.
           </p>

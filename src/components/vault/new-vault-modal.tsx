@@ -46,7 +46,7 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)] backdrop-blur-[1px]">
       <div className="flex h-[600px] w-full max-w-2xl flex-col rounded-2xl bg-[var(--bg)] shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
@@ -71,7 +71,7 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Vault name"
-              className="w-full bg-transparent font-display text-2xl text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
+              className="w-full bg-transparent font-display text-[28px] font-normal text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
               autoFocus
             />
             <input
@@ -142,7 +142,7 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
               <button
                 type="submit"
                 disabled={!name.trim()}
-                className="rounded-lg bg-[var(--text)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:opacity-40"
+                className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80 disabled:opacity-40"
               >
                 Create
               </button>

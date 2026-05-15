@@ -4,8 +4,9 @@ import remarkGfm from "remark-gfm";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
-import { ChevronRight, RefreshCcw } from "lucide-react";
+import { ChevronRight, Edit3, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { LEX_MODELS } from "@/lib/models";
 
 export type ChatMessageProps = {
   message: Message;
@@ -34,11 +35,15 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
         message.role === "assistant" ? getThinkContent(message.content) : null,
       cleanContent: message.content
         .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
-        .replace(/<web-search-used\s*\/>/g, "")
+        .replace(/<web-search-used[^>]*\/>/g, "")
+        .replace(/<document-analyzed[^>]*\/>/g, "")
         .trim(),
     };
   }, [message.content, message.role]);
-  const webSearchUsed = message.content.includes("<web-search-used />");
+  const webSearchMatch = message.content.match(/<web-search-used(?:\s+model="([^"]+)")?\s*\/>/);
+  const webSearchUsed = Boolean(webSearchMatch);
+  const webSearchModel = LEX_MODELS.find((model) => model.ollamaId === webSearchMatch?.[1])?.name || "Lex";
+  const documentAnalyzed = Array.from(message.content.matchAll(/<document-analyzed\s+filename="([^"]+)"\s*\/>/g));
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -56,15 +61,24 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   if (message.role === "user") {
     return (
-      <div className="animate-message-in ml-auto max-w-[70%]">
-        <div className="rounded-[12px] bg-[#1a1916] px-4 py-2.5 text-sm leading-normal text-white">
+      <div className="group animate-message-in ml-auto max-w-[70%]">
+        <div className="rounded-[12px] bg-[var(--user-bubble)] px-4 py-2.5 text-sm leading-normal text-[var(--white)]">
           {message.content}
         </div>
-        {timestamp && (
-          <div className="mt-1.5 text-center text-[11px] text-[#b8b6b0]">
-            {timestamp}
-          </div>
-        )}
+        <div className="mt-1.5 flex items-center justify-end gap-2 text-xs text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          {timestamp && <span>{timestamp}</span>}
+          {isLast && (
+            <button type="button" onClick={() => reload()} className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]" aria-label="Regenerate message">
+              <RefreshCcw className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button type="button" className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]" aria-label="Edit message">
+            <Edit3 className="h-3.5 w-3.5" />
+          </button>
+          <button type="button" onClick={handleCopy} className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]" aria-label="Copy message">
+            {isCopied ? <CheckIcon className="h-3.5 w-3.5" /> : <CopyIcon className="h-3.5 w-3.5" />}
+          </button>
+        </div>
       </div>
     );
   }
@@ -72,12 +86,12 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   if (message.content === "LEX_MODEL_REQUIRED") {
     return (
       <div className="animate-message-in w-full max-w-[680px]">
-        <div className="rounded-[var(--radius-md)] border border-[rgb(229,62,62)] bg-[rgb(255,240,240)] p-4 text-sm text-[var(--text)]">
+        <div className="rounded-[var(--radius-md)] border border-[var(--danger)] bg-[var(--danger-bg)] p-4 text-sm text-[var(--text)]">
           <div>Lex requires a dedicated legal model. Please install a Lex model to start chatting.</div>
           <button
             type="button"
             onClick={() => router.push("/models")}
-            className="mt-3 rounded-[var(--radius-sm)] bg-[var(--text)] px-3 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#333]"
+            className="mt-3 rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-[13px] text-[var(--bg-primary)] transition-colors hover:opacity-80"
           >
             → Install a Lex Model
           </button>
@@ -133,15 +147,20 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
         <Markdown remarkPlugins={[remarkGfm]}>{cleanContent}</Markdown>
       </div>
       {timestamp && (
-        <div className="pt-1 text-center text-[11px] text-[#b8b6b0]">
+        <div className="pt-1 text-center text-[11px] text-[var(--text-tertiary)]">
           {timestamp}
         </div>
       )}
       {webSearchUsed && (
-        <div className="pt-1 text-[11px] text-[var(--text-muted)]">
-          🔍 Web search used
+        <div className="pt-1 text-xs text-[var(--text-tertiary)]">
+          <span className="text-xs">🔍</span> Web search used · Prepared using {webSearchModel}
         </div>
       )}
+      {documentAnalyzed.map((match) => (
+        <div key={match[1]} className="pt-1 text-xs text-[var(--text-tertiary)]">
+          <span className="text-xs">📄</span> {match[1]} analyzed
+        </div>
+      ))}
       <div className="flex gap-2 pt-2 text-[var(--text-muted)]">
         {!isLoading && (
           <button

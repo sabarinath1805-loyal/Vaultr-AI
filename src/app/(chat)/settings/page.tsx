@@ -22,7 +22,7 @@ export default function SettingsPage() {
   return (
     <main className="flex h-screen flex-col overflow-y-auto bg-[var(--bg)]">
       <header className="mx-auto flex h-16 w-full max-w-5xl shrink-0 items-end px-6 pb-2 md:h-24 md:pb-4">
-        <h1 className="font-display text-4xl font-normal text-[var(--text)]">
+        <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
           Settings
         </h1>
       </header>
@@ -78,7 +78,7 @@ function GeneralSettings() {
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Profile</h2>
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">Profile</h2>
         <div className="max-w-xl space-y-4">
           <div>
             <label className="mb-2 block text-sm text-[var(--text-muted)]">
@@ -127,7 +127,7 @@ function GeneralSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-2 text-2xl font-medium text-[var(--text)]">Usage Plan</h2>
+        <h2 className="font-display mb-2 text-[28px] font-normal text-[var(--text)]">Usage Plan</h2>
         <p className="text-sm text-[var(--text-muted)]">
           Solo ·{" "}
           <button type="button" className="underline underline-offset-2">
@@ -137,7 +137,7 @@ function GeneralSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Appearance</h2>
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">Appearance</h2>
         <div className="inline-flex rounded-[8px] bg-[var(--surface-muted)] p-1">
           {(["light", "dark", "system"] as const).map((theme) => (
             <button
@@ -146,7 +146,7 @@ function GeneralSettings() {
               onClick={() => setThemePreference(theme)}
               className={`rounded-[6px] px-4 py-2 text-sm font-medium capitalize transition-colors ${
                 themePreference === theme
-                  ? "bg-[var(--text-primary)] text-[var(--bg)]"
+                  ? "bg-[var(--accent)] text-[var(--bg-primary)]"
                   : "bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
             >
@@ -157,14 +157,14 @@ function GeneralSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-2 text-2xl font-medium text-[var(--text)]">Danger Zone</h2>
+        <h2 className="font-display mb-2 text-[28px] font-normal text-[var(--text)]">Danger Zone</h2>
         <p className="mb-4 text-sm text-[var(--text-muted)]">
           Permanently delete all local Vaultr conversations.
         </p>
         <button
           type="button"
           onClick={() => setClearAllOpen(true)}
-          className="rounded-[var(--radius-sm)] border border-[rgb(229,62,62)] px-4 py-2 text-sm font-medium text-[rgb(229,62,62)] transition-colors hover:bg-[rgb(255,240,240)]"
+          className="rounded-[var(--radius-sm)] border border-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-bg)]"
         >
           Clear all conversations
         </button>
@@ -217,7 +217,7 @@ function OllamaSettings() {
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">
           Ollama Connection
         </h2>
         <div className="max-w-xl">
@@ -242,7 +242,7 @@ function OllamaSettings() {
                   setConnectionStatus("down");
                 }
               }}
-              className="min-w-[128px] rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#333]"
+              className="min-w-[128px] rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80"
             >
               Test Connection
             </button>
@@ -251,8 +251,8 @@ function OllamaSettings() {
             <p
               className={`mt-2 flex items-center gap-1 text-sm ${
                 connectionStatus === "connected"
-                  ? "text-[rgb(22,163,74)]"
-                  : "text-[rgb(229,62,62)]"
+                  ? "text-[var(--success)]"
+                  : "text-[var(--danger)]"
               }`}
             >
               {connectionStatus === "connected" ? (
@@ -270,7 +270,7 @@ function OllamaSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Web Search</h2>
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">Web Search</h2>
         <div className="max-w-xl">
           <label className="mb-2 block text-sm text-[var(--text-muted)]">
             Serper API Key
@@ -297,7 +297,7 @@ function OllamaSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Thinking Mode</h2>
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">Thinking Mode</h2>
         <button
           type="button"
           onClick={() => setThinkingModeDefault(!thinkingModeDefault)}
@@ -318,7 +318,7 @@ function OllamaSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Default Model</h2>
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">Default Model</h2>
         <div className="max-w-xl space-y-4">
           <label className="block">
             <span className="mb-2 block text-sm text-[var(--text-primary)]">
@@ -343,7 +343,7 @@ function OllamaSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Data</h2>
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">Data</h2>
         <div className="max-w-xl">
           <div className="text-sm text-[var(--text-primary)]">Export conversations</div>
           <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
@@ -371,7 +371,7 @@ function PrivacySettings() {
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">
           Data Storage
         </h2>
         <div className="space-y-1 text-[13px] leading-[1.6] text-[var(--text-secondary)]">
@@ -383,7 +383,7 @@ function PrivacySettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">
           Auto-cleanup
         </h2>
         <ToggleRow
@@ -394,7 +394,7 @@ function PrivacySettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">
+        <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">
           Security
         </h2>
         <ToggleRow
@@ -447,18 +447,18 @@ function ConfirmDeleteModal({
   onDelete: () => void | Promise<void>;
 }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
       <div
-        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-base font-semibold">Delete {name}?</h2>
+        <h2 className="font-display text-[28px] font-normal">Delete {name}?</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
             Cancel
           </button>
-          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#c53030]">
+          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-4 py-2 text-[13px] font-medium text-[var(--white)] hover:bg-[var(--danger-hover)]">
             Delete
           </button>
         </div>
@@ -481,7 +481,7 @@ function SaveButton({
       type="button"
       disabled={disabled || saved}
       onClick={onClick}
-      className="min-w-[80px] rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:cursor-not-allowed disabled:opacity-60"
+      className="min-w-[80px] rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
     >
       {saved ? "Saved" : "Save"}
     </button>

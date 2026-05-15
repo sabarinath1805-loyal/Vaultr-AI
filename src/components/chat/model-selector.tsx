@@ -98,7 +98,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
             onClick={() => setOpen(false)}
           />
           <div
-            className={`absolute right-0 z-50 min-w-[180px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-1.5 text-[var(--text)] shadow-[0_4px_16px_rgba(0,0,0,0.08)] ${menuPosition}`}
+            className={`absolute right-0 z-50 min-w-[180px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-1.5 text-[var(--text)] shadow-[0_4px_16px_var(--shadow-soft)] ${menuPosition}`}
           >
             {!isOllamaRunning ? (
               <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">
