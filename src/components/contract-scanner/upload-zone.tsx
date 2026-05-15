@@ -51,13 +51,13 @@ export function UploadZone({
   return (
     <div className="space-y-6 px-6 pb-8">
       {error && (
-        <div className="rounded-[var(--radius-md)] border border-[rgb(229,62,62)] bg-[rgb(255,240,240)] px-4 py-3 text-[13px] text-[rgb(197,48,48)]">
+        <div className="rounded-[var(--radius-md)] border border-[var(--danger)] bg-[var(--danger-bg)] px-4 py-3 text-[13px] text-[var(--danger-hover)]">
           <div>{error}</div>
           {error.includes("requires a Lex model") && (
             <button
               type="button"
               onClick={() => router.push("/models")}
-              className="mt-3 rounded-[var(--radius-sm)] bg-[var(--text)] px-3 py-2 text-[13px] font-medium text-white hover:bg-[#333]"
+              className="mt-3 rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-[13px] font-medium text-[var(--bg-primary)] hover:opacity-80"
             >
               → Install a Lex Model
             </button>
@@ -73,7 +73,7 @@ export function UploadZone({
               className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] p-5 text-center"
             >
               <Icon className="mx-auto mb-3 h-7 w-7 text-[var(--text-muted)]" />
-              <h2 className="text-sm font-semibold text-[var(--text)]">{title}</h2>
+              <h2 className="font-display text-[28px] font-normal text-[var(--text)]">{title}</h2>
               <p className="mt-1 text-[13px] text-[var(--text-muted)]">{description}</p>
             </article>
           ))}
@@ -137,11 +137,11 @@ export function UploadZone({
                 type="button"
                 onClick={onScan}
                 disabled={isScanning}
-                className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--text)] px-6 py-2.5 text-sm font-medium text-white transition-[background-color] duration-150 hover:bg-[rgb(51,51,51)] disabled:cursor-not-allowed disabled:opacity-70"
+                className="inline-flex items-center rounded-[var(--radius-md)] bg-[var(--accent)] px-6 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-[background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {isScanning ? (
                   <>
-                    <span className="mr-2 h-3 w-3 animate-spin rounded-full border border-white border-t-transparent" />
+                    <span className="mr-2 h-3 w-3 animate-spin rounded-full border border-[var(--white)] border-t-transparent" />
                     Scanning...
                   </>
                 ) : (

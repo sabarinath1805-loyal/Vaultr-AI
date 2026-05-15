@@ -90,6 +90,14 @@ export function deleteChat(id: string) {
   db.delete(chats).where(eq(chats.id, id)).run();
 }
 
+export function renameChat(id: string, title: string) {
+  const timestamp = now();
+  db.update(chats)
+    .set({ title, updatedAt: timestamp })
+    .where(eq(chats.id, id))
+    .run();
+}
+
 export function deleteAllChats() {
   db.delete(chats).run();
 }

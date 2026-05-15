@@ -182,13 +182,13 @@ export default function ModelsPage() {
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)] px-6 py-8">
       <div className="mx-auto max-w-5xl">
-        <h1 className="font-display text-lg font-semibold text-[var(--text)]">Models</h1>
+        <h1 className="font-display text-[28px] font-normal text-[var(--text)]">Models</h1>
         <p className="mb-8 mt-1 text-[13px] text-[var(--text-muted)]">
           Manage your local Lex models. All models run 100% on your device.
         </p>
 
         {!isOllamaRunning && (
-          <div className="mb-4 rounded-[var(--radius-md)] border border-[rgb(229,62,62)] bg-[rgb(255,240,240)] px-4 py-3 text-[13px] text-[rgb(197,48,48)]">
+          <div className="mb-4 rounded-[var(--radius-md)] border border-[var(--danger)] bg-[var(--danger-bg)] px-4 py-3 text-[13px] text-[var(--danger-hover)]">
             Ollama is not running. Start Ollama to manage and use Lex models.
           </div>
         )}
@@ -203,7 +203,7 @@ export default function ModelsPage() {
                 className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-6 py-5"
               >
                 <div className="flex items-start justify-between gap-4">
-                  <h2 className="font-display text-xl leading-none text-[var(--text)]">
+                  <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
                     {model.name}
                   </h2>
                   <span className="rounded-[3px] border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--text-muted)]">
@@ -236,7 +236,7 @@ export default function ModelsPage() {
                       </button>
                       <button
                         type="button"
-                        className="border-0 bg-transparent text-[13px] text-[rgb(229,62,62)] transition-[color,background-color] duration-150 hover:text-[rgb(197,48,48)]"
+                        className="border-0 bg-transparent text-[13px] text-[var(--danger)] transition-[color,background-color] duration-150 hover:text-[var(--danger-hover)]"
                       >
                         Remove
                       </button>
@@ -245,9 +245,9 @@ export default function ModelsPage() {
                     <div className="flex flex-col items-start">
                       <button
                         type="button"
-                        className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-white transition-[color,background-color] duration-150"
+                        className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--white)] transition-[color,background-color] duration-150"
                         style={{
-                          background: `linear-gradient(90deg, #1a1916 ${download.progress}%, #8a8880 ${download.progress}%)`,
+                          background: `linear-gradient(90deg, var(--accent) ${download.progress}%, var(--text-secondary) ${download.progress}%)`,
                         }}
                       >
                         Downloading... {download.progress}%
@@ -268,14 +268,14 @@ export default function ModelsPage() {
                       type="button"
                       disabled={!isOllamaRunning}
                       onClick={() => downloadModel(model.ollamaId, model.name)}
-                      className="rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-[var(--bg)] transition-[color,background-color] duration-150 hover:bg-[rgb(51,51,51)] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-[color,background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       Download
                     </button>
                   )}
                 </div>
                 {download?.error && (
-                  <div className="mt-3 text-[13px] text-[rgb(229,62,62)]">
+                  <div className="mt-3 text-[13px] text-[var(--danger)]">
                     {download.error}
                   </div>
                 )}

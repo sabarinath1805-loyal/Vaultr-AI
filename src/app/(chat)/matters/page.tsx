@@ -66,7 +66,7 @@ export default function MattersPage() {
         <button
           type="button"
           onClick={openCreateModal}
-          className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--text)] text-white transition-colors hover:bg-[#333]"
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--bg-primary)] transition-colors hover:opacity-80"
           aria-label="New Matter"
         >
           <Plus className="h-4 w-4" />
@@ -77,11 +77,11 @@ export default function MattersPage() {
         {matters.length === 0 ? (
           <div className="flex flex-col items-center rounded-[var(--radius-md)] border border-[var(--border)] p-12 text-center">
             <Briefcase className="h-8 w-8 text-[var(--text-faint)]" />
-            <p className="mt-3 text-sm text-[var(--text-muted)]">No matters yet</p>
+            <p className="font-display mt-3 text-[28px] font-normal text-[var(--text)]">No matters yet</p>
             <button
               type="button"
               onClick={openCreateModal}
-              className="mt-4 rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white transition-[background-color] duration-150 hover:bg-[rgb(51,51,51)]"
+              className="mt-4 rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-[background-color] duration-150 hover:opacity-80"
             >
               + New Matter
             </button>
@@ -181,7 +181,7 @@ function MatterRow({
         </button>
         {menuOpen && (
           <div
-            className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+            className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]"
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -210,7 +210,7 @@ function MatterRow({
                 event.stopPropagation();
                 onDelete();
               }}
-              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[rgb(229,62,62)] hover:bg-[var(--surface)]"
+              className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--danger)] hover:bg-[var(--surface)]"
             >
               Delete
             </button>
@@ -231,18 +231,18 @@ function ConfirmDeleteModal({
   onDelete: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
       <div
-        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="text-base font-semibold">Delete {name}?</h2>
+        <h2 className="font-display text-[28px] font-normal">Delete {name}?</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
             Cancel
           </button>
-          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#c53030]">
+          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-4 py-2 text-[13px] font-medium text-[var(--white)] hover:bg-[var(--danger-hover)]">
             Delete
           </button>
         </div>
@@ -266,9 +266,9 @@ function NewMatterModal({
   const [status, setStatus] = useState<Matter["status"]>(matter?.status || "Active");
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
       <form
-        className="w-[400px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="w-[400px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6 shadow-[0_8px_32px_var(--shadow-modal)]"
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => {
           event.preventDefault();
@@ -284,7 +284,7 @@ function NewMatterModal({
         }}
       >
         <div className="flex items-center justify-between">
-          <h2 className="font-display text-base font-semibold text-[var(--text)]">
+          <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
             {matter ? "Edit Matter" : "New Matter"}
           </h2>
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] p-1 text-[var(--text-muted)] hover:bg-[var(--surface)]" aria-label="Close new matter">
@@ -337,7 +337,7 @@ function NewMatterModal({
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-muted)] hover:bg-[var(--surface)]">
             Cancel
           </button>
-          <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white hover:bg-[#333]">
+          <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] hover:opacity-80">
             {matter ? "Save Matter" : "Create Matter"}
           </button>
         </div>

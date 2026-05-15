@@ -201,7 +201,7 @@ function MatterEmptyState({
       <button
         type="button"
         onClick={onClick}
-        className="mt-4 rounded-[var(--radius-sm)] bg-[var(--text)] px-4 py-2 text-[13px] text-white transition-colors hover:bg-[#333]"
+        className="mt-4 rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-colors hover:opacity-80"
       >
         {button}
       </button>
