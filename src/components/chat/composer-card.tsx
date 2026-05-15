@@ -38,6 +38,7 @@ export function ComposerCard({
   setInput,
   modelSelectorDirection = "up",
 }: ComposerCardProps) {
+  const safeInput = typeof input === "string" ? input : "";
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const [attachedDocuments, setAttachedDocuments] = React.useState<LocalDocument[]>([]);
   const [docSelectorOpen, setDocSelectorOpen] = React.useState(false);
@@ -148,7 +149,7 @@ export function ComposerCard({
         ollamaUrl,
       },
     });
-    if (input.trim() || attachedDocuments.length > 0) {
+    if (safeInput.trim() || attachedDocuments.length > 0) {
       setSelectedWorkflow(null);
       setAttachedDocuments([]);
     }
@@ -226,7 +227,7 @@ export function ComposerCard({
           <div className="px-4 pt-4">
             <TextareaAutosize
               ref={textareaRef}
-              value={input}
+              value={safeInput}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               name="message"

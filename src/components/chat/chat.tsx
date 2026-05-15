@@ -31,11 +31,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   } = useChat({
     id,
     initialMessages,
-    onResponse: (response) => {
-      if (response) {
-        setLoadingSubmit(false);
-      }
-    },
+    onResponse: () => {},
     onFinish: async (message) => {
       const savedMessages = getMessagesById(id);
       await saveMessages(id, [...savedMessages, message]);
@@ -82,7 +78,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
   React.useEffect(() => {
     if (!pendingComposerText) return;
-    setInput(pendingComposerText);
+    setInput(typeof pendingComposerText === "string" ? pendingComposerText : "");
     setPendingComposerText(null);
   }, [pendingComposerText, setInput, setPendingComposerText]);
 
@@ -91,6 +87,17 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       setLoadingSubmit(false);
     }
   }, [input, loadingSubmit]);
+
+  React.useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    if (
+      loadingSubmit &&
+      lastMessage?.role === "assistant" &&
+      lastMessage.content.trim().length > 0
+    ) {
+      setLoadingSubmit(false);
+    }
+  }, [loadingSubmit, messages]);
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>,

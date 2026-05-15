@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 import { LEX_MODELS } from "@/lib/models";
 
@@ -18,13 +19,19 @@ const fieldClass =
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
+  const router = useRouter();
 
   return (
     <main className="flex h-screen flex-col overflow-y-auto bg-[var(--bg)]">
-      <header className="mx-auto flex h-16 w-full max-w-5xl shrink-0 items-end px-6 pb-2 md:h-24 md:pb-4">
-        <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
-          Settings
-        </h1>
+      <header className="mx-auto flex h-20 w-full max-w-5xl shrink-0 flex-col items-start justify-end px-6 pb-2 md:h-28 md:pb-4">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-2 border-0 bg-transparent p-0 text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+        >
+          ← Back
+        </button>
+        <h1 className="font-display text-[28px] font-normal text-[var(--text)]">Settings</h1>
       </header>
 
       <div className="mx-auto w-full max-w-5xl flex-1 px-6 pb-10 pt-4 md:pt-6">
