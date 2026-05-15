@@ -178,7 +178,7 @@ export function ComposerCard({
 
   return (
     <>
-      <form onSubmit={submitWithReset} className="w-full max-w-[680px]">
+      <form onSubmit={submitWithReset} className="w-full max-w-[780px]">
         <div className="rounded-[16px] border border-[var(--border)] bg-[var(--bg)] md:rounded-[20px]">
           {(selectedWorkflow || attachedDocuments.length > 0) && (
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
@@ -234,7 +234,7 @@ export function ComposerCard({
               placeholder="Ask Lex a legal question..."
               minRows={1}
               maxRows={8}
-              className="max-h-48 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-base leading-6 text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:outline-none"
+              className="max-h-48 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] leading-6 text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:outline-none"
               style={{ lineHeight: 1.5, verticalAlign: "top" }}
             />
           </div>
