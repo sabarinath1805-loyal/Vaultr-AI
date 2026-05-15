@@ -1,11 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&display=swap');
 
 *, *::before, *::after {
-  font-family: 'DM Sans', sans-serif !important;
+  font-family: 'Geist', 'Inter', sans-serif !important;
 }
 
 h1, h2, h3, .font-display {
-  font-family: 'DM Serif Display', serif !important;
+  font-family: 'Lora', Georgia, serif !important;
+  font-weight: 400 !important;
 }
 
 @tailwind base;
@@ -13,8 +14,8 @@ h1, h2, h3, .font-display {
 @tailwind utilities;
 
 :root {
-  --font-body: 'DM Sans', sans-serif;
-  --font-display: 'DM Serif Display', serif;
+  --font-body: 'Geist', 'Inter', sans-serif;
+  --font-display: 'Lora', Georgia, serif;
   --bg-primary: #ffffff;
   --bg-secondary: #f9f9f8;
   --bg-tertiary: #f3f2ef;
@@ -101,9 +102,46 @@ html[data-theme="dark"] {
   }
 }
 
-.lex-thinking svg {
-  animation: lexPulse 1.8s ease-in-out infinite;
-  transform-origin: center;
+@keyframes lexBreathe {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(0.82);
+  }
+  40% {
+    opacity: 0.9;
+    transform: scale(1.08);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+@keyframes dotFade {
+  0%, 80%, 100% {
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+@keyframes lexSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.message-actions {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
 }
 
 @layer base {
