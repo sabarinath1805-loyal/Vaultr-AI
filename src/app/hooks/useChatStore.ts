@@ -113,9 +113,18 @@ const useChatStore = create<State & Actions>()(
       setOllamaUrl: (ollamaUrl) => set({ ollamaUrl }),
       setSerperApiKey: (serperApiKey) => set({ serperApiKey }),
       setThinkingModeDefault: (enabled) => set({ thinkingModeDefault: enabled }),
-      setThemePreference: (theme) => set({ themePreference: theme }),
-      setDefaultModelPreference: (modelId) => set({ defaultModelPreference: modelId }),
-      setAutoCleanupConversations: (enabled) => set({ autoCleanupConversations: enabled }),
+      setThemePreference: (theme) => {
+        window.localStorage.setItem("vaultr-theme", theme);
+        set({ themePreference: theme });
+      },
+      setDefaultModelPreference: (modelId) => {
+        window.localStorage.setItem("vaultr-default-model", modelId);
+        set({ defaultModelPreference: modelId });
+      },
+      setAutoCleanupConversations: (enabled) => {
+        window.localStorage.setItem("vaultr-auto-cleanup", String(enabled));
+        set({ autoCleanupConversations: enabled });
+      },
 
       setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
       setPendingComposerText: (text) => set({ pendingComposerText: text }),
@@ -285,11 +294,25 @@ const useChatStore = create<State & Actions>()(
             typeof persisted.thinkingModeDefault === "boolean"
               ? persisted.thinkingModeDefault
               : currentState.thinkingModeDefault,
-          themePreference: persisted.themePreference || currentState.themePreference,
+          themePreference:
+            (typeof window !== "undefined" &&
+              (window.localStorage.getItem("vaultr-theme") as
+                | "light"
+                | "dark"
+                | "system"
+                | null)) ||
+            persisted.themePreference ||
+            currentState.themePreference,
           defaultModelPreference:
-            persisted.defaultModelPreference || currentState.defaultModelPreference,
+            (typeof window !== "undefined" &&
+              window.localStorage.getItem("vaultr-default-model")) ||
+            persisted.defaultModelPreference ||
+            currentState.defaultModelPreference,
           autoCleanupConversations:
-            typeof persisted.autoCleanupConversations === "boolean"
+            typeof window !== "undefined" &&
+            window.localStorage.getItem("vaultr-auto-cleanup") !== null
+              ? window.localStorage.getItem("vaultr-auto-cleanup") === "true"
+              : typeof persisted.autoCleanupConversations === "boolean"
               ? persisted.autoCleanupConversations
               : currentState.autoCleanupConversations,
         };
