@@ -76,15 +76,25 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   if (message.role === "user") {
     return (
-      <div className="group animate-message-in ml-auto max-w-[80%]">
+      <div className="message animate-message-in ml-auto flex w-full flex-col items-end">
         <div
           data-testid="user-message"
-          className="px-4 py-3 text-sm leading-normal text-[var(--white)]"
-          style={{ borderRadius: "20px", backgroundColor: "#3d3b38" }}
+          style={{
+            borderRadius: "20px",
+            backgroundColor: "#3d3b38",
+            color: "#ffffff",
+            padding: "12px 16px",
+            maxWidth: "70%",
+            alignSelf: "flex-end",
+            fontFamily: "'Geist', sans-serif",
+            fontSize: "14px",
+            lineHeight: "1.6",
+            wordBreak: "break-word",
+          }}
         >
           {message.content}
         </div>
-        <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <div className="message-actions mt-1 flex items-center justify-end gap-2 text-[11px] text-[var(--text-tertiary)]">
           {timestamp && <span>{timestamp}</span>}
           {isLast && (
             <button type="button" onClick={() => reload()} className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]" aria-label="Regenerate message">
@@ -120,9 +130,24 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   }
 
   return (
-    <div className="group animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
-      <div className="mb-2 text-[11px] leading-none text-[var(--text-secondary)]">
-        Lex
+    <div className="message animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
+      <div style={{ marginBottom: "8px" }}>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 22 22"
+          fill="none"
+          style={{
+            animation: "lexSpin 8s linear infinite",
+            transformOrigin: "center",
+            display: "block",
+          }}
+        >
+          <line x1="11" y1="1" x2="11" y2="21" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+          <line x1="1" y1="11" x2="21" y2="11" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+          <line x1="4" y1="4" x2="18" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+          <line x1="18" y1="4" x2="4" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+        </svg>
       </div>
       {thinkContent && (
         <div className="mb-3">
@@ -165,7 +190,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
       <div className="prose prose-sm max-w-none text-sm leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
         <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
       </div>
-      <div className="pt-1 text-left text-[11px] text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+      <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
         {timestamp && <div>{timestamp}</div>}
         {webSearchUsed && (
           <div>
@@ -178,7 +203,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
           </div>
         ))}
       </div>
-      <div className="flex gap-2 pt-2 text-[var(--text-muted)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+      <div className="message-actions flex gap-2 pt-2 text-[var(--text-muted)]">
         {!isLoading && (
           <button
             type="button"
