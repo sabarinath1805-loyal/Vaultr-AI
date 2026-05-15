@@ -114,14 +114,14 @@ export default function WorkflowsPage() {
                 key={workflow.id}
                 type="button"
                 onClick={() => setSelected(workflow)}
-                className={`grid w-full grid-cols-[40px_360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-3 text-left text-xs transition-colors hover:bg-[var(--sidebar-bg)] ${
+                className={`grid w-full grid-cols-[40px_360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-[14px] text-left transition-colors hover:bg-[#f9f9f8] ${
                   selected?.id === workflow.id ? "bg-[var(--sidebar-bg)]" : ""
                 }`}
               >
                 <div><input type="checkbox" onClick={(event) => event.stopPropagation()} aria-label={`Select ${workflow.title}`} /></div>
-                <div className="font-medium text-[var(--text)]">{workflow.title}</div>
-                <div className="text-[var(--text-muted)]">{workflow.practice}</div>
-                <div className="flex items-center gap-1.5 text-[var(--text-muted)]">
+                <div className="text-[14px] font-medium text-[var(--text)]">{workflow.title}</div>
+                <div className="text-[13px] text-[var(--text-muted)]">{workflow.practice}</div>
+                <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
                   <SnowflakeIcon size={12} />
                   Vaultr
                 </div>

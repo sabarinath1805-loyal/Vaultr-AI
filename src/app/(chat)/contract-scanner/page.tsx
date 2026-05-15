@@ -42,24 +42,35 @@ export default function ContractScannerPage() {
     setIsScanning(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.append("file", file);
-    if (selectedModel) formData.append("selectedModel", selectedModel);
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 60000);
 
-    const response = await fetch("/api/chats", {
-      method: "POST",
-      body: formData,
-    });
-    const data = await response.json();
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      if (selectedModel) formData.append("selectedModel", selectedModel);
 
-    setIsScanning(false);
+      const response = await fetch("/api/chats", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      });
+      const data = await response.json();
 
-    if (!response.ok) {
-      setError(data.error || "Lex returned an unexpected response. Please try again.");
-      return;
+      if (!response.ok) {
+        console.error("Contract scan failed", data);
+        setError("Scan failed. Make sure Ollama is running and try again.");
+        return;
+      }
+
+      setAnalysis(data.analysis);
+    } catch (error) {
+      console.error("Contract scan failed", error);
+      setError("Scan failed. Make sure Ollama is running and try again.");
+    } finally {
+      window.clearTimeout(timeout);
+      setIsScanning(false);
     }
-
-    setAnalysis(data.analysis);
   };
 
   return (

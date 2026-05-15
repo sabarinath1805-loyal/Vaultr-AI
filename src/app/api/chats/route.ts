@@ -84,6 +84,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ analysis: parseJsonResponse(result.text) });
     } catch (error) {
+      console.error("Contract scanner API error", error);
       if (error instanceof SyntaxError) {
         return NextResponse.json(
           { error: "Lex returned an unexpected response. Please try again." },
