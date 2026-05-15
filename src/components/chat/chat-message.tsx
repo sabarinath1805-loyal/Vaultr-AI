@@ -76,8 +76,8 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   if (message.role === "user") {
     return (
-      <div className="group animate-message-in ml-auto max-w-[70%]">
-        <div className="rounded-[12px] bg-[var(--user-bubble)] px-4 py-2.5 text-sm leading-normal text-[var(--white)]">
+      <div className="group animate-message-in ml-auto max-w-[80%]">
+        <div className="rounded-[20px] bg-[var(--user-bubble)] px-4 py-3 text-sm leading-normal text-[var(--white)]">
           {message.content}
         </div>
         <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -117,7 +117,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   return (
     <div className="group animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
-      <div className="mb-1.5 text-xs leading-none text-[var(--text-secondary)]">
+      <div className="mb-2 text-[11px] leading-none text-[var(--text-secondary)]">
         Lex
       </div>
       {thinkContent && (
@@ -158,7 +158,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
             ))}
         </div>
       )}
-      <div className="prose prose-sm max-w-none leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
+      <div className="prose prose-sm max-w-none text-sm leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
         <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
       </div>
       <div className="pt-1 text-left text-[11px] text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
