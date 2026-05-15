@@ -47,7 +47,7 @@ export default function VaultPage() {
 
   useEffect(() => {
     const closeMenus = (event: MouseEvent) => {
-      if (event.target instanceof HTMLElement && event.target.closest("[data-vault-actions]")) {
+      if (event.target instanceof Element && event.target.closest("[data-vault-actions]")) {
         return;
       }
       setOpenMenuId(null);
@@ -125,7 +125,7 @@ export default function VaultPage() {
             }
           />
 
-          <div className="w-full overflow-x-auto">
+          <div className="w-full overflow-visible">
             <div className="min-w-max">
               <div className="flex h-8 items-center border-b border-[var(--border)] pr-8 text-xs font-medium text-[var(--text-muted)] select-none">
                 <div className={`sticky left-0 z-[60] ${CHECK_W} relative flex self-stretch items-center justify-center bg-white before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-white`} />
