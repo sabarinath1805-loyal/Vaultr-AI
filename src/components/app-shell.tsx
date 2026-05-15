@@ -12,6 +12,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
     const dark = themePreference === "dark" || (themePreference === "system" && systemDark);
     root.dataset.theme = dark ? "dark" : "light";
+    root.classList.toggle("dark", dark);
   }, [themePreference]);
 
   return (

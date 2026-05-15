@@ -32,7 +32,7 @@ export function HeaderSearchBtn({
   return (
     <div ref={ref} className="relative flex items-center">
       {open ? (
-        <div className="absolute right-0 top-1/2 z-10 flex w-72 -translate-y-1/2 items-center gap-2 rounded-lg border border-[var(--border)] bg-white px-3 py-1.5 shadow-sm">
+        <div className="absolute right-0 top-1/2 z-10 flex w-72 -translate-y-1/2 items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-1.5 shadow-sm">
           <Search className="h-3.5 w-3.5 shrink-0 text-[var(--text-faint)]" />
           <input
             autoFocus

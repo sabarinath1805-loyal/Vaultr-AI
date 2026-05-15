@@ -54,7 +54,7 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
 
   return (
     <div className="space-y-5 px-6 pb-8">
-      <article className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-6">
+      <article className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-2xl text-[var(--text)]">

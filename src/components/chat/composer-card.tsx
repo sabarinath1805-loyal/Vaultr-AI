@@ -160,8 +160,8 @@ export function ComposerCard({
 
   return (
     <>
-      <form onSubmit={submitWithReset} className="w-[680px] max-w-[calc(100%-48px)]">
-        <div className="rounded-[16px] border border-[var(--border)] bg-white md:rounded-[20px]">
+      <form onSubmit={submitWithReset} className="w-full max-w-[680px]">
+        <div className="rounded-[16px] border border-[var(--border)] bg-[var(--bg)] md:rounded-[20px]">
           {(selectedWorkflow || attachedDocuments.length > 0) && (
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
               {selectedWorkflow && (
@@ -171,7 +171,7 @@ export function ComposerCard({
                   <button
                     type="button"
                     onClick={() => setSelectedWorkflow(null)}
-                    className="ml-0.5 rounded-full p-0.5 text-white/60 transition-colors hover:bg-white/20 hover:text-white"
+                    className="ml-0.5 rounded-full p-0.5 text-white/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-white"
                     aria-label="Remove workflow"
                   >
                     <X className="h-2.5 w-2.5" />
@@ -196,7 +196,7 @@ export function ComposerCard({
                         current.filter((item) => item.id !== doc.id)
                       )
                     }
-                    className="ml-0.5 rounded-full p-0.5 text-white/60 transition-colors hover:bg-white/20 hover:text-white"
+                    className="ml-0.5 rounded-full p-0.5 text-white/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-white"
                     aria-label={`Remove ${doc.filename}`}
                   >
                     <X className="h-2.5 w-2.5" />
