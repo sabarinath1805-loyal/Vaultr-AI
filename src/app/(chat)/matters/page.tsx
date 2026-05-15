@@ -25,7 +25,7 @@ export default function MattersPage() {
 
   useEffect(() => {
     const closeMenus = (event: MouseEvent) => {
-      if (event.target instanceof HTMLElement && event.target.closest("[data-matter-actions]")) {
+      if (event.target instanceof Element && event.target.closest("[data-matter-actions]")) {
         return;
       }
       setOpenMenuId(null);
