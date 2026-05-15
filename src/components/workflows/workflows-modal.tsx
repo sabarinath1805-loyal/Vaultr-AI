@@ -15,15 +15,7 @@ interface WorkflowsModalProps {
 }
 
 function workflowPrompt(workflow: BuiltInWorkflow) {
-  if (workflow.prompt) return workflow.prompt;
-  const columns = workflow.columnsConfig || [];
-  return [
-    `## ${workflow.title}`,
-    "",
-    `Review the selected documents using this ${workflow.practice} workflow.`,
-    "",
-    ...columns.map((column) => `### ${column.name}\n${column.prompt || ""}`),
-  ].join("\n");
+  return workflow.prompt || "";
 }
 
 export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
@@ -132,7 +124,7 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
 
           <div className="flex flex-1 flex-col overflow-hidden border-l border-[var(--border)] px-3 pb-3">
             <div className="flex shrink-0 items-center justify-between py-3">
-              <p className="text-xs font-medium text-[var(--text)]">Workflow Prompt</p>
+              <p className="font-display text-xs font-medium text-[var(--text)]">Workflow Prompt</p>
             </div>
             <div className="flex-1 overflow-y-auto rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-sm leading-relaxed text-[var(--text-muted)]">
               <ReactMarkdown
