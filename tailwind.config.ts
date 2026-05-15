@@ -36,8 +36,8 @@ const config = {
           foreground: "var(--text)",
         },
         destructive: {
-          DEFAULT: "#e53e3e",
-          foreground: "#ffffff",
+          DEFAULT: "var(--danger)",
+          foreground: "var(--white)",
         },
         muted: {
           DEFAULT: "var(--surface)",

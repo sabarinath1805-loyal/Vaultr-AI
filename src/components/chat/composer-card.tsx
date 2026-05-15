@@ -4,12 +4,11 @@ import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
 import { ArrowRight, Brain, Check, File, FileText, FolderOpen, Globe, Library, Square, X } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { WorkflowsModal } from "@/components/workflows/workflows-modal";
 import { AddDocButton } from "@/components/chat/add-doc-button";
 import { AddDocumentsModal } from "@/components/shared/add-documents-modal";
-import type { LocalDocument } from "@/lib/local-documents";
+import { formatBytes, type LocalDocument } from "@/lib/local-documents";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import useChatStore, { type AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { isThinkingCapableModel } from "@/lib/models";
@@ -47,6 +46,7 @@ export function ComposerCard({
   const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
   const documents = useLocalVaultStore((state) => state.documents);
+  const projects = useLocalVaultStore((state) => state.projects);
   const pendingAttachedDocumentIds = useChatStore((state) => state.pendingAttachedDocumentIds);
   const setPendingAttachedDocumentIds = useChatStore((state) => state.setPendingAttachedDocumentIds);
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
@@ -55,14 +55,16 @@ export function ComposerCard({
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const ollamaUrl = useChatStore((state) => state.ollamaUrl);
-  const router = useRouter();
 
   React.useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
   React.useEffect(() => {
-    setThinkingEnabled(thinkingModeDefault);
+    const savedWebSearch = window.localStorage.getItem("vaultr-web-search-enabled");
+    const savedThinking = window.localStorage.getItem("vaultr-thinking-enabled");
+    setWebSearchEnabled(savedWebSearch === "true");
+    setThinkingEnabled(savedThinking === null ? thinkingModeDefault : savedThinking === "true");
   }, [thinkingModeDefault]);
 
   React.useEffect(() => {
@@ -87,11 +89,9 @@ export function ComposerCard({
   React.useEffect(() => {
     setSelectedWorkflow(null);
     setAttachedDocuments([]);
-    setWebSearchEnabled(false);
-    setThinkingEnabled(thinkingModeDefault);
     if (setInput) setInput("");
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [composerResetToken, setInput, thinkingModeDefault]);
+  }, [composerResetToken, setInput]);
 
   const submitFromTextarea = () => {
     const form = textareaRef.current?.form;
@@ -130,6 +130,10 @@ export function ComposerCard({
       attachedDocuments: attachedDocuments.map((doc) => ({
         id: doc.id,
         filename: doc.filename,
+        fileType: doc.fileType,
+        sizeBytes: doc.sizeBytes,
+        content: doc.content,
+        dataUrl: doc.dataUrl,
       })),
       webSearch: webSearchEnabled,
       thinking: thinkingEnabled && isThinkingCapableModel(selectedModel),
@@ -144,16 +148,29 @@ export function ComposerCard({
         ollamaUrl,
       },
     });
-    if (input.trim()) {
+    if (input.trim() || attachedDocuments.length > 0) {
       setSelectedWorkflow(null);
       setAttachedDocuments([]);
-      setWebSearchEnabled(false);
     }
   };
 
   const useWorkflowPrompt = (workflow: AttachedWorkflow) => {
     setSelectedWorkflow(workflow);
     requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
+  const setPersistentWebSearch = () => {
+    setWebSearchEnabled((enabled) => {
+      window.localStorage.setItem("vaultr-web-search-enabled", String(!enabled));
+      return !enabled;
+    });
+  };
+
+  const setPersistentThinking = () => {
+    setThinkingEnabled((enabled) => {
+      window.localStorage.setItem("vaultr-thinking-enabled", String(!enabled));
+      return !enabled;
+    });
   };
 
   const thinkingSupported = isThinkingCapableModel(selectedModel);
@@ -165,13 +182,13 @@ export function ComposerCard({
           {(selectedWorkflow || attachedDocuments.length > 0) && (
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
               {selectedWorkflow && (
-                <div className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-blue-600 py-0.5 pl-2.5 pr-1 text-xs text-white shadow backdrop-blur-sm">
+                <div className="inline-flex items-center gap-1 rounded-full border border-[color:var(--white)]/20 bg-[var(--blue)] py-0.5 pl-2.5 pr-1 text-xs text-[var(--white)] shadow backdrop-blur-sm">
                   <Library className="h-2.5 w-2.5 shrink-0" />
                   <span className="max-w-[140px] truncate">{selectedWorkflow.title}</span>
                   <button
                     type="button"
                     onClick={() => setSelectedWorkflow(null)}
-                    className="ml-0.5 rounded-full p-0.5 text-white/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-white"
+                    className="ml-0.5 rounded-full p-0.5 text-[var(--white)]/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-[var(--white)]"
                     aria-label="Remove workflow"
                   >
                     <X className="h-2.5 w-2.5" />
@@ -181,12 +198,12 @@ export function ComposerCard({
               {attachedDocuments.map((doc) => (
                 <div
                   key={doc.id}
-                  className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-black py-0.5 pl-2 pr-1 text-xs text-white shadow backdrop-blur-sm"
+                  className="inline-flex items-center gap-1 rounded-full border border-[color:var(--white)]/20 bg-[var(--accent)] py-0.5 pl-2 pr-1 text-xs text-[var(--white)] shadow backdrop-blur-sm"
                 >
                   {doc.fileType === "pdf" ? (
-                    <FileText className="h-2.5 w-2.5 shrink-0 text-red-400" />
+                    <FileText className="h-2.5 w-2.5 shrink-0 text-[var(--danger)]" />
                   ) : (
-                    <File className="h-2.5 w-2.5 shrink-0 text-blue-400" />
+                    <File className="h-2.5 w-2.5 shrink-0 text-[var(--blue)]" />
                   )}
                   <span className="max-w-[140px] truncate">{doc.filename}</span>
                   <button
@@ -196,7 +213,7 @@ export function ComposerCard({
                         current.filter((item) => item.id !== doc.id)
                       )
                     }
-                    className="ml-0.5 rounded-full p-0.5 text-white/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-white"
+                    className="ml-0.5 rounded-full p-0.5 text-[var(--white)]/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-[var(--white)]"
                     aria-label={`Remove ${doc.filename}`}
                   >
                     <X className="h-2.5 w-2.5" />
@@ -231,7 +248,7 @@ export function ComposerCard({
               <button
                 type="button"
                 className={toolbarButtonClass}
-                onClick={() => router.push("/vault")}
+                onClick={() => setDocSelectorOpen(true)}
                 aria-label="Open vault"
               >
                 <FolderOpen className="h-3.5 w-3.5" />
@@ -241,7 +258,7 @@ export function ComposerCard({
                 type="button"
                 className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm transition-colors ${
                   selectedWorkflow
-                    ? "text-blue-600 hover:bg-blue-50"
+                    ? "text-[var(--blue)] hover:bg-[var(--bg-tertiary)]"
                     : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
                 }`}
                 onClick={() => setWorkflowModalOpen(true)}
@@ -260,10 +277,10 @@ export function ComposerCard({
               <button
                 type="button"
                 title={webSearchEnabled ? "Web search on" : "Web search off"}
-                onClick={() => setWebSearchEnabled((enabled) => !enabled)}
+                onClick={setPersistentWebSearch}
                 className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   webSearchEnabled
-                    ? "text-[#3b82f6]"
+                    ? "text-[var(--blue)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text)]"
                 }`}
                 aria-pressed={webSearchEnabled}
@@ -276,12 +293,12 @@ export function ComposerCard({
                 title={thinkingSupported ? (thinkingEnabled ? "Thinking mode on" : "Thinking mode off") : "Thinking mode requires Lex Nano, Core, Pro, Elite or Max"}
                 onClick={() => {
                   if (thinkingSupported) {
-                    setThinkingEnabled((enabled) => !enabled);
+                    setPersistentThinking();
                   }
                 }}
                 className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
                   thinkingEnabled && thinkingSupported
-                    ? "text-[#8b5cf6]"
+                    ? "text-[var(--purple)]"
                     : "text-[var(--text-muted)] hover:text-[var(--text)]"
                 } ${thinkingSupported ? "" : "cursor-not-allowed opacity-50"}`}
                 aria-pressed={thinkingEnabled && thinkingSupported}
@@ -299,7 +316,7 @@ export function ComposerCard({
                   }
                 }}
                 disabled={!isLoading && !input.trim()}
-                className="relative flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--text)] text-white transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
+                className="relative flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--accent)] text-[var(--bg-primary)] transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
                 aria-label={isLoading ? "Stop response" : "Send message"}
               >
                 {isLoading ? (
@@ -316,7 +333,12 @@ export function ComposerCard({
         open={docSelectorOpen}
         onClose={() => setDocSelectorOpen(false)}
         onSelect={handleAddDocuments}
-        breadcrumb={["Assistant", "Add Documents"]}
+        breadcrumb={["Assistant", "Select from Vault"]}
+        title="Select from Vault"
+        describeDocument={(doc) => {
+          const project = projects.find((item) => item.id === doc.projectId);
+          return `${project?.name || "Vault"} · ${formatBytes(doc.sizeBytes)}`;
+        }}
       />
       <WorkflowsModal
         open={workflowModalOpen}

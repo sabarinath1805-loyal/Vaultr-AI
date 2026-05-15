@@ -10,19 +10,19 @@ interface ResultsDisplayProps {
 
 const riskClasses: Record<ContractRisk, { badge: string; border: string; text: string }> = {
   HIGH: {
-    badge: "border-[rgb(229,62,62)] bg-[rgb(255,240,240)] text-[rgb(197,48,48)]",
-    border: "border-l-[rgb(229,62,62)]",
-    text: "text-[rgb(197,48,48)]",
+    badge: "border-[var(--danger)] bg-[var(--danger-bg)] text-[var(--danger-hover)]",
+    border: "border-l-[var(--danger)]",
+    text: "text-[var(--danger-hover)]",
   },
   MEDIUM: {
-    badge: "border-[rgb(214,158,46)] bg-[rgb(255,251,240)] text-[rgb(183,121,31)]",
-    border: "border-l-[rgb(214,158,46)]",
-    text: "text-[rgb(183,121,31)]",
+    badge: "border-[var(--warning-border)] bg-[var(--warning-bg)] text-[var(--warning)]",
+    border: "border-l-[var(--warning-border)]",
+    text: "text-[var(--warning)]",
   },
   LOW: {
-    badge: "border-[rgb(56,161,105)] bg-[rgb(240,255,244)] text-[rgb(39,103,73)]",
-    border: "border-l-[rgb(56,161,105)]",
-    text: "text-[rgb(39,103,73)]",
+    badge: "border-[var(--success-border)] bg-[var(--success-bg)] text-[var(--success)]",
+    border: "border-l-[var(--success-border)]",
+    text: "text-[var(--success)]",
   },
 };
 
@@ -57,7 +57,7 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
       <article className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-2xl text-[var(--text)]">
+            <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
               {analysis.contract_title}
             </h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
@@ -107,7 +107,7 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
             className={`rounded-[var(--radius-md)] border border-l-4 border-[var(--border)] bg-[var(--bg)] px-6 py-5 ${riskClasses[clause.risk].border}`}
           >
             <div className="flex items-start justify-between gap-4">
-              <h3 className="text-sm font-semibold text-[var(--text)]">
+              <h3 className="font-display text-[28px] font-normal text-[var(--text)]">
                 {clause.title}
               </h3>
               <RiskBadge risk={clause.risk} />
@@ -116,11 +116,11 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
               “{clause.excerpt}”
             </p>
             <p className="mt-3 text-[13px] text-[var(--text)]">
-              <span className="text-xs font-semibold uppercase">Issue:</span>{" "}
+              <span className="text-xs font-medium uppercase">Issue:</span>{" "}
               {clause.issue}
             </p>
             <p className="mt-2 text-[13px] italic text-[var(--text-muted)]">
-              <span className="text-xs font-semibold uppercase not-italic text-[var(--text)]">
+              <span className="text-xs font-medium uppercase not-italic text-[var(--text)]">
                 Recommendation:
               </span>{" "}
               {clause.recommendation}

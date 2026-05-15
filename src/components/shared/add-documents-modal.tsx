@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, Search, Upload, X } from "lucide-react";
+import { File, FileText, Loader2, Search, Upload, X } from "lucide-react";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
-import type { LocalDocument } from "@/lib/local-documents";
+import { formatBytes, type LocalDocument } from "@/lib/local-documents";
 import { FileDirectory } from "@/components/shared/file-directory";
 
 interface AddDocumentsModalProps {
@@ -14,6 +14,8 @@ interface AddDocumentsModalProps {
   breadcrumb: string[];
   allowMultiple?: boolean;
   projectId?: string;
+  title?: string;
+  describeDocument?: (document: LocalDocument) => string;
 }
 
 export function AddDocumentsModal({
@@ -23,6 +25,8 @@ export function AddDocumentsModal({
   breadcrumb,
   allowMultiple = true,
   projectId,
+  title,
+  describeDocument,
 }: AddDocumentsModalProps) {
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
@@ -84,16 +88,21 @@ export function AddDocumentsModal({
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
-      <div className="flex h-[600px] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-[var(--bg)] shadow-2xl">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)] backdrop-blur-[1px]" onClick={onClose}>
+      <div className="flex h-[600px] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-[var(--bg)] shadow-2xl" onClick={(event) => event.stopPropagation()}>
         <div className="flex shrink-0 items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
-            {breadcrumb.map((crumb, index) => (
-              <span key={`${crumb}-${index}`} className="contents">
-                <span>{crumb}</span>
-                {index < breadcrumb.length - 1 && <span>›</span>}
-              </span>
-            ))}
+          <div>
+            {title ? (
+              <div className="text-base font-medium text-[var(--text)]">{title}</div>
+            ) : null}
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
+              {breadcrumb.map((crumb, index) => (
+                <span key={`${crumb}-${index}`} className="contents">
+                  <span>{crumb}</span>
+                  {index < breadcrumb.length - 1 && <span>›</span>}
+                </span>
+              ))}
+            </div>
           </div>
           <button
             type="button"
@@ -118,16 +127,51 @@ export function AddDocumentsModal({
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <FileDirectory
-              standaloneDocs={filtered.standaloneDocs}
-              directoryProjects={filtered.directoryProjects}
-              allDocuments={documents}
-              selectedIds={selectedIds}
-              onChange={setSelectedIds}
-              allowMultiple={allowMultiple}
-              emptyMessage="No existing documents"
-              onDelete={deleteDocuments}
-            />
+            {title ? (
+              <div className="space-y-1">
+                {documents.length === 0 ? (
+                  <div className="py-12 text-center">
+                    <p className="font-display text-[28px] font-normal text-[var(--text)]">No documents yet</p>
+                    <p className="mt-2 text-[13px] text-[var(--text-secondary)]">Upload documents to Vault first.</p>
+                  </div>
+                ) : (
+                  documents.map((doc) => (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => {
+                        onSelect([doc], doc.projectId || undefined);
+                        onClose();
+                      }}
+                      className="flex w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2 text-left transition-colors hover:bg-[var(--bg-tertiary)]"
+                    >
+                      {doc.fileType === "pdf" ? (
+                        <FileText className="h-4 w-4 shrink-0 text-[var(--danger)]" />
+                      ) : (
+                        <File className="h-4 w-4 shrink-0 text-[var(--blue)]" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13px] text-[var(--text)]">{doc.filename}</div>
+                        <div className="text-xs text-[var(--text-secondary)]">
+                          {describeDocument?.(doc) || formatBytes(doc.sizeBytes)}
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : (
+              <FileDirectory
+                standaloneDocs={filtered.standaloneDocs}
+                directoryProjects={filtered.directoryProjects}
+                allDocuments={documents}
+                selectedIds={selectedIds}
+                onChange={setSelectedIds}
+                allowMultiple={allowMultiple}
+                emptyMessage="No existing documents"
+                onDelete={deleteDocuments}
+              />
+            )}
           </div>
         </div>
 
@@ -155,7 +199,7 @@ export function AddDocumentsModal({
               {uploading ? "Uploading..." : "Upload files"}
             </button>
           </div>
-          <div className="flex items-center gap-2">
+          {!title && <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}
@@ -167,11 +211,11 @@ export function AddDocumentsModal({
               type="button"
               onClick={handleConfirm}
               disabled={selectedIds.size === 0 || uploading}
-              className="rounded-lg bg-[var(--text)] px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-[#333] disabled:opacity-40"
+              className="rounded-lg bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80 disabled:opacity-40"
             >
               Add {selectedIds.size || ""}
             </button>
-          </div>
+          </div>}
         </div>
       </div>
     </div>,
