@@ -9,6 +9,7 @@ import { NewVaultModal } from "@/components/vault/new-vault-modal";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { useReturnDocumentsToComposer } from "@/components/vault/vault-route-bridge";
 import { formatBytes, LocalDocument } from "@/lib/local-documents";
+import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
 
 const CHECK_W = "w-8 shrink-0";
 const NAME_COL_W = "w-[300px] shrink-0";
@@ -27,6 +28,7 @@ export default function VaultPage() {
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<DropdownPosition | null>(null);
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
@@ -59,7 +61,14 @@ export default function VaultPage() {
       setOpenMenuId(null);
     };
     document.addEventListener("click", closeMenus);
-    return () => document.removeEventListener("click", closeMenus);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("click", closeMenus);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, []);
 
   return (
@@ -179,7 +188,13 @@ export default function VaultPage() {
                             className="rounded-[var(--radius-sm)] p-1 text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
                             onClick={(event) => {
                               event.stopPropagation();
-                              setOpenMenuId(openMenuId === project.id ? null : project.id);
+                              if (openMenuId === project.id) {
+                                setOpenMenuId(null);
+                                setMenuPosition(null);
+                                return;
+                              }
+                              setMenuPosition(getFixedDropdownPosition(event.currentTarget, 120, 116));
+                              setOpenMenuId(project.id);
                             }}
                             aria-label={`${project.name} actions`}
                           >
@@ -188,6 +203,7 @@ export default function VaultPage() {
                           {openMenuId === project.id && (
                             <ActionMenu
                               onClose={() => setOpenMenuId(null)}
+                              position={menuPosition}
                               items={[
                                 { label: "Open", onClick: () => setSelectedProjectId(project.id) },
                                 {
@@ -487,13 +503,16 @@ function ConfirmDeleteModal({
 function ActionMenu({
   items,
   onClose,
+  position,
 }: {
   items: { label: string; destructive?: boolean; onClick: () => void }[];
   onClose: () => void;
+  position: DropdownPosition | null;
 }) {
   return (
     <div
-      className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]"
+      className="fixed z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]"
+      style={{ top: position?.top ?? 0, left: position?.left ?? 0 }}
       onClick={(event) => event.stopPropagation()}
     >
       {items.map((item) => (
