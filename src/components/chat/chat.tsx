@@ -36,10 +36,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       const savedMessages = getMessagesById(id);
       await saveMessages(id, [...savedMessages, message]);
       setLoadingSubmit(false);
+      setIsThinking(false);
       router.replace(`/c/${id}`);
     },
     onError: async (error) => {
       setLoadingSubmit(false);
+      setIsThinking(false);
       console.error(error.message);
       console.error(error.cause);
 
@@ -58,6 +60,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     },
   });
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
+  const [isThinking, setIsThinking] = React.useState(false);
   const base64Images = useChatStore((state) => state.base64Images);
   const setBase64Images = useChatStore((state) => state.setBase64Images);
   const selectedModel = useChatStore((state) => state.selectedModel);
@@ -91,13 +94,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   React.useEffect(() => {
     const lastMessage = messages[messages.length - 1];
     if (
-      loadingSubmit &&
+      isThinking &&
       lastMessage?.role === "assistant" &&
       lastMessage.content.trim().length > 0
     ) {
-      setLoadingSubmit(false);
+      setIsThinking(false);
     }
-  }, [loadingSubmit, messages]);
+  }, [isThinking, messages]);
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>,
@@ -154,6 +157,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     };
 
     setLoadingSubmit(true);
+    setIsThinking(true);
 
     const attachments: Attachment[] = base64Images
       ? base64Images.map((image) => ({
@@ -196,13 +200,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     stop();
     saveMessages(id, [...messages]);
     setLoadingSubmit(false);
+    setIsThinking(false);
   };
 
   return (
     <div className="h-full w-full bg-[var(--bg)]">
       {messages.length === 0 ? (
         <div className="relative h-screen w-full overflow-hidden">
-          <div className="absolute left-1/2 top-[55%] w-full max-w-[680px] -translate-x-1/2 -translate-y-1/2 px-6">
+          <div className="absolute left-1/2 top-[55%] w-full max-w-[780px] -translate-x-1/2 -translate-y-1/2 px-6">
             <div className="text-center text-[var(--text)]">
               {isOpenEmptyChat ? (
                 <>
@@ -215,7 +220,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   </p>
                 </>
               ) : (
-                <h1 className="font-display mb-8 flex items-center justify-center gap-3 text-[28px] font-normal text-[var(--text)]">
+                <h1 className="font-display mb-7 flex items-center justify-center gap-3 text-[52px] font-normal leading-none text-[var(--text)]">
                   <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
                   Hi, Counselor
                 </h1>
@@ -244,7 +249,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           <ChatList
             messages={messages}
             isLoading={isLoading}
-            loadingSubmit={loadingSubmit}
+            isThinking={isThinking}
             reload={async () => {
               removeLatestMessage();
 
@@ -255,10 +260,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               };
 
               setLoadingSubmit(true);
+              setIsThinking(true);
               return reload(requestOptions);
             }}
           />
-          <div className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] max-w-[680px] -translate-x-1/2 bg-[var(--bg)]">
+          <div className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] max-w-[780px] -translate-x-1/2 bg-[var(--bg)]">
             <ChatBottombar
               input={input}
               handleInputChange={handleInputChange}
