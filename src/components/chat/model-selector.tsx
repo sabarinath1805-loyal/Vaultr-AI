@@ -22,6 +22,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
+  const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,7 +44,11 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
           if (orderedModels.length === 0 && selectedModel) {
             setSelectedModel(null);
           } else if (orderedModels.length > 0 && !orderedModels.includes(selectedModel || "")) {
-            setSelectedModel(orderedModels[0]);
+            setSelectedModel(
+              orderedModels.includes(defaultModelPreference)
+                ? defaultModelPreference
+                : orderedModels[0]
+            );
           }
         }
       } catch {
@@ -60,7 +65,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
     return () => {
       cancelled = true;
     };
-  }, [selectedModel, setSelectedModel]);
+  }, [defaultModelPreference, selectedModel, setSelectedModel]);
 
   const selectedLabel = !isOllamaRunning
     ? "Ollama not running"

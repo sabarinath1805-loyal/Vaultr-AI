@@ -1,8 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display:ital,wght@0,400;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap');
 
-* { font-family: 'DM Sans', sans-serif !important; }
-h1, h2, h3, .display-heading, .greeting, .page-title { font-family: 'DM Serif Display', Georgia, serif !important; }
-code, pre, .mono { font-family: 'JetBrains Mono', monospace !important; }
+*, *::before, *::after {
+  font-family: 'DM Sans', sans-serif !important;
+}
+
+h1, h2, h3, .font-display {
+  font-family: 'DM Serif Display', serif !important;
+}
 
 @tailwind base;
 @tailwind components;
@@ -26,6 +30,16 @@ code, pre, .mono { font-family: 'JetBrains Mono', monospace !important; }
   --transition: 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+:root[data-theme="dark"] {
+  --bg: #1a1916;
+  --sidebar-bg: #23211d;
+  --border: #3a3731;
+  --text: #f8f7f4;
+  --text-muted: #c4c0b8;
+  --text-faint: #8a8880;
+  --surface: #2d2a25;
+}
+
 @keyframes message-in {
   from {
     opacity: 0;
@@ -46,13 +60,6 @@ code, pre, .mono { font-family: 'JetBrains Mono', monospace !important; }
   body {
     background-color: var(--bg);
     color: var(--text);
-    font-family: var(--font-body);
-  }
-  input,
-  textarea,
-  select,
-  button {
-    font-family: var(--font-body);
   }
 }
 
