@@ -17,6 +17,9 @@ interface State {
   ollamaUrl: string;
   serperApiKey: string;
   thinkingModeDefault: boolean;
+  themePreference: "light" | "dark" | "system";
+  defaultModelPreference: string;
+  autoCleanupConversations: boolean;
   isDownloading: boolean;
   downloadProgress: number;
   downloadingModel: string | null;
@@ -49,6 +52,9 @@ interface Actions {
   setOllamaUrl: (ollamaUrl: string) => void;
   setSerperApiKey: (serperApiKey: string) => void;
   setThinkingModeDefault: (enabled: boolean) => void;
+  setThemePreference: (theme: "light" | "dark" | "system") => void;
+  setDefaultModelPreference: (modelId: string) => void;
+  setAutoCleanupConversations: (enabled: boolean) => void;
   startDownload: (modelName: string) => void;
   stopDownload: () => void;
   setDownloadProgress: (progress: number) => void;
@@ -93,6 +99,9 @@ const useChatStore = create<State & Actions>()(
       ollamaUrl: "http://localhost:11434",
       serperApiKey: "[REDACTED]",
       thinkingModeDefault: false,
+      themePreference: "light",
+      defaultModelPreference: "qwen3:8b",
+      autoCleanupConversations: false,
       isDownloading: false,
       downloadProgress: 0,
       downloadingModel: null,
@@ -104,6 +113,9 @@ const useChatStore = create<State & Actions>()(
       setOllamaUrl: (ollamaUrl) => set({ ollamaUrl }),
       setSerperApiKey: (serperApiKey) => set({ serperApiKey }),
       setThinkingModeDefault: (enabled) => set({ thinkingModeDefault: enabled }),
+      setThemePreference: (theme) => set({ themePreference: theme }),
+      setDefaultModelPreference: (modelId) => set({ defaultModelPreference: modelId }),
+      setAutoCleanupConversations: (enabled) => set({ autoCleanupConversations: enabled }),
 
       setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
       setPendingComposerText: (text) => set({ pendingComposerText: text }),
@@ -252,6 +264,9 @@ const useChatStore = create<State & Actions>()(
         ollamaUrl: state.ollamaUrl,
         serperApiKey: state.serperApiKey,
         thinkingModeDefault: state.thinkingModeDefault,
+        themePreference: state.themePreference,
+        defaultModelPreference: state.defaultModelPreference,
+        autoCleanupConversations: state.autoCleanupConversations,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<State>;
@@ -270,6 +285,13 @@ const useChatStore = create<State & Actions>()(
             typeof persisted.thinkingModeDefault === "boolean"
               ? persisted.thinkingModeDefault
               : currentState.thinkingModeDefault,
+          themePreference: persisted.themePreference || currentState.themePreference,
+          defaultModelPreference:
+            persisted.defaultModelPreference || currentState.defaultModelPreference,
+          autoCleanupConversations:
+            typeof persisted.autoCleanupConversations === "boolean"
+              ? persisted.autoCleanupConversations
+              : currentState.autoCleanupConversations,
         };
       },
     }
