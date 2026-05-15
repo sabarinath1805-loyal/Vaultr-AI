@@ -18,6 +18,53 @@ interface RemoveState {
   error: string | null;
 }
 
+const MODEL_CARD_STYLES: Record<
+  string,
+  {
+    accent: string;
+    badge: string;
+    badgeBackground: string;
+    badgeColor: string;
+  }
+> = {
+  "lex-nano": {
+    accent: "#1D9E75",
+    badge: "SWIFT",
+    badgeBackground: "#E1F5EE",
+    badgeColor: "#085041",
+  },
+  "lex-core": {
+    accent: "#378ADD",
+    badge: "BALANCED",
+    badgeBackground: "#E6F1FB",
+    badgeColor: "#0C447C",
+  },
+  "lex-pro": {
+    accent: "#7F77DD",
+    badge: "POWERFUL",
+    badgeBackground: "#EEEDFE",
+    badgeColor: "#3C3489",
+  },
+  "lex-advanced": {
+    accent: "#534AB7",
+    badge: "SHARP",
+    badgeBackground: "#EEEDFE",
+    badgeColor: "#26215C",
+  },
+  "lex-elite": {
+    accent: "#BA7517",
+    badge: "DEEP",
+    badgeBackground: "#FAEEDA",
+    badgeColor: "#633806",
+  },
+  "lex-max": {
+    accent: "#A32D2D",
+    badge: "ELITE",
+    badgeBackground: "#FCEBEB",
+    badgeColor: "#791F1F",
+  },
+};
+
 export default function ModelsPage() {
   const [installedModels, setInstalledModels] = useState<string[]>([]);
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
@@ -242,17 +289,29 @@ export default function ModelsPage() {
             const installed = installedModels.includes(model.ollamaId);
             const download = downloads[model.ollamaId];
             const removal = removals[model.ollamaId];
+            const cardStyle = MODEL_CARD_STYLES[model.id];
             return (
               <article
                 key={model.id}
                 className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-6 py-5"
+                style={{ borderTop: `3px solid ${cardStyle.accent}` }}
               >
                 <div className="flex items-start justify-between gap-4">
                   <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
                     {model.name}
                   </h2>
-                  <span className="rounded-[3px] border border-[var(--border)] bg-[var(--surface)] px-1.5 py-0.5 text-[10px] uppercase text-[var(--text-muted)]">
-                    {model.tier}
+                  <span
+                    style={{
+                      backgroundColor: cardStyle.badgeBackground,
+                      color: cardStyle.badgeColor,
+                      fontSize: "11px",
+                      fontWeight: 500,
+                      padding: "3px 8px",
+                      borderRadius: "20px",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {cardStyle.badge}
                   </span>
                 </div>
 
@@ -264,9 +323,9 @@ export default function ModelsPage() {
                 </p>
 
                 <div className="mt-5 space-y-3">
-                  <CapabilityBar label="Speed" value={model.speed} />
-                  <CapabilityBar label="Reasoning" value={model.reasoning} />
-                  <CapabilityBar label="Legal Depth" value={model.legalDepth} />
+                  <CapabilityBar label="Speed" value={model.speed} color={cardStyle.accent} />
+                  <CapabilityBar label="Reasoning" value={model.reasoning} color={cardStyle.accent} />
+                  <CapabilityBar label="Legal Depth" value={model.legalDepth} color={cardStyle.accent} />
                 </div>
 
                 <div className="mt-5 flex items-center gap-3">
@@ -340,7 +399,15 @@ export default function ModelsPage() {
   );
 }
 
-function CapabilityBar({ label, value }: { label: string; value: number }) {
+function CapabilityBar({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between text-[11px] text-[var(--text-muted)]">
@@ -349,8 +416,8 @@ function CapabilityBar({ label, value }: { label: string; value: number }) {
       </div>
       <div className="h-[3px] overflow-hidden rounded-[2px] bg-[var(--border)]">
         <div
-          className="h-full rounded-[2px] bg-[var(--text)]"
-          style={{ width: `${value}%` }}
+          className="h-full rounded-[2px]"
+          style={{ width: `${value}%`, backgroundColor: color }}
         />
       </div>
     </div>
