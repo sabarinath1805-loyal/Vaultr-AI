@@ -22,6 +22,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -51,6 +52,7 @@ export function Sidebar() {
   const router = useRouter();
   const [historyOpen, setHistoryOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  const [clearAllOpen, setClearAllOpen] = useState(false);
   const chats = useChatStore((state) => state.chats);
   const handleDelete = useChatStore((state) => state.handleDelete);
   const clearAllChatsAction = useChatStore((state) => state.clearAllChats);
@@ -67,6 +69,10 @@ export function Sidebar() {
     setCollapsed(saved === "true");
   }, []);
 
+  useEffect(() => {
+    document.documentElement.style.setProperty("--sidebar-current-w", collapsed ? "40px" : "220px");
+  }, [collapsed]);
+
   const toggleCollapsed = () => {
     setCollapsed((value) => {
       window.localStorage.setItem("vaultr-sidebar-collapsed", String(!value));
@@ -82,9 +88,9 @@ export function Sidebar() {
 
 
   const clearAllChats = async () => {
-    if (!window.confirm("Delete all conversations? This cannot be undone.")) return;
     await clearAllChatsAction();
     router.push("/");
+    setClearAllOpen(false);
   };
 
   const isNavActive = (href: string) => {
@@ -186,7 +192,7 @@ export function Sidebar() {
             {sortedChats.length > 0 && (
               <button
                 type="button"
-                onClick={clearAllChats}
+                onClick={() => setClearAllOpen(true)}
                 className="text-[11px] text-[var(--text-muted)] transition-colors hover:text-[rgb(229,62,62)]"
               >
                 Clear all
@@ -270,7 +276,6 @@ export function Sidebar() {
           )}
         </div>}
       </div>
-
       <button type="button" onClick={() => router.push("/settings")} className={`flex items-center gap-2 border-t border-[var(--border)] p-3 text-left transition-colors hover:bg-[rgb(240,238,234)] ${collapsed ? "justify-center px-1" : ""}`}>
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--border)] text-xs font-medium text-[var(--text)]">
           L
@@ -285,6 +290,32 @@ export function Sidebar() {
           <ChevronsUpDown size={14} className="text-[var(--text-muted)]" />
         </>)}
       </button>
+      <Dialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
+        <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold">Delete all conversations?</DialogTitle>
+            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+              This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <button
+              type="button"
+              onClick={() => setClearAllOpen(false)}
+              className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={clearAllChats}
+              className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#c53030]"
+            >
+              Delete
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </aside>
   );
 }

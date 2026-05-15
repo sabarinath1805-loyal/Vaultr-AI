@@ -50,7 +50,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       const errorMessage: Message = {
         id: generateId(),
         role: "assistant",
-        content: "Ollama is not running. Start Ollama to chat with Lex.",
+        content: "Lex is unavailable. Make sure Ollama is running and try again.",
         createdAt: new Date(),
       };
 
@@ -112,13 +112,19 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
 
     if (!isLexModel(selectedModel)) {
+      const userMessage: Message = {
+        id: generateId(),
+        role: "user",
+        content: input,
+        createdAt: new Date(),
+      };
       const errorMessage: Message = {
         id: generateId(),
         role: "assistant",
         content: "LEX_MODEL_REQUIRED",
         createdAt: new Date(),
       };
-      const nextMessages = [...messages, errorMessage];
+      const nextMessages = [...messages, userMessage, errorMessage];
       setMessages(nextMessages);
       saveMessages(id, nextMessages);
       router.replace(`/c/${id}`);
@@ -180,7 +186,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     <div className="h-full w-full bg-[var(--bg)]">
       {messages.length === 0 ? (
         <div className="relative h-screen w-full overflow-hidden">
-          <div className="absolute left-1/2 top-[42%] w-full max-w-[720px] -translate-x-1/2 -translate-y-1/2 px-6">
+          <div className="absolute left-1/2 top-[55%] w-full max-w-[680px] -translate-x-1/2 -translate-y-1/2 px-6">
             <div className="text-center text-[var(--text)]">
               {isOpenEmptyChat ? (
                 <>
@@ -208,16 +214,17 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 stop={handleStop}
                 setInput={setInput}
                 modelSelectorDirection="down"
+                className="flex w-full justify-center"
               />
             </div>
           </div>
-          <p className="fixed bottom-4 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap text-center text-xs text-[var(--text-faint)]">
+          <p className="fixed bottom-4 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-10 -translate-x-1/2 whitespace-nowrap text-center text-xs text-[#b8b6b0]">
             Lex is not a substitute for legal advice. Always verify with
             primary sources.
           </p>
         </div>
       ) : (
-        <>
+        <div className="relative h-full w-full">
           <ChatList
             messages={messages}
             isLoading={isLoading}
@@ -235,7 +242,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               return reload(requestOptions);
             }}
           />
-          <div className="sticky bottom-0 bg-[var(--bg)] pt-2">
+          <div className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] max-w-[680px] -translate-x-1/2 bg-[var(--bg)]">
             <ChatBottombar
               input={input}
               handleInputChange={handleInputChange}
@@ -243,9 +250,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               isLoading={isLoading}
               stop={handleStop}
               setInput={setInput}
+              className="flex w-full justify-center"
             />
           </div>
-        </>
+        </div>
       )}
     </div>
   );

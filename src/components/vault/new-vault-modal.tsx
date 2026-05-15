@@ -47,7 +47,7 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
 
   return createPortal(
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/10 backdrop-blur-[1px]">
-      <div className="flex h-[600px] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-2xl">
+      <div className="flex h-[600px] w-full max-w-2xl flex-col rounded-2xl bg-[var(--bg)] shadow-2xl">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-1.5 text-xs text-[var(--text-faint)]">
             <span>Vault</span>

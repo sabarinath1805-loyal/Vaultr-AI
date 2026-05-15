@@ -27,6 +27,9 @@ export default function VaultPage() {
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
+  const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
+  const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const documents = useLocalVaultStore((state) => state.documents);
@@ -44,6 +47,9 @@ export default function VaultPage() {
   const selectedDocuments = selectedProject
     ? documents.filter((doc) => selectedProject.documentIds.includes(doc.id))
     : [];
+  const renameProjectTarget = projects.find((project) => project.id === renameProjectId) || null;
+  const deleteProjectTarget = projects.find((project) => project.id === deleteProjectId) || null;
+  const deleteDocumentTarget = documents.find((document) => document.id === deleteDocumentId) || null;
 
   useEffect(() => {
     const closeMenus = (event: MouseEvent) => {
@@ -57,7 +63,7 @@ export default function VaultPage() {
   }, []);
 
   return (
-    <main className="h-screen flex-1 overflow-y-auto bg-white">
+    <main className="h-screen flex-1 overflow-y-auto bg-[var(--bg)]">
       <div className="flex items-center justify-between px-8 py-4">
         <div>
           <h1 className="font-display text-2xl font-medium text-[var(--text)]">
@@ -104,7 +110,7 @@ export default function VaultPage() {
           documents={selectedDocuments}
           onAddDocuments={(files) => attachDocumentsToProject(selectedProject.id, files)}
           onAttach={(ids) => returnDocumentsToComposer(ids)}
-          onDelete={deleteDocument}
+          onDelete={setDeleteDocumentId}
           onScan={(docId) => router.push(`/contract-scanner?document=${docId}`)}
           fileInputRef={fileInputRef}
         />
@@ -128,8 +134,8 @@ export default function VaultPage() {
           <div className="w-full overflow-visible">
             <div className="min-w-max">
               <div className="flex h-8 items-center border-b border-[var(--border)] pr-8 text-xs font-medium text-[var(--text-muted)] select-none">
-                <div className={`sticky left-0 z-[60] ${CHECK_W} relative flex self-stretch items-center justify-center bg-white before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-white`} />
-                <div className={`sticky left-8 z-[60] ${NAME_COL_W} bg-white pl-2 text-left`}>
+                <div className={`sticky left-0 z-[60] ${CHECK_W} relative flex self-stretch items-center justify-center bg-[var(--bg)] before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-[var(--bg)]`} />
+                <div className={`sticky left-8 z-[60] ${NAME_COL_W} bg-[var(--bg)] pl-2 text-left`}>
                   Name
                 </div>
                 <div className="ml-auto w-32 shrink-0 text-left">CM</div>
@@ -155,8 +161,8 @@ export default function VaultPage() {
                           if (event.key === "Enter") setSelectedProjectId(project.id);
                         }}
                       >
-                        <div className={`sticky left-0 z-[60] ${CHECK_W} relative flex self-stretch items-center justify-center bg-white`} />
-                        <div className={`sticky left-8 z-[60] ${NAME_COL_W} flex items-center gap-2 bg-white pl-2 text-left`}>
+                        <div className={`sticky left-0 z-[60] ${CHECK_W} relative flex self-stretch items-center justify-center bg-[var(--bg)]`} />
+                        <div className={`sticky left-8 z-[60] ${NAME_COL_W} flex items-center gap-2 bg-[var(--bg)] pl-2 text-left`}>
                           <FolderOpen className="h-3.5 w-3.5 text-[var(--text-faint)]" />
                           <span className="truncate font-medium text-[var(--text)]">{project.name}</span>
                         </div>
@@ -186,19 +192,12 @@ export default function VaultPage() {
                                 { label: "Open", onClick: () => setSelectedProjectId(project.id) },
                                 {
                                   label: "Rename",
-                                  onClick: () => {
-                                    const name = window.prompt("Rename vault", project.name);
-                                    if (name?.trim()) renameProject(project.id, name.trim());
-                                  },
+                                  onClick: () => setRenameProjectId(project.id),
                                 },
                                 {
                                   label: "Delete",
                                   destructive: true,
-                                  onClick: () => {
-                                    if (window.confirm(`Delete ${project.name}?`)) {
-                                      deleteProject(project.id);
-                                    }
-                                  },
+                                  onClick: () => setDeleteProjectId(project.id),
                                 },
                               ]}
                             />
@@ -229,6 +228,37 @@ export default function VaultPage() {
             </div>
           </div>
         </>
+      )}
+      {renameProjectTarget && (
+        <RenameVaultModal
+          name={renameProjectTarget.name}
+          onClose={() => setRenameProjectId(null)}
+          onSave={(name) => {
+            renameProject(renameProjectTarget.id, name);
+            setRenameProjectId(null);
+          }}
+        />
+      )}
+      {deleteProjectTarget && (
+        <ConfirmDeleteModal
+          name={deleteProjectTarget.name}
+          onClose={() => setDeleteProjectId(null)}
+          onDelete={() => {
+            deleteProject(deleteProjectTarget.id);
+            setDeleteProjectId(null);
+            if (selectedProjectId === deleteProjectTarget.id) setSelectedProjectId(null);
+          }}
+        />
+      )}
+      {deleteDocumentTarget && (
+        <ConfirmDeleteModal
+          name={deleteDocumentTarget.filename}
+          onClose={() => setDeleteDocumentId(null)}
+          onDelete={() => {
+            deleteDocument(deleteDocumentTarget.id);
+            setDeleteDocumentId(null);
+          }}
+        />
       )}
       <NewVaultModal open={newVaultOpen} onClose={() => setNewVaultOpen(false)} />
     </main>
@@ -329,7 +359,7 @@ function VaultDocumentCard({
       : "text-[var(--text-muted)] bg-[var(--surface)]";
 
   return (
-    <article className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-white px-5 py-4">
+    <article className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4">
       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] ${iconColor}`}>
         <FileText className="h-4 w-4" />
       </div>
@@ -358,7 +388,7 @@ function VaultDocumentCard({
           <MoreHorizontal className="h-4 w-4" />
         </button>
         {menuOpen && (
-          <div className="absolute right-0 top-9 z-10 min-w-[180px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
+          <div className="absolute right-0 top-9 z-10 min-w-[180px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]">
             <button type="button" onClick={onScan} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
               Send to Contract Scanner
             </button>
@@ -368,7 +398,8 @@ function VaultDocumentCard({
             <button
               type="button"
               onClick={() => {
-                if (window.confirm(`Delete ${document.filename}?`)) onDelete();
+                onDelete();
+                setMenuOpen(false);
               }}
               className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[rgb(229,62,62)] hover:bg-[var(--surface)]"
             >
@@ -381,6 +412,78 @@ function VaultDocumentCard({
   );
 }
 
+function RenameVaultModal({
+  name,
+  onClose,
+  onSave,
+}: {
+  name: string;
+  onClose: () => void;
+  onSave: (name: string) => void;
+}) {
+  const [draft, setDraft] = useState(name);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+      <form
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const nextName = draft.trim();
+          if (nextName) onSave(nextName);
+        }}
+      >
+        <h2 className="text-base font-semibold">Rename Vault</h2>
+        <input
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          autoFocus
+          className="mt-5 w-full rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--text-secondary)]"
+        />
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
+            Cancel
+          </button>
+          <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--text-primary)] px-4 py-2 text-[13px] font-medium text-[var(--bg)] hover:opacity-90">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function ConfirmDeleteModal({
+  name,
+  onClose,
+  onDelete,
+}: {
+  name: string;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+      <div
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold">Delete {name}?</h2>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
+            Cancel
+          </button>
+          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#c53030]">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ActionMenu({
   items,
   onClose,
@@ -390,7 +493,7 @@ function ActionMenu({
 }) {
   return (
     <div
-      className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+      className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
       onClick={(event) => event.stopPropagation()}
     >
       {items.map((item) => (

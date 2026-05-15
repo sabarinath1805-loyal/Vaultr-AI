@@ -14,13 +14,13 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 const fieldClass =
-  "flex h-9 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3 py-1 text-sm text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--text-muted)]";
+  "flex h-9 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-3 py-1 text-sm text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--text-muted)]";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("general");
 
   return (
-    <main className="flex h-screen flex-col overflow-y-auto bg-white">
+    <main className="flex h-screen flex-col overflow-y-auto bg-[var(--bg)]">
       <header className="mx-auto flex h-16 w-full max-w-5xl shrink-0 items-end px-6 pb-2 md:h-24 md:pb-4">
         <h1 className="font-display text-4xl font-normal text-[var(--text)]">
           Settings
@@ -73,6 +73,7 @@ function GeneralSettings() {
   const [orgDraft, setOrgDraft] = useState(organisation);
   const [nameSaved, setNameSaved] = useState(false);
   const [orgSaved, setOrgSaved] = useState(false);
+  const [clearAllOpen, setClearAllOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -136,17 +137,17 @@ function GeneralSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Appearance</h2>
-        <div className="flex max-w-xl gap-2">
+        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Appearance</h2>
+        <div className="inline-flex rounded-[8px] bg-[var(--surface-muted)] p-1">
           {(["light", "dark", "system"] as const).map((theme) => (
             <button
               key={theme}
               type="button"
               onClick={() => setThemePreference(theme)}
-              className={`rounded-[var(--radius-sm)] px-4 py-2 text-sm font-medium capitalize transition-colors ${
+              className={`rounded-[6px] px-4 py-2 text-sm font-medium capitalize transition-colors ${
                 themePreference === theme
-                  ? "bg-[var(--text)] text-[var(--bg)]"
-                  : "bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]"
+                  ? "bg-[var(--text-primary)] text-[var(--bg)]"
+                  : "bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
             >
               {theme}
@@ -162,16 +163,22 @@ function GeneralSettings() {
         </p>
         <button
           type="button"
-          onClick={async () => {
-            if (window.confirm("Delete all conversations? This cannot be undone.")) {
-              await clearAllChats();
-            }
-          }}
+          onClick={() => setClearAllOpen(true)}
           className="rounded-[var(--radius-sm)] border border-[rgb(229,62,62)] px-4 py-2 text-sm font-medium text-[rgb(229,62,62)] transition-colors hover:bg-[rgb(255,240,240)]"
         >
           Clear all conversations
         </button>
       </section>
+      {clearAllOpen && (
+        <ConfirmDeleteModal
+          name="all conversations"
+          onClose={() => setClearAllOpen(false)}
+          onDelete={async () => {
+            await clearAllChats();
+            setClearAllOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -185,11 +192,27 @@ function OllamaSettings() {
   const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const setDefaultModelPreference = useChatStore((state) => state.setDefaultModelPreference);
-  const chats = useChatStore((state) => state.chats);
+  const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const [ollamaDraft, setOllamaDraft] = useState(ollamaUrl);
   const [serperDraft, setSerperDraft] = useState(serperApiKey);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "down">("idle");
   const [serperSaved, setSerperSaved] = useState(false);
+
+  const exportConversations = async () => {
+    const response = await fetch("/api/chats", { cache: "no-store" });
+    const data: { chats?: Record<string, unknown> } = await response.json();
+    const chats = Object.values(data.chats || {});
+    const blob = new Blob([JSON.stringify(chats, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().slice(0, 10);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `vaultr-export-${date}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-4">
@@ -289,21 +312,24 @@ function OllamaSettings() {
             </span>
           </span>
           <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${thinkingModeDefault ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
-            <span className={`h-4 w-4 rounded-full bg-white transition-transform ${thinkingModeDefault ? "translate-x-4" : "translate-x-0"}`} />
+            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${thinkingModeDefault ? "translate-x-4" : "translate-x-0"}`} />
           </span>
         </button>
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">Data</h2>
+        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Default Model</h2>
         <div className="max-w-xl space-y-4">
           <label className="block">
-            <span className="mb-2 block text-sm text-[var(--text-muted)]">
-              Default model
+            <span className="mb-2 block text-sm text-[var(--text-primary)]">
+              Default Lex model
             </span>
             <select
               value={defaultModelPreference}
-              onChange={(event) => setDefaultModelPreference(event.target.value)}
+              onChange={(event) => {
+                setDefaultModelPreference(event.target.value);
+                setSelectedModel(event.target.value);
+              }}
               className={fieldClass}
             >
               {LEX_MODELS.map((model) => (
@@ -313,23 +339,22 @@ function OllamaSettings() {
               ))}
             </select>
           </label>
+        </div>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">Data</h2>
+        <div className="max-w-xl">
+          <div className="text-sm text-[var(--text-primary)]">Export conversations</div>
+          <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
+            Download all conversations as a JSON file.
+          </p>
           <button
             type="button"
-            onClick={() => {
-              const date = new Date().toISOString().slice(0, 10);
-              const blob = new Blob([JSON.stringify({ chats }, null, 2)], {
-                type: "application/json",
-              });
-              const url = URL.createObjectURL(blob);
-              const link = document.createElement("a");
-              link.href = url;
-              link.download = `vaultr-export-${date}.json`;
-              link.click();
-              URL.revokeObjectURL(url);
-            }}
-            className="rounded-[var(--radius-sm)] border border-[var(--text)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface)]"
+            onClick={exportConversations}
+            className="mt-3 rounded-[6px] border border-[var(--text-primary)] px-4 py-[7px] text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
           >
-            Export conversations
+            Export
           </button>
         </div>
       </section>
@@ -346,17 +371,19 @@ function PrivacySettings() {
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
+        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">
           Data Storage
         </h2>
-        <div className="space-y-1 text-[13px] text-[var(--text-muted)]">
-          <p>All data stored locally on your device.</p>
-          <p>Location: ~/Library/Application Support/Vaultr</p>
+        <div className="space-y-1 text-[13px] leading-[1.6] text-[var(--text-secondary)]">
+          <p>All conversations and documents are stored locally on your device.</p>
+          <p>
+            Location: <span className="mono">~/Library/Application Support/Vaultr</span>
+          </p>
         </div>
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
+        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">
           Auto-cleanup
         </h2>
         <ToggleRow
@@ -367,7 +394,7 @@ function PrivacySettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="font-display mb-4 text-2xl font-medium text-[var(--text)]">
+        <h2 className="mb-4 text-base font-semibold text-[var(--text-primary)]">
           Security
         </h2>
         <ToggleRow
@@ -404,9 +431,39 @@ function ToggleRow({
     >
       <span className="text-sm font-medium text-[var(--text)]">{label}</span>
       <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${enabled ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
-        <span className={`h-4 w-4 rounded-full bg-white transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`} />
+        <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`} />
       </span>
     </button>
+  );
+}
+
+function ConfirmDeleteModal({
+  name,
+  onClose,
+  onDelete,
+}: {
+  name: string;
+  onClose: () => void;
+  onDelete: () => void | Promise<void>;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+      <div
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold">Delete {name}?</h2>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
+            Cancel
+          </button>
+          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#c53030]">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

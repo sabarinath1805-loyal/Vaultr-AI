@@ -18,8 +18,8 @@ export default function ChatList({
   reload,
 }: ChatListProps) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col justify-end overflow-y-auto px-6">
-      <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col justify-end py-6">
+    <div className="h-full min-h-0 overflow-y-auto px-6 pb-[120px] pt-20">
+      <div className="mx-auto flex min-h-full w-full max-w-[680px] flex-col">
         <div className="flex flex-col gap-6">
           {messages.map((message, index) => (
             <ChatMessage
@@ -31,10 +31,12 @@ export default function ChatList({
             />
           ))}
           {loadingSubmit && (
-            <div className="animate-message-in max-w-[680px] text-left">
-              <div className="mb-1.5 text-[11px] text-[var(--text-muted)]">Lex</div>
-              <div className="text-sm leading-[1.65] text-[var(--text-muted)]">
-                Thinking…
+            <div className="animate-message-in max-w-[85%] text-left">
+              <div className="mb-1.5 text-xs text-[var(--text-secondary)]">Lex</div>
+              <div className="inline-flex gap-1 text-sm leading-[1.7] text-[var(--text-secondary)]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:120ms]" />
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current [animation-delay:240ms]" />
               </div>
             </div>
           )}
