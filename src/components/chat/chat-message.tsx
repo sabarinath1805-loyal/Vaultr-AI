@@ -56,12 +56,12 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   if (message.role === "user") {
     return (
-      <div className="animate-message-in ml-auto max-w-[480px]">
-        <div className="rounded-[var(--radius-lg)] bg-[var(--surface)] px-[14px] py-2.5 text-sm leading-normal text-[var(--text)]">
+      <div className="animate-message-in ml-auto max-w-[70%]">
+        <div className="rounded-[12px] bg-[#1a1916] px-4 py-2.5 text-sm leading-normal text-white">
           {message.content}
         </div>
         {timestamp && (
-          <div className="mt-1.5 text-right text-[11px] text-[var(--text-faint)]">
+          <div className="mt-1.5 text-center text-[11px] text-[#b8b6b0]">
             {timestamp}
           </div>
         )}
@@ -87,8 +87,8 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   }
 
   return (
-    <div className="animate-message-in w-full max-w-[680px] text-left text-sm leading-[1.65] text-[var(--text)]">
-      <div className="mb-1.5 text-[11px] leading-none text-[var(--text-muted)]">
+    <div className="animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
+      <div className="mb-1.5 text-xs leading-none text-[var(--text-secondary)]">
         Lex
       </div>
       {thinkContent && (
@@ -129,11 +129,11 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
             ))}
         </div>
       )}
-      <div className="prose prose-sm max-w-none prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text)]">
+      <div className="prose prose-sm max-w-none leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)]">
         <Markdown remarkPlugins={[remarkGfm]}>{cleanContent}</Markdown>
       </div>
       {timestamp && (
-        <div className="pt-1 text-[11px] text-[var(--text-faint)]">
+        <div className="pt-1 text-center text-[11px] text-[#b8b6b0]">
           {timestamp}
         </div>
       )}

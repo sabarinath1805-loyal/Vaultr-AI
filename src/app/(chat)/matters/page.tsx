@@ -17,7 +17,9 @@ export default function MattersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMatter, setEditingMatter] = useState<Matter | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [deleteMatterId, setDeleteMatterId] = useState<string | null>(null);
   const router = useRouter();
+  const deleteMatterTarget = matters.find((matter) => matter.id === deleteMatterId) || null;
 
   useEffect(() => {
     setMatters(readMatters());
@@ -103,9 +105,7 @@ export default function MattersPage() {
                 onToggleMenu={() => setOpenMenuId(openMenuId === matter.id ? null : matter.id)}
                 onEdit={() => openEditModal(matter)}
                 onDelete={() => {
-                  if (window.confirm(`Delete ${matter.name}?`)) {
-                    persistMatters(matters.filter((item) => item.id !== matter.id));
-                  }
+                  setDeleteMatterId(matter.id);
                   setOpenMenuId(null);
                 }}
               />
@@ -124,6 +124,16 @@ export default function MattersPage() {
             setModalOpen(false);
           }}
           matter={editingMatter}
+        />
+      )}
+      {deleteMatterTarget && (
+        <ConfirmDeleteModal
+          name={deleteMatterTarget.name}
+          onClose={() => setDeleteMatterId(null)}
+          onDelete={() => {
+            persistMatters(matters.filter((item) => item.id !== deleteMatterTarget.id));
+            setDeleteMatterId(null);
+          }}
         />
       )}
     </main>
@@ -171,7 +181,7 @@ function MatterRow({
         </button>
         {menuOpen && (
           <div
-            className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-white p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
+            className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)]"
             onClick={(event) => event.stopPropagation()}
           >
             <button
@@ -211,6 +221,36 @@ function MatterRow({
   );
 }
 
+function ConfirmDeleteModal({
+  name,
+  onClose,
+  onDelete,
+}: {
+  name: string;
+  onClose: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
+      <div
+        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 className="text-base font-semibold">Delete {name}?</h2>
+        <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
+            Cancel
+          </button>
+          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#c53030]">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NewMatterModal({
   onClose,
   onCreate,
@@ -228,7 +268,7 @@ function NewMatterModal({
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[rgba(0,0,0,0.3)]" onClick={onClose}>
       <form
-        className="w-[400px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-white p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
+        className="w-[400px] rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)]"
         onClick={(event) => event.stopPropagation()}
         onSubmit={(event) => {
           event.preventDefault();
@@ -266,7 +306,7 @@ function NewMatterModal({
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as Matter["status"])}
-            className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
+            className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
           >
             {MATTER_STATUSES.map((matterStatus) => (
               <option key={matterStatus}>{matterStatus}</option>
@@ -286,7 +326,7 @@ function NewMatterModal({
           <select
             value={type}
             onChange={(event) => setType(event.target.value as Matter["type"])}
-            className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-white px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
+            className="mt-1 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[13px] text-[var(--text)] outline-none focus:border-[var(--text-muted)]"
           >
             {MATTER_TYPES.map((matterType) => (
               <option key={matterType}>{matterType}</option>

@@ -13,6 +13,7 @@ interface ChatBottombarProps {
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   input: string;
   modelSelectorDirection?: "up" | "down";
+  className?: string;
 }
 
 export default function ChatBottombar({
@@ -23,9 +24,10 @@ export default function ChatBottombar({
   stop,
   setInput,
   modelSelectorDirection,
+  className = "flex w-full justify-center px-6 pb-5",
 }: ChatBottombarProps) {
   return (
-    <div className="flex w-full justify-center px-6 pb-5">
+    <div className={className}>
       <ComposerCard
         input={input}
         handleInputChange={handleInputChange}
