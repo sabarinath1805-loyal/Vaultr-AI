@@ -8,6 +8,29 @@ import { ChevronRight, Edit3, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { LEX_MODELS } from "@/lib/models";
 
+function LexResponseMarker() {
+  return (
+    <div style={{ marginBottom: "8px" }}>
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 22 22"
+        fill="none"
+        style={{
+          animation: "lexSpin 8s linear infinite",
+          transformOrigin: "center",
+          display: "block",
+        }}
+      >
+        <line x1="11" y1="1" x2="11" y2="21" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="1" y1="11" x2="21" y2="11" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="4" y1="4" x2="18" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="18" y1="4" x2="4" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+      </svg>
+    </div>
+  );
+}
+
 export type ChatMessageProps = {
   message: Message;
   isLast: boolean;
@@ -131,24 +154,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   return (
     <div className="message animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
-      <div style={{ marginBottom: "8px" }}>
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 22 22"
-          fill="none"
-          style={{
-            animation: "lexSpin 8s linear infinite",
-            transformOrigin: "center",
-            display: "block",
-          }}
-        >
-          <line x1="11" y1="1" x2="11" y2="21" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="1" y1="11" x2="21" y2="11" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="4" y1="4" x2="18" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
-          <line x1="18" y1="4" x2="4" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
-        </svg>
-      </div>
+      {message.role === "assistant" && <LexResponseMarker />}
       {thinkContent && (
         <div className="mb-3">
           <button
