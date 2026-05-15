@@ -18,8 +18,9 @@ const config = {
     },
     extend: {
       fontFamily: {
-        body: ['var(--font-body)'],
-        display: ['var(--font-display)'],
+        sans: ['var(--font-geist-sans)', 'Inter', 'sans-serif'],
+        body: ['var(--font-geist-sans)', 'Inter', 'sans-serif'],
+        display: ['Lora', 'Georgia', 'serif'],
       },
       colors: {
         border: "var(--border)",
