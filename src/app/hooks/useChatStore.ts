@@ -101,7 +101,7 @@ const useChatStore = create<State & Actions>()(
       serperApiKey: "[REDACTED]",
       thinkingModeDefault: false,
       themePreference: "light",
-      defaultModelPreference: "qwen3:8b",
+      defaultModelPreference: "gemma4:e4b",
       autoCleanupConversations: false,
       isDownloading: false,
       downloadProgress: 0,
@@ -128,7 +128,8 @@ const useChatStore = create<State & Actions>()(
       },
 
       setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
-      setPendingComposerText: (text) => set({ pendingComposerText: text }),
+      setPendingComposerText: (text) =>
+        set({ pendingComposerText: typeof text === "string" ? text : null }),
       setPendingAttachedDocumentIds: (documentIds) =>
         set({ pendingAttachedDocumentIds: documentIds }),
       setPendingWorkflow: (workflow) => set({ pendingWorkflow: workflow }),
@@ -318,7 +319,10 @@ const useChatStore = create<State & Actions>()(
 
         return {
           ...currentState,
-          selectedModel: persisted.selectedModel || currentState.selectedModel,
+          selectedModel:
+            persisted.selectedModel === "qwen3:30b" || persisted.selectedModel === "magistral"
+              ? currentState.selectedModel
+              : persisted.selectedModel || currentState.selectedModel,
           userName:
             persisted.userName && persisted.userName !== legacyDefaultUserName
               ? persisted.userName
@@ -339,11 +343,16 @@ const useChatStore = create<State & Actions>()(
                 | null)) ||
             persisted.themePreference ||
             currentState.themePreference,
-          defaultModelPreference:
-            (typeof window !== "undefined" &&
-              window.localStorage.getItem("vaultr-default-model")) ||
-            persisted.defaultModelPreference ||
-            currentState.defaultModelPreference,
+          defaultModelPreference: (() => {
+            const model =
+              (typeof window !== "undefined" &&
+                window.localStorage.getItem("vaultr-default-model")) ||
+              persisted.defaultModelPreference ||
+              currentState.defaultModelPreference;
+            return model === "qwen3:30b" || model === "magistral"
+              ? currentState.defaultModelPreference
+              : model;
+          })(),
           autoCleanupConversations:
             typeof window !== "undefined" &&
             window.localStorage.getItem("vaultr-auto-cleanup") !== null

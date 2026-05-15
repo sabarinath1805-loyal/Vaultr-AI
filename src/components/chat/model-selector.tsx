@@ -61,9 +61,11 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
     }
 
     loadModels();
+    window.addEventListener("vaultr-models-updated", loadModels);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("vaultr-models-updated", loadModels);
     };
   }, [defaultModelPreference, selectedModel, setSelectedModel]);
 

@@ -33,14 +33,14 @@ export default function ChatList({
           {loadingSubmit && (
             <div className="animate-message-in max-w-[85%] text-left">
               <div className="mb-1.5 text-xs text-[var(--text-secondary)]">Lex</div>
-              <div className="lex-thinking inline-flex flex-col items-start gap-2 text-[13px] leading-[1.7] text-[var(--text-secondary)]">
-                <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
-                  <line x1="11" y1="1" x2="11" y2="21" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
-                  <line x1="1" y1="11" x2="21" y2="11" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
-                  <line x1="4" y1="4" x2="18" y2="18" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
-                  <line x1="18" y1="4" x2="4" y2="18" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round"/>
+              <div className="lex-thinking" style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '8px', padding: '8px 0'}}>
+                <svg width="20" height="20" viewBox="0 0 22 22" fill="none" style={{animation: 'lexPulse 1.8s ease-in-out infinite', transformOrigin: 'center'}}>
+                  <line x1="11" y1="1" x2="11" y2="21" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="1" y1="11" x2="21" y2="11" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="4" y1="4" x2="18" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="18" y1="4" x2="4" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
                 </svg>
-                <span>Lex is thinking...</span>
+                <span style={{fontSize: '13px', color: '#8a8880', fontFamily: "'DM Sans', sans-serif"}}>Lex is thinking...</span>
               </div>
             </div>
           )}

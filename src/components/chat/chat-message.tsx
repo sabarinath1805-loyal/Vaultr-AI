@@ -44,6 +44,21 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchModel = LEX_MODELS.find((model) => model.ollamaId === webSearchMatch?.[1])?.name || "Lex";
   const documentAnalyzed = Array.from(message.content.matchAll(/<document-analyzed\s+filename="([^"]+)"\s*\/>/g));
+  const markdownComponents = {
+    a: ({
+      href,
+      children,
+    }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="text-[var(--accent)] no-underline hover:underline"
+      >
+        {children}
+      </a>
+    ),
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(message.content);
@@ -65,7 +80,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
         <div className="rounded-[12px] bg-[var(--user-bubble)] px-4 py-2.5 text-sm leading-normal text-[var(--white)]">
           {message.content}
         </div>
-        <div className="mt-1.5 flex items-center justify-end gap-2 text-xs text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <div className="mt-1 flex items-center justify-end gap-2 text-[11px] text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
           {timestamp && <span>{timestamp}</span>}
           {isLast && (
             <button type="button" onClick={() => reload()} className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]" aria-label="Regenerate message">
@@ -101,7 +116,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   }
 
   return (
-    <div className="animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
+    <div className="group animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
       <div className="mb-1.5 text-xs leading-none text-[var(--text-secondary)]">
         Lex
       </div>
@@ -121,7 +136,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
           </button>
           {thinkingOpen && (
             <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px] italic leading-relaxed text-[var(--text-muted)]">
-              <Markdown remarkPlugins={[remarkGfm]}>{thinkContent}</Markdown>
+              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{thinkContent}</Markdown>
             </div>
           )}
         </div>
@@ -143,25 +158,23 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
             ))}
         </div>
       )}
-      <div className="prose prose-sm max-w-none leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)]">
-        <Markdown remarkPlugins={[remarkGfm]}>{cleanContent}</Markdown>
+      <div className="prose prose-sm max-w-none leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
+        <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
       </div>
-      {timestamp && (
-        <div className="pt-1 text-center text-[11px] text-[var(--text-tertiary)]">
-          {timestamp}
-        </div>
-      )}
-      {webSearchUsed && (
-        <div className="pt-1 text-xs text-[var(--text-tertiary)]">
-          <span className="text-xs">🔍</span> Web search used · Prepared using {webSearchModel}
-        </div>
-      )}
-      {documentAnalyzed.map((match) => (
-        <div key={match[1]} className="pt-1 text-xs text-[var(--text-tertiary)]">
-          <span className="text-xs">📄</span> {match[1]} analyzed
-        </div>
-      ))}
-      <div className="flex gap-2 pt-2 text-[var(--text-muted)]">
+      <div className="pt-1 text-left text-[11px] text-[var(--text-tertiary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        {timestamp && <div>{timestamp}</div>}
+        {webSearchUsed && (
+          <div>
+            <span className="text-[11px]">🔍</span> Web search used · Prepared using {webSearchModel}
+          </div>
+        )}
+        {documentAnalyzed.map((match) => (
+          <div key={match[1]}>
+            <span className="text-[11px]">📄</span> {match[1]} analyzed
+          </div>
+        ))}
+      </div>
+      <div className="flex gap-2 pt-2 text-[var(--text-muted)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
         {!isLoading && (
           <button
             type="button"

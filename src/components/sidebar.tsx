@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import useChatStore from "@/app/hooks/useChatStore";
+import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
 
 const navItems = [
   { href: "/", label: "Assistant", icon: Square },
@@ -45,6 +46,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [clearAllOpen, setClearAllOpen] = useState(false);
   const [openChatMenuId, setOpenChatMenuId] = useState<string | null>(null);
+  const [chatMenuPosition, setChatMenuPosition] = useState<DropdownPosition | null>(null);
   const [renameChatId, setRenameChatId] = useState<string | null>(null);
   const [deleteChatId, setDeleteChatId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -77,7 +79,14 @@ export function Sidebar() {
       setOpenChatMenuId(null);
     };
     document.addEventListener("click", closeMenus);
-    return () => document.removeEventListener("click", closeMenus);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenChatMenuId(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("click", closeMenus);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, []);
 
   const toggleCollapsed = () => {
@@ -257,7 +266,14 @@ export function Sidebar() {
                         type="button"
                         onClick={(event) => {
                           event.stopPropagation();
-                          setOpenChatMenuId((current) => (current === id ? null : id));
+                          setOpenChatMenuId((current) => {
+                            if (current === id) {
+                              setChatMenuPosition(null);
+                              return null;
+                            }
+                            setChatMenuPosition(getFixedDropdownPosition(event.currentTarget, 128, 84));
+                            return id;
+                          });
                         }}
                         className="mr-1 hidden h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)] group-hover:flex"
                         aria-label="Chat options"
@@ -265,7 +281,13 @@ export function Sidebar() {
                         <MoreHorizontal size={14} />
                       </button>
                       {openChatMenuId === id && (
-                        <div className="absolute left-0 top-8 z-50 w-32 rounded-[6px] border border-[var(--border)] bg-[var(--bg-primary)] p-1 text-[13px] text-[var(--text-primary)] shadow-[0_4px_12px_var(--shadow-soft)]">
+                        <div
+                          className="fixed z-50 w-32 rounded-[6px] border border-[var(--border)] bg-[var(--bg-primary)] p-1 text-[13px] text-[var(--text-primary)] shadow-[0_4px_12px_var(--shadow-soft)]"
+                          style={{
+                            top: chatMenuPosition?.top ?? 0,
+                            left: chatMenuPosition?.left ?? 0,
+                          }}
+                        >
                           <button
                             type="button"
                             onClick={() => openRenameChat(id, title)}

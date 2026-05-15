@@ -13,10 +13,16 @@ interface DownloadState {
   controller: AbortController;
 }
 
+interface RemoveState {
+  removing: boolean;
+  error: string | null;
+}
+
 export default function ModelsPage() {
   const [installedModels, setInstalledModels] = useState<string[]>([]);
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
+  const [removals, setRemovals] = useState<Record<string, RemoveState>>({});
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
@@ -179,6 +185,44 @@ export default function ModelsPage() {
     downloads[ollamaId]?.controller.abort();
   };
 
+  const removeModel = async (ollamaId: string) => {
+    setRemovals((state) => ({
+      ...state,
+      [ollamaId]: { removing: true, error: null },
+    }));
+
+    try {
+      const response = await fetch("http://localhost:11434/api/delete", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: ollamaId }),
+      });
+
+      if (!response.ok) throw new Error("remove failed");
+
+      const nextInstalled = installedModels.filter((modelId) => modelId !== ollamaId);
+      setInstalledModels(nextInstalled);
+      if (selectedModel === ollamaId) {
+        const nextLexModel = LEX_MODELS.find((model) =>
+          nextInstalled.includes(model.ollamaId)
+        );
+        setSelectedModel(nextLexModel?.ollamaId || null);
+      }
+      setRemovals((state) => {
+        const next = { ...state };
+        delete next[ollamaId];
+        return next;
+      });
+      window.dispatchEvent(new Event("vaultr-models-updated"));
+      await refreshModels().catch(() => undefined);
+    } catch {
+      setRemovals((state) => ({
+        ...state,
+        [ollamaId]: { removing: false, error: "Remove failed. Try again." },
+      }));
+    }
+  };
+
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)] px-6 py-8">
       <div className="mx-auto max-w-5xl">
@@ -197,6 +241,7 @@ export default function ModelsPage() {
           {LEX_MODELS.map((model) => {
             const installed = installedModels.includes(model.ollamaId);
             const download = downloads[model.ollamaId];
+            const removal = removals[model.ollamaId];
             return (
               <article
                 key={model.id}
@@ -236,9 +281,11 @@ export default function ModelsPage() {
                       </button>
                       <button
                         type="button"
+                        disabled={removal?.removing}
+                        onClick={() => removeModel(model.ollamaId)}
                         className="border-0 bg-transparent text-[13px] text-[var(--danger)] transition-[color,background-color] duration-150 hover:text-[var(--danger-hover)]"
                       >
-                        Remove
+                        {removal?.removing ? "Removing..." : "Remove"}
                       </button>
                     </>
                   ) : download && !download.error ? (
@@ -277,6 +324,11 @@ export default function ModelsPage() {
                 {download?.error && (
                   <div className="mt-3 text-[13px] text-[var(--danger)]">
                     {download.error}
+                  </div>
+                )}
+                {removal?.error && (
+                  <div className="mt-3 text-[13px] text-[var(--danger)]">
+                    {removal.error}
                   </div>
                 )}
               </article>

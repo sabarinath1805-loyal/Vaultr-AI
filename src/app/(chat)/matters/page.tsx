@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Briefcase, MoreHorizontal, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
 import { generateUUID } from "@/lib/utils";
 import {
   MATTER_STATUSES,
@@ -17,6 +18,7 @@ export default function MattersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMatter, setEditingMatter] = useState<Matter | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<DropdownPosition | null>(null);
   const [deleteMatterId, setDeleteMatterId] = useState<string | null>(null);
   const router = useRouter();
   const deleteMatterTarget = matters.find((matter) => matter.id === deleteMatterId) || null;
@@ -33,7 +35,14 @@ export default function MattersPage() {
       setOpenMenuId(null);
     };
     document.addEventListener("click", closeMenus);
-    return () => document.removeEventListener("click", closeMenus);
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenMenuId(null);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("click", closeMenus);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, []);
 
   const persistMatters = (next: Matter[]) => {
@@ -102,7 +111,16 @@ export default function MattersPage() {
                 matter={matter}
                 menuOpen={openMenuId === matter.id}
                 onOpen={() => router.push(`/matters/${matter.id}`)}
-                onToggleMenu={() => setOpenMenuId(openMenuId === matter.id ? null : matter.id)}
+                onToggleMenu={(button) => {
+                  if (openMenuId === matter.id) {
+                    setOpenMenuId(null);
+                    setMenuPosition(null);
+                    return;
+                  }
+                  setMenuPosition(getFixedDropdownPosition(button, 120, 116));
+                  setOpenMenuId(matter.id);
+                }}
+                menuPosition={menuPosition}
                 onEdit={() => openEditModal(matter)}
                 onDelete={() => {
                   setDeleteMatterId(matter.id);
@@ -143,6 +161,7 @@ export default function MattersPage() {
 function MatterRow({
   matter,
   menuOpen,
+  menuPosition,
   onOpen,
   onToggleMenu,
   onEdit,
@@ -150,8 +169,9 @@ function MatterRow({
 }: {
   matter: Matter;
   menuOpen: boolean;
+  menuPosition: DropdownPosition | null;
   onOpen: () => void;
-  onToggleMenu: () => void;
+  onToggleMenu: (button: HTMLButtonElement) => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
@@ -172,7 +192,7 @@ function MatterRow({
           type="button"
           onClick={(event) => {
             event.stopPropagation();
-            onToggleMenu();
+            onToggleMenu(event.currentTarget);
           }}
           className="rounded-[var(--radius-sm)] p-1 text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
           aria-label={`${matter.name} actions`}
@@ -181,7 +201,11 @@ function MatterRow({
         </button>
         {menuOpen && (
           <div
-            className="absolute right-0 top-7 z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]"
+            className="fixed z-50 min-w-[120px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]"
+            style={{
+              top: menuPosition?.top ?? 0,
+              left: menuPosition?.left ?? 0,
+            }}
             onClick={(event) => event.stopPropagation()}
           >
             <button
