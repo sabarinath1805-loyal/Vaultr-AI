@@ -157,7 +157,7 @@ export default function PullModelForm() {
                 <a
                   href="https://ollama.com/library"
                   target="_blank"
-                  className="text-blue-500 underline"
+                  className="text-[var(--blue)] underline"
                 >
                   library
                 </a>{" "}

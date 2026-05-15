@@ -7,7 +7,6 @@ import {
   BarChart3,
   Briefcase,
   ChevronDown,
-  ChevronsUpDown,
   Edit3,
   Folder,
   Grid2X2,
@@ -15,7 +14,6 @@ import {
   PanelLeft,
   Shield,
   Square,
-  Trash2,
 } from "lucide-react";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import {
@@ -25,14 +23,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import useChatStore from "@/app/hooks/useChatStore";
 
 const navItems = [
@@ -53,8 +44,13 @@ export function Sidebar() {
   const [historyOpen, setHistoryOpen] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [clearAllOpen, setClearAllOpen] = useState(false);
+  const [openChatMenuId, setOpenChatMenuId] = useState<string | null>(null);
+  const [renameChatId, setRenameChatId] = useState<string | null>(null);
+  const [deleteChatId, setDeleteChatId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState("");
   const chats = useChatStore((state) => state.chats);
   const handleDelete = useChatStore((state) => state.handleDelete);
+  const renameChat = useChatStore((state) => state.renameChat);
   const clearAllChatsAction = useChatStore((state) => state.clearAllChats);
   const loadChats = useChatStore((state) => state.loadChats);
   const resetComposerState = useChatStore((state) => state.resetComposerState);
@@ -72,6 +68,17 @@ export function Sidebar() {
   useEffect(() => {
     document.documentElement.style.setProperty("--sidebar-current-w", collapsed ? "40px" : "220px");
   }, [collapsed]);
+
+  useEffect(() => {
+    const closeMenus = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest("[data-chat-actions]")) {
+        return;
+      }
+      setOpenChatMenuId(null);
+    };
+    document.addEventListener("click", closeMenus);
+    return () => document.removeEventListener("click", closeMenus);
+  }, []);
 
   const toggleCollapsed = () => {
     setCollapsed((value) => {
@@ -91,6 +98,28 @@ export function Sidebar() {
     await clearAllChatsAction();
     router.push("/");
     setClearAllOpen(false);
+  };
+
+  const openRenameChat = (chatId: string, title: string) => {
+    setRenameChatId(chatId);
+    setRenameDraft(title);
+    setOpenChatMenuId(null);
+  };
+
+  const confirmRenameChat = async () => {
+    if (!renameChatId || !renameDraft.trim()) return;
+    await renameChat(renameChatId, renameDraft);
+    setRenameChatId(null);
+    setRenameDraft("");
+  };
+
+  const confirmDeleteChat = async () => {
+    if (!deleteChatId) return;
+    await handleDelete(deleteChatId);
+    if (deleteChatId === activeChatId) {
+      router.push("/");
+    }
+    setDeleteChatId(null);
   };
 
   const isNavActive = (href: string) => {
@@ -115,7 +144,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={toggleCollapsed}
-          className={`${collapsed ? "hidden" : "flex"} h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[rgb(240,238,234)] hover:text-[var(--text)]`}
+          className={`${collapsed ? "hidden" : "flex"} h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]`}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           <PanelLeft size={16} />
@@ -126,7 +155,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={toggleCollapsed}
-          className="mx-auto mb-2 flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors hover:bg-[rgb(240,238,234)] hover:text-[var(--text)]"
+          className="mx-auto mb-2 flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]"
           aria-label="Expand sidebar"
         >
           <PanelLeft size={16} />
@@ -144,8 +173,8 @@ export function Sidebar() {
                 title={label}
                 className={`${collapsed ? "mx-auto flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] px-0" : navClass} ${
                   active
-                    ? "bg-[rgb(238,236,232)] font-medium"
-                    : "font-normal hover:bg-[rgb(240,238,234)]"
+                    ? "bg-[var(--bg-tertiary)] font-medium"
+                    : "font-normal hover:bg-[var(--bg-tertiary)]"
                 }`}
               >
                 <Icon
@@ -167,7 +196,7 @@ export function Sidebar() {
               resetComposerState();
               router.push("/");
             }}
-            className="mt-4 flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-[7px] text-[13px] text-[var(--text)] transition-colors hover:bg-[rgb(240,238,234)]"
+            className="mt-4 flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-[7px] text-[13px] text-[var(--text)] transition-colors hover:bg-[var(--bg-tertiary)]"
           >
             <Edit3 className="h-3.5 w-3.5 text-[var(--text-muted)]" />
             New Chat
@@ -193,7 +222,7 @@ export function Sidebar() {
               <button
                 type="button"
                 onClick={() => setClearAllOpen(true)}
-                className="text-[11px] text-[var(--text-muted)] transition-colors hover:text-[rgb(229,62,62)]"
+                className="text-[11px] text-[var(--text-muted)] transition-colors hover:text-[var(--danger)]"
               >
                 Clear all
               </button>
@@ -216,59 +245,47 @@ export function Sidebar() {
                   <div key={id} className="group flex items-center">
                     <Link
                       href={`/c/${id}`}
-                      className={`min-w-0 flex-1 truncate rounded-[var(--radius-sm)] px-3 py-1.5 text-[13px] text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[rgb(240,238,234)] ${
-                        active ? "font-semibold" : "font-normal"
+                      className={`min-w-0 flex-1 truncate rounded-[var(--radius-sm)] px-3 py-1.5 text-[13px] text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[var(--bg-tertiary)] ${
+                        active ? "font-medium" : "font-normal"
                       }`}
                       title={title}
                     >
                       {title}
                     </Link>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="mr-1 hidden h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[rgb(240,238,234)] hover:text-[var(--text)] group-hover:flex"
-                          aria-label="Chat options"
-                        >
-                          <MoreHorizontal size={14} />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-none">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <DropdownMenuItem
-                              className="gap-2 text-[rgb(229,62,62)] focus:bg-[var(--surface)] focus:text-[rgb(229,62,62)]"
-                              onSelect={(event) => event.preventDefault()}
-                            >
-                              <Trash2 size={14} />
-                              Delete
-                            </DropdownMenuItem>
-                          </DialogTrigger>
-                          <DialogContent className="border-[var(--border)] bg-[var(--bg)] text-[var(--text)] shadow-none">
-                            <DialogHeader>
-                              <DialogTitle>Delete chat?</DialogTitle>
-                              <DialogDescription>
-                                This removes the chat and all saved messages.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <div className="flex justify-end">
-                              <button
-                                type="button"
-                                className="rounded-[var(--radius-sm)] bg-[rgb(229,62,62)] px-4 py-2 text-sm text-white"
-                                onClick={async () => {
-                                  await handleDelete(id);
-                                  if (id === activeChatId) {
-                                    router.push("/");
-                                  }
-                                }}
-                              >
-                                Delete
-                              </button>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    <div className="relative" data-chat-actions>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setOpenChatMenuId((current) => (current === id ? null : id));
+                        }}
+                        className="mr-1 hidden h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)] group-hover:flex"
+                        aria-label="Chat options"
+                      >
+                        <MoreHorizontal size={14} />
+                      </button>
+                      {openChatMenuId === id && (
+                        <div className="absolute left-0 top-8 z-50 w-32 rounded-[6px] border border-[var(--border)] bg-[var(--bg-primary)] p-1 text-[13px] text-[var(--text-primary)] shadow-[0_4px_12px_var(--shadow-soft)]">
+                          <button
+                            type="button"
+                            onClick={() => openRenameChat(id, title)}
+                            className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left hover:bg-[var(--bg-tertiary)]"
+                          >
+                            Rename
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteChatId(id);
+                              setOpenChatMenuId(null);
+                            }}
+                            className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[var(--danger)] hover:bg-[var(--bg-tertiary)]"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -276,7 +293,7 @@ export function Sidebar() {
           )}
         </div>}
       </div>
-      <button type="button" onClick={() => router.push("/settings")} className={`flex items-center gap-2 border-t border-[var(--border)] p-3 text-left transition-colors hover:bg-[rgb(240,238,234)] ${collapsed ? "justify-center px-1" : ""}`}>
+      <button type="button" onClick={() => router.push("/settings")} className={`flex items-center gap-2 border-t border-[var(--border)] p-3 text-left transition-colors hover:bg-[var(--bg-tertiary)] ${collapsed ? "justify-center px-1" : ""}`}>
         <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--border)] text-xs font-medium text-[var(--text)]">
           L
         </div>
@@ -287,13 +304,51 @@ export function Sidebar() {
             </div>
             <div className="text-[11px] text-[var(--text-muted)]">Solo</div>
           </div>
-          <ChevronsUpDown size={14} className="text-[var(--text-muted)]" />
         </>)}
       </button>
-      <Dialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
-        <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+      <Dialog open={Boolean(renameChatId)} onOpenChange={(open) => !open && setRenameChatId(null)}>
+        <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_var(--shadow-modal)]">
           <DialogHeader>
-            <DialogTitle className="text-base font-semibold">Delete all conversations?</DialogTitle>
+            <DialogTitle className="font-display text-[28px] font-normal text-[var(--text)]">Rename chat</DialogTitle>
+          </DialogHeader>
+          <input
+            value={renameDraft}
+            onChange={(event) => setRenameDraft(event.target.value)}
+            className="h-9 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-3 text-sm text-[var(--text)] outline-none"
+            autoFocus
+          />
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <button type="button" onClick={() => setRenameChatId(null)} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)]">
+              Cancel
+            </button>
+            <button type="button" onClick={confirmRenameChat} className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-colors hover:opacity-80">
+              Save
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={Boolean(deleteChatId)} onOpenChange={(open) => !open && setDeleteChatId(null)}>
+        <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_var(--shadow-modal)]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[28px] font-normal text-[var(--text)]">Delete chat?</DialogTitle>
+            <DialogDescription className="text-sm text-[var(--text-secondary)]">
+              This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <button type="button" onClick={() => setDeleteChatId(null)} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)]">
+              Cancel
+            </button>
+            <button type="button" onClick={confirmDeleteChat} className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-4 py-2 text-[13px] text-[var(--white)] transition-colors hover:bg-[var(--danger-hover)]">
+              Delete
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
+        <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_var(--shadow-modal)]">
+          <DialogHeader>
+            <DialogTitle className="font-display text-[28px] font-normal">Delete all conversations?</DialogTitle>
             <DialogDescription className="text-sm text-[var(--text-secondary)]">
               This cannot be undone.
             </DialogDescription>
@@ -309,7 +364,7 @@ export function Sidebar() {
             <button
               type="button"
               onClick={clearAllChats}
-              className="rounded-[var(--radius-sm)] bg-[#e53e3e] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#c53030]"
+              className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-4 py-2 text-[13px] font-medium text-[var(--white)] transition-colors hover:bg-[var(--danger-hover)]"
             >
               Delete
             </button>

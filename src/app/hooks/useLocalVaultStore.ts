@@ -33,6 +33,21 @@ const useLocalVaultStore = create<LocalVaultState>()(
           createdAt: new Date().toISOString(),
         }));
 
+        files.forEach((file, index) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = typeof reader.result === "string" ? reader.result : "";
+            set((state) => ({
+              documents: state.documents.map((doc) =>
+                doc.id === docs[index].id
+                  ? { ...doc, dataUrl: result, content: result.split(",")[1] || "" }
+                  : doc
+              ),
+            }));
+          };
+          reader.readAsDataURL(file);
+        });
+
         set((state) => ({
           documents: [...docs, ...state.documents],
           projects: projectId
