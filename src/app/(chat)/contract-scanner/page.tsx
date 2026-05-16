@@ -8,8 +8,9 @@ import type { RiskFilter } from "@/components/contract-scanner/results-display";
 import { ResultsDisplay } from "@/components/contract-scanner/results-display";
 import useChatStore from "@/app/hooks/useChatStore";
 import useContractScannerStore from "@/app/hooks/useContractScannerStore";
+import { getRiskCounts } from "@/lib/contract-scanner";
 import { isLexModel } from "@/lib/models";
-import { getStoredScanReports, parseScanReportContent, saveScanReport } from "@/lib/scan-reports";
+import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const scanningSteps = [
@@ -32,55 +33,68 @@ const scanningSteps = [
 ];
 
 export default function ContractScannerPage() {
-  const [scanningStepIndex, setScanningStepIndex] = useState(0);
-  const [scanProgress, setScanProgress] = useState(0);
   const [slowScan, setSlowScan] = useState(false);
   const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
   const file = useContractScannerStore((state) => state.file);
-  const analysis = useContractScannerStore((state) => state.analysis);
   const error = useContractScannerStore((state) => state.error);
-  const isScanning = useContractScannerStore((state) => state.isScanning);
   const setFile = useContractScannerStore((state) => state.setFile);
-  const setAnalysis = useContractScannerStore((state) => state.setAnalysis);
   const setError = useContractScannerStore((state) => state.setError);
-  const setIsScanning = useContractScannerStore((state) => state.setIsScanning);
   const reset = useContractScannerStore((state) => state.reset);
   const selectedModel = useChatStore((state) => state.selectedModel);
+  const scanProgress = useChatStore((state) => state.scanProgress);
+  const scanningStep = useChatStore((state) => state.scanningStep);
+  const analysis = useChatStore((state) => state.scanResult);
+  const isScanning = useChatStore((state) => state.isScanning);
+  const setScanProgress = useChatStore((state) => state.setScanProgress);
+  const setScanningStep = useChatStore((state) => state.setScanningStep);
+  const setAnalysis = useChatStore((state) => state.setScanResult);
+  const setIsScanning = useChatStore((state) => state.setIsScanning);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const reportId = searchParams.get("report");
     if (!reportId) return;
 
-    const report = getStoredScanReports().find((entry) => entry.id === reportId);
-    if (!report) {
-      setError("Saved report not found.");
-      return;
-    }
+    const loadReport = async () => {
+      const response = await fetch("/api/scan-reports");
+      if (!response.ok) {
+        setError("Saved report could not be loaded.");
+        return;
+      }
 
-    const savedAnalysis = parseScanReportContent(report);
-    if (!savedAnalysis) {
-      setError("Saved report could not be loaded.");
-      return;
-    }
+      const data = (await response.json()) as { reports?: ScanReportEntry[] };
+      const report = (data.reports || []).find((entry) => entry.id === reportId);
+      if (!report) {
+        setError("Saved report not found.");
+        return;
+      }
 
-    setFile(null);
-    setAnalysis(savedAnalysis);
-    setActiveFilter("all");
-    setError(null);
+      const savedAnalysis = parseScanReportContent(report);
+      if (!savedAnalysis) {
+        setError("Saved report could not be loaded.");
+        return;
+      }
+
+      setFile(null);
+      setAnalysis(savedAnalysis);
+      setActiveFilter("all");
+      setError(null);
+    };
+
+    loadReport().catch(() => setError("Saved report could not be loaded."));
   }, [setAnalysis, setError, setFile]);
 
   useEffect(() => {
     if (!isScanning) {
-      setScanningStepIndex(0);
-      setScanProgress(0);
       setSlowScan(false);
       return;
     }
 
     const startedAt = Date.now();
     const stepInterval = window.setInterval(() => {
-      setScanningStepIndex((index) => (index + 1) % scanningSteps.length);
+      const elapsed = Date.now() - startedAt;
+      const stepIndex = Math.floor(elapsed / 6000) % scanningSteps.length;
+      setScanningStep(scanningSteps[stepIndex]);
     }, 6000);
     const progressInterval = window.setInterval(() => {
       const elapsed = Date.now() - startedAt;
@@ -92,7 +106,7 @@ export default function ContractScannerPage() {
       window.clearInterval(stepInterval);
       window.clearInterval(progressInterval);
     };
-  }, [isScanning]);
+  }, [isScanning, setScanProgress, setScanningStep]);
 
   const handleFileSelected = (selectedFile: File) => {
     setAnalysis(null);
@@ -113,7 +127,7 @@ export default function ContractScannerPage() {
 
     setIsScanning(true);
     setError(null);
-    setScanningStepIndex(0);
+    setScanningStep(scanningSteps[0]);
     setScanProgress(0);
     setSlowScan(false);
 
@@ -138,7 +152,19 @@ export default function ContractScannerPage() {
       }
 
       setAnalysis(data.analysis);
-      saveScanReport(file.name, data.analysis);
+      const counts = getRiskCounts(data.analysis.clauses);
+      await fetch("/api/scan-reports", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          created_at: new Date().toISOString(),
+          high_count: counts.high,
+          medium_count: counts.medium,
+          standard_count: counts.standard,
+          report_json: JSON.stringify(data.analysis),
+        }),
+      });
       toast.success("Report saved to Vault", {
         action: {
           label: "Open Vault",
@@ -151,6 +177,7 @@ export default function ContractScannerPage() {
     } catch (error) {
       console.error("Contract scan failed", error);
       setError("Scan failed. Make sure Ollama is running and try again.");
+      setScanProgress(0);
     } finally {
       setIsScanning(false);
     }
@@ -160,7 +187,7 @@ export default function ContractScannerPage() {
     <main className="h-screen overflow-y-auto bg-[var(--bg)]">
       <div className="flex items-center justify-between px-6 pb-6 pt-8">
         <div>
-          <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
+          <h1 className="text-[28px] font-normal text-[var(--text)]">
             Contract Scanner
           </h1>
           <p className="mt-2 max-w-[600px] text-sm leading-[1.6] text-[var(--text-muted)]">
@@ -177,6 +204,7 @@ export default function ContractScannerPage() {
           onFilterChange={setActiveFilter}
           onReset={() => {
             setActiveFilter("all");
+            setAnalysis(null);
             reset();
           }}
         />
@@ -188,7 +216,7 @@ export default function ContractScannerPage() {
           scanningMessage={
             slowScan
               ? "Still scanning... large documents can take a few minutes."
-              : scanningSteps[scanningStepIndex]
+              : scanningStep
           }
           scanProgress={scanProgress}
           onFileSelected={handleFileSelected}

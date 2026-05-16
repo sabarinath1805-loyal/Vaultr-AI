@@ -77,7 +77,7 @@ export function UploadZone({
               className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] p-5 text-center"
             >
               <Icon className="mx-auto mb-3 h-7 w-7 text-[var(--text-muted)]" />
-              <h2 className="font-display text-[28px] font-normal text-[var(--text)]">{title}</h2>
+              <h2 className="text-[28px] font-normal text-[var(--text)]">{title}</h2>
               <p className="mt-1 text-[13px] text-[var(--text-muted)]">{description}</p>
             </article>
           ))}
