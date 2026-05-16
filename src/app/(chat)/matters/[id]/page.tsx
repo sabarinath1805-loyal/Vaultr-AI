@@ -69,7 +69,7 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
       </button>
 
       <header className="mt-6">
-        <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
+        <h1 className="text-[28px] font-normal text-[var(--text)]">
           {matter.name}
         </h1>
         <div className="mt-2 text-[13px] text-[var(--text-muted)]">

@@ -18,9 +18,8 @@ const config = {
     },
     extend: {
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'Inter', 'sans-serif'],
-        body: ['var(--font-geist-sans)', 'Inter', 'sans-serif'],
-        display: ['Lora', 'Georgia', 'serif'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        body: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
       },
       colors: {
         border: "var(--border)",

@@ -71,7 +71,7 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Vault name"
-              className="w-full bg-transparent font-display text-[28px] font-normal text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
+              className="w-full bg-transparent text-[28px] font-normal text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
               autoFocus
             />
             <input

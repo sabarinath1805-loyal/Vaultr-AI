@@ -28,7 +28,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
 
 const navItems = [
-  { href: "/", label: "Assistant", icon: Square },
+  { href: "/", label: "Lex", icon: Square },
   { href: "/vault", label: "Vault", icon: Folder },
   { href: "/matters", label: "Matters", icon: Briefcase },
   { href: "/models", label: "Models", icon: Grid2X2 },
@@ -219,7 +219,7 @@ export function Sidebar() {
               onClick={() => setHistoryOpen((open) => !open)}
               className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-[0.02em] text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
             >
-              <span>Assistant History</span>
+              <span>Lex History</span>
               <ChevronDown
                 size={14}
                 className={`transition-transform duration-150 ${
@@ -246,7 +246,7 @@ export function Sidebar() {
                 </div>
               )}
               {sortedChats.map(([id, chat]) => {
-                const storedTitle = chat.title === "New chat" ? "Assistant" : chat.title;
+                const storedTitle = chat.title === "New chat" ? "Lex" : chat.title;
                 const title =
                   chat.messages[0]?.content.trim() || storedTitle || "Untitled";
                 const active = id === activeChatId;
@@ -331,7 +331,7 @@ export function Sidebar() {
       <Dialog open={Boolean(renameChatId)} onOpenChange={(open) => !open && setRenameChatId(null)}>
         <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_var(--shadow-modal)]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[28px] font-normal text-[var(--text)]">Rename chat</DialogTitle>
+            <DialogTitle className="text-[28px] font-normal text-[var(--text)]">Rename chat</DialogTitle>
           </DialogHeader>
           <input
             value={renameDraft}
@@ -352,7 +352,7 @@ export function Sidebar() {
       <Dialog open={Boolean(deleteChatId)} onOpenChange={(open) => !open && setDeleteChatId(null)}>
         <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_var(--shadow-modal)]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[28px] font-normal text-[var(--text)]">Delete chat?</DialogTitle>
+            <DialogTitle className="text-[28px] font-normal text-[var(--text)]">Delete chat?</DialogTitle>
             <DialogDescription className="text-sm text-[var(--text-secondary)]">
               This cannot be undone.
             </DialogDescription>
@@ -370,7 +370,7 @@ export function Sidebar() {
       <Dialog open={clearAllOpen} onOpenChange={setClearAllOpen}>
         <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_var(--shadow-modal)]">
           <DialogHeader>
-            <DialogTitle className="font-display text-[28px] font-normal">Delete all conversations?</DialogTitle>
+            <DialogTitle className="text-[28px] font-normal">Delete all conversations?</DialogTitle>
             <DialogDescription className="text-sm text-[var(--text-secondary)]">
               This cannot be undone.
             </DialogDescription>
