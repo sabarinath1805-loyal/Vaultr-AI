@@ -150,6 +150,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                       display: "flex",
                       alignItems: "center",
                       gap: "6px",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     <span>⊕</span>

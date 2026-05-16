@@ -29,6 +29,7 @@ export interface ChatProps {
 
 export default function Chat({ initialMessages, id }: ChatProps) {
   const firstTokenLoggedRef = React.useRef(false);
+  const hideThinkingTimer = React.useRef<NodeJS.Timeout | null>(null);
 
   const logPhase16Debug = React.useCallback((message: string) => {
     console.log(message);
@@ -43,11 +44,15 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const markFirstTokenArrived = React.useCallback(() => {
     if (firstTokenLoggedRef.current) return;
     firstTokenLoggedRef.current = true;
+    if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
     if (typeof window !== "undefined") {
       window.__vaultrPhase16FirstTokenLogged = true;
     }
     logPhase16Debug('🟢 FIRST TOKEN ARRIVED - isThinking should become false NOW');
-    setIsThinking(false);
+    hideThinkingTimer.current = setTimeout(() => {
+      setShowThinking(false);
+      hideThinkingTimer.current = null;
+    }, 800);
   }, [logPhase16Debug]);
 
   const {
@@ -74,7 +79,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     },
     onError: async (error) => {
       setLoadingSubmit(false);
-      setIsThinking(false);
+      if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
+      setShowThinking(false);
       console.error(error.message);
       console.error(error.cause);
 
@@ -93,7 +99,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     },
   });
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
-  const [isThinking, setIsThinking] = React.useState(false);
+  const [showThinking, setShowThinking] = React.useState(false);
+  React.useEffect(() => {
+    return () => {
+      if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
+    };
+  }, []);
+
   const base64Images = useChatStore((state) => state.base64Images);
   const setBase64Images = useChatStore((state) => state.setBase64Images);
   const selectedModel = useChatStore((state) => state.selectedModel);
@@ -126,13 +138,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   React.useEffect(() => {
     const lastMessage = messages[messages.length - 1];
     if (
-      isThinking &&
+      showThinking &&
       lastMessage?.role === "assistant" &&
       lastMessage.content.trim().length > 0
     ) {
       markFirstTokenArrived();
     }
-  }, [isThinking, markFirstTokenArrived, messages]);
+  }, [showThinking, markFirstTokenArrived, messages]);
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>,
@@ -141,8 +153,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     e.preventDefault();
     type ChatRequestBody = {
           workflow?: AttachedWorkflow | null;
+          workflowPrompt?: string;
           webSearch?: boolean;
           thinking?: boolean;
+          thinkingMode?: boolean;
           ollamaUrl?: string;
           attachedDocuments?: {
             id: string;
@@ -208,7 +222,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       window.__vaultrPhase16SeenThinkingTrue = false;
     }
     logPhase16Debug('🔵 USER SENT MESSAGE - isThinking should become true NOW');
-    setIsThinking(true);
+    setShowThinking(true);
+    if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
 
     const attachments: Attachment[] = base64Images
       ? base64Images.map((image) => ({
@@ -221,9 +236,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       body: {
         selectedModel,
         workflow,
+        workflowPrompt: workflow?.prompt,
         attachedDocuments: requestBody?.attachedDocuments || [],
         webSearch,
         thinking,
+        thinkingMode: thinking,
         ollamaUrl: requestBody?.ollamaUrl,
       },
       ...(base64Images && {
@@ -252,7 +269,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     stop();
     saveMessages(id, [...messages]);
     setLoadingSubmit(false);
-    setIsThinking(false);
+    if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
+    setShowThinking(false);
   };
 
   return (
@@ -266,7 +284,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             <div className="text-center text-[var(--text)]">
               {isOpenEmptyChat ? (
                 <>
-                  <h1 className="font-display flex items-center justify-center gap-3 text-[28px] font-normal text-[var(--text)]">
+                  <h1 className="flex items-center justify-center gap-3 text-[28px] font-normal text-[var(--text)]">
                     <SnowflakeIcon size={28} className="shrink-0 text-[var(--text)]" />
                     Hey, I&apos;m Lex — your private legal AI.
                   </h1>
@@ -276,7 +294,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 </>
               ) : (
                 <h1
-                  className="font-display flex items-center justify-center gap-3 font-normal leading-none text-[var(--text)]"
+                  className="flex items-center justify-center gap-3 font-normal leading-none text-[var(--text)]"
                   style={{ fontSize: "52px", marginBottom: "28px" }}
                 >
                   <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
@@ -310,13 +328,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           <ChatList
             messages={messages}
             isLoading={isLoading}
-            isThinking={isThinking}
+            showThinking={showThinking}
             reload={async () => {
               removeLatestMessage();
 
               const requestOptions: ChatRequestOptions = {
                 body: {
                   selectedModel,
+                  workflowPrompt: pendingWorkflow?.prompt,
                 },
               };
 
@@ -329,7 +348,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 window.__vaultrPhase16SeenThinkingTrue = false;
               }
               logPhase16Debug('🔵 USER SENT MESSAGE - isThinking should become true NOW');
-              setIsThinking(true);
+              setShowThinking(true);
+              if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
               return reload(requestOptions);
             }}
           />

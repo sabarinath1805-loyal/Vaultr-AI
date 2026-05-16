@@ -17,7 +17,7 @@ declare global {
 interface ChatListProps {
   messages: Message[];
   isLoading: boolean;
-  isThinking?: boolean;
+  showThinking?: boolean;
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
@@ -26,29 +26,16 @@ interface ChatListProps {
 export default function ChatList({
   messages,
   isLoading,
-  isThinking,
+  showThinking,
   reload,
 }: ChatListProps) {
-  const lastAssistantMessage = isLoading
-    ? [...messages].reverse().find((message) => message.role === "assistant")
-    : null;
-  const showThinkingIndicator = Boolean(
-    isThinking ||
-      (lastAssistantMessage &&
-        lastAssistantMessage.role === "assistant" &&
-        (lastAssistantMessage.content
-          .split(" ")
-          .filter((word: string) => word.length > 0).length < 1 ||
-          !lastAssistantMessage.content.includes(" ")))
-  );
-
   useEffect(() => {
-    if (!isThinking || window.__vaultrPhase16RenderTrueLogged) return;
+    if (!showThinking || window.__vaultrPhase16RenderTrueLogged) return;
 
     window.__vaultrPhase16RenderTrueLogged = true;
     window.__vaultrPhase16SeenThinkingTrue = true;
 
-    const message = `❌ THINKING ANIMATION SHOULD RENDER - isThinking is: ${isThinking}`;
+    const message = `❌ THINKING ANIMATION SHOULD RENDER - isThinking is: ${showThinking}`;
 
     console.log(message);
     if (typeof window !== "undefined") {
@@ -57,10 +44,10 @@ export default function ChatList({
         message,
       ];
     }
-  }, [isThinking]);
+  }, [showThinking]);
 
   if (
-    !isThinking &&
+    !showThinking &&
     typeof window !== "undefined" &&
     window.__vaultrPhase16SeenThinkingTrue &&
     window.__vaultrPhase16FirstTokenLogged &&
@@ -89,7 +76,7 @@ export default function ChatList({
               reload={reload}
             />
           ))}
-          {showThinkingIndicator && (
+          {showThinking && (
             <div className="animate-message-in max-w-[85%] text-left">
               <LexThinkingIndicator />
             </div>

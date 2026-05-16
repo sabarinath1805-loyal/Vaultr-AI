@@ -13,7 +13,9 @@ export async function POST(req: Request) {
     workflow,
     attachedDocuments,
     webSearch,
+    thinkingMode,
     thinking,
+    workflowPrompt,
     ollamaUrl: requestedOllamaUrl,
   } = await req.json();
   if (!isLexModel(selectedModel)) {
@@ -34,9 +36,10 @@ export async function POST(req: Request) {
   const searchContext = webSearch
     ? await getWebSearchContext(currentMessage.content)
     : "";
-  const workflowContext = workflow?.prompt
-    ? `\n\nWorkflow context (${workflow.title}):\n${workflow.prompt}`
-    : "";
+  const workflowTemplatePrompt =
+    typeof workflowPrompt === "string" && workflowPrompt.trim()
+      ? workflowPrompt.trim()
+      : workflow?.prompt || "";
   const documentContexts = Array.isArray(attachedDocuments)
     ? await Promise.all(
         attachedDocuments.map(
@@ -55,7 +58,13 @@ export async function POST(req: Request) {
       )
     : [];
   const documentContext = documentContexts.filter(Boolean).join("");
-  const systemMessage = `${LEX_SYSTEM_PROMPT}${documentContext}${workflowContext}${searchContext}`;
+  const thinkingEnabled =
+    typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
+  const systemPrompt = LEX_SYSTEM_PROMPT + (thinkingEnabled ? "" : "\n\n/no_think");
+  const finalSystemPrompt = workflowTemplatePrompt
+    ? `${workflowTemplatePrompt}\n\n${systemPrompt}`
+    : systemPrompt;
+  const systemMessage = `${finalSystemPrompt}${documentContext}${searchContext}`;
   console.log("📨 SYSTEM MESSAGE SENT TO OLLAMA:", systemMessage.substring(0, 500));
   const userContent = data?.images?.length
     ? [
@@ -78,7 +87,10 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: selectedModel,
         stream: true,
-        ...(thinking ? { think: true } : {}),
+        ...(thinkingEnabled ? { think: true } : {}),
+        options: {
+          num_ctx: documentContext ? 4096 : 2048,
+        },
         messages: [
           { role: "system", content: systemMessage },
           ...initialMessages.map(
@@ -113,12 +125,13 @@ export async function POST(req: Request) {
             buffer = lines.pop() || "";
 
             for (const line of lines) {
-              enqueueSseLine(line, controller, encoder);
+              flushSseToken(line, controller, encoder);
             }
           }
           if (buffer.trim()) {
-            enqueueSseLine(buffer, controller, encoder);
+            flushSseToken(buffer, controller, encoder);
           }
+          flushSseToken(null, controller, encoder);
           if (webSearch) {
             controller.enqueue(
               encoder.encode(`0:${JSON.stringify(`\n\n<web-search-used model="${selectedModel}" />`)}\n`)
@@ -175,11 +188,20 @@ export async function POST(req: Request) {
   }
 }
 
-function enqueueSseLine(
-  line: string,
+function flushSseToken(
+  line: string | null,
   controller: ReadableStreamDefaultController<Uint8Array>,
   encoder: TextEncoder
 ) {
+  if (line === null) {
+    const remaining = tokenFlushState.get(controller);
+    if (remaining?.buffer) {
+      controller.enqueue(encoder.encode(`0:${JSON.stringify(remaining.buffer)}\n`));
+    }
+    tokenFlushState.delete(controller);
+    return;
+  }
+
   const trimmed = line.trim();
   if (!trimmed.startsWith("data:")) return;
   const payload = trimmed.slice(5).trim();
@@ -196,12 +218,28 @@ function enqueueSseLine(
       );
     }
     if (token) {
-      controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
+      const state = tokenFlushState.get(controller) || {
+        buffer: "",
+        lastFlush: Date.now(),
+      };
+      state.buffer += token;
+      const now = Date.now();
+      if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
+        controller.enqueue(encoder.encode(`0:${JSON.stringify(state.buffer)}\n`));
+        state.buffer = "";
+        state.lastFlush = now;
+      }
+      tokenFlushState.set(controller, state);
     }
   } catch {
     return;
   }
 }
+
+const tokenFlushState: WeakMap<
+  ReadableStreamDefaultController<Uint8Array>,
+  { buffer: string; lastFlush: number }
+> = new WeakMap();
 
 async function getWebSearchContext(query: string) {
   const apiKey = process.env.SERPER_API_KEY;
