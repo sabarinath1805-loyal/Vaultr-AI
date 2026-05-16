@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { createOllama } from "ollama-ai-provider";
-import { generateText } from "ai";
 import { createChat, deleteAllChats, listChatsWithMessages } from "@/lib/db/chats";
 import { toClientChat } from "@/lib/api/chats";
 import { CONTRACT_ANALYSIS_PROMPT } from "@/lib/contract-scanner";
 import { OLLAMA_DEFAULT_URL } from "@/lib/lex";
-import { isLexModel } from "@/lib/models";
+import { isLexModel, lexNameToOllamaId } from "@/lib/models";
 import { extractPdfText } from "@/lib/file-extraction/pdf-extractor";
 import { extractDocxText } from "@/lib/file-extraction/docx-extractor";
 
@@ -17,6 +15,22 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 function parseJsonResponse(text: string) {
   const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   return JSON.parse(trimmed);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function getOllamaResponseText(payload: unknown) {
+  if (!isRecord(payload)) return "";
+  const message = payload.message;
+  if (isRecord(message) && typeof message.content === "string") {
+    return message.content;
+  }
+  if (typeof payload.response === "string") {
+    return payload.response;
+  }
+  return "";
 }
 
 async function extractText(file: File) {
@@ -52,7 +66,7 @@ export async function POST(req: Request) {
   if (contentType.includes("multipart/form-data")) {
     const formData = await req.formData();
     const file = formData.get("file");
-    const selectedModel = formData.get("selectedModel");
+    const selectedModelValue = formData.get("selectedModel");
 
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -64,7 +78,16 @@ export async function POST(req: Request) {
         { status: 413 }
       );
     }
-    if (typeof selectedModel !== "string" || !isLexModel(selectedModel)) {
+    if (typeof selectedModelValue !== "string") {
+      return NextResponse.json(
+        { error: "Contract Scanner requires a Lex model. Please install one first." },
+        { status: 400 }
+      );
+    }
+
+    const selectedModel = lexNameToOllamaId(selectedModelValue) || selectedModelValue;
+
+    if (!isLexModel(selectedModel)) {
       return NextResponse.json(
         { error: "Contract Scanner requires a Lex model. Please install one first." },
         { status: 400 }
@@ -74,17 +97,50 @@ export async function POST(req: Request) {
     try {
       const contractText = await extractText(file);
       const ollamaUrl = process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
-      const ollama = createOllama({ baseURL: `${ollamaUrl}/api` });
       const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
-
-      const result = await generateText({
-        model: ollama(selectedModel),
-        messages: [{ role: "user", content: prompt }],
+      const ollamaResponse = await fetch(`${ollamaUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: selectedModel,
+          stream: false,
+          messages: [{ role: "user", content: prompt }],
+        }),
       });
+      const responseBody = await ollamaResponse.text();
 
-      return NextResponse.json({ analysis: parseJsonResponse(result.text) });
+      if (!ollamaResponse.ok) {
+        console.error("Contract scanner Ollama error response", {
+          model: selectedModel,
+          status: ollamaResponse.status,
+          body: responseBody,
+        });
+        return NextResponse.json(
+          { error: "Ollama is not running. Start Ollama to use Contract Scanner." },
+          { status: 503 }
+        );
+      }
+
+      const payload = JSON.parse(responseBody);
+      const responseText = getOllamaResponseText(payload);
+
+      if (!responseText) {
+        console.error("Contract scanner empty Ollama response", {
+          model: selectedModel,
+          body: responseBody,
+        });
+        return NextResponse.json(
+          { error: "Lex returned an unexpected response. Please try again." },
+          { status: 422 }
+        );
+      }
+
+      return NextResponse.json({ analysis: parseJsonResponse(responseText) });
     } catch (error) {
-      console.error("Contract scanner API error", error);
+      console.error("Contract scanner API error", {
+        model: selectedModel,
+        error,
+      });
       if (error instanceof SyntaxError) {
         return NextResponse.json(
           { error: "Lex returned an unexpected response. Please try again." },
