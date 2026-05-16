@@ -80,10 +80,7 @@ export default function ContractScannerPage() {
 
   const scanContract = async () => {
     if (!file) return;
-    if (!isLexModel(selectedModel)) {
-      setError("Contract Scanner requires a Lex model. Please install one first.");
-      return;
-    }
+    const modelToUse = selectedModel && isLexModel(selectedModel) ? selectedModel : "qwen3:8b";
 
     setIsScanning(true);
     setError(null);
@@ -94,7 +91,7 @@ export default function ContractScannerPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      if (selectedModel) formData.append("selectedModel", selectedModel);
+      formData.append("selectedModel", modelToUse);
 
       const response = await fetch("/api/chats", {
         method: "POST",

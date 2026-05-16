@@ -29,6 +29,13 @@ export default function ChatList({
   isThinking,
   reload,
 }: ChatListProps) {
+  const lastAssistantMessage = isLoading
+    ? [...messages].reverse().find((message) => message.role === "assistant")
+    : null;
+  const showThinkingIndicator = Boolean(
+    isThinking || (lastAssistantMessage && lastAssistantMessage.content.length < 20)
+  );
+
   useEffect(() => {
     if (!isThinking || window.__vaultrPhase16RenderTrueLogged) return;
 
@@ -76,7 +83,7 @@ export default function ChatList({
               reload={reload}
             />
           ))}
-          {isThinking && (
+          {showThinkingIndicator && (
             <div className="animate-message-in max-w-[85%] text-left">
               <LexThinkingIndicator />
             </div>
