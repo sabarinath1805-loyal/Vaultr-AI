@@ -139,8 +139,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     options?: ChatRequestOptions
   ) => {
     e.preventDefault();
-    const requestBody = options?.body as
-      | {
+    type ChatRequestBody = {
           workflow?: AttachedWorkflow | null;
           webSearch?: boolean;
           thinking?: boolean;
@@ -153,8 +152,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             content?: string;
             dataUrl?: string;
           }[];
-        }
-      | undefined;
+        };
+
+    const requestBody = options?.body as ChatRequestBody | undefined;
     const workflow = (requestBody?.workflow ||
       pendingWorkflow) as AttachedWorkflow | null;
     const webSearch = requestBody?.webSearch === true;
@@ -181,12 +181,22 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       return;
     }
 
+    const attachedDocumentMetadata = (requestBody?.attachedDocuments || []).map(
+      (document) => ({
+        id: document.id,
+        filename: document.filename,
+        fileType: document.fileType,
+        sizeBytes: document.sizeBytes,
+      })
+    );
+
     const userMessage: Message = {
       id: generateId(),
       role: "user",
       content: input,
       createdAt: new Date(),
-    };
+      attachedDocuments: attachedDocumentMetadata,
+    } as Message;
 
     setLoadingSubmit(true);
     firstTokenLoggedRef.current = false;
