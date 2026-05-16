@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -195,17 +195,18 @@ function GeneralSettings() {
 function OllamaSettings() {
   const ollamaUrl = useChatStore((state) => state.ollamaUrl);
   const setOllamaUrl = useChatStore((state) => state.setOllamaUrl);
-  const serperApiKey = useChatStore((state) => state.serperApiKey);
-  const setSerperApiKey = useChatStore((state) => state.setSerperApiKey);
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const setDefaultModelPreference = useChatStore((state) => state.setDefaultModelPreference);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const [ollamaDraft, setOllamaDraft] = useState(ollamaUrl);
-  const [serperDraft, setSerperDraft] = useState(serperApiKey);
+  const [webSearchDefault, setWebSearchDefault] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "down">("idle");
-  const [serperSaved, setSerperSaved] = useState(false);
+
+  useEffect(() => {
+    setWebSearchDefault(window.localStorage.getItem("vaultr-web-search-default") === "true");
+  }, []);
 
   const exportConversations = async () => {
     const response = await fetch("/api/chats", { cache: "no-store" });
@@ -280,27 +281,37 @@ function OllamaSettings() {
 
       <section className="border-t border-[var(--border)] py-6">
         <h2 className="font-display mb-4 text-[28px] font-normal text-[var(--text)]">Web Search</h2>
-        <div className="max-w-xl">
-          <label className="mb-2 block text-sm text-[var(--text-muted)]">
-            Serper API Key
-          </label>
-          <div className="flex gap-2">
-            <input
-              value={serperDraft}
-              onChange={(event) => setSerperDraft(event.target.value)}
-              className={fieldClass}
-            />
-            <SaveButton
-              saved={serperSaved}
-              onClick={() => {
-                setSerperApiKey(serperDraft.trim());
-                setSerperSaved(true);
-                setTimeout(() => setSerperSaved(false), 1600);
-              }}
-            />
+        <div className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3">
+          <div>
+            <div className="text-sm font-medium text-[var(--text)]">Web Search</div>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              Enable web search by default for new Lex prompts.
+            </p>
           </div>
+          <button
+            type="button"
+            aria-pressed={webSearchDefault}
+            onClick={() => {
+              setWebSearchDefault((enabled) => {
+                const next = !enabled;
+                window.localStorage.setItem("vaultr-web-search-default", String(next));
+                return next;
+              });
+            }}
+            className={`relative h-6 w-11 rounded-full transition-colors ${
+              webSearchDefault ? "bg-[var(--accent)]" : "bg-[var(--border)]"
+            }`}
+          >
+            <span
+              className={`absolute top-1 h-4 w-4 rounded-full bg-[var(--bg-primary)] transition-transform ${
+                webSearchDefault ? "translate-x-5" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+        <div className="max-w-xl">
           <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Used to give Lex access to web search results.
+            Search credentials are loaded on the server and are never sent to the frontend.
           </p>
         </div>
       </section>
