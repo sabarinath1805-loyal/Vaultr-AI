@@ -12,7 +12,6 @@ import { getRiskCounts } from "@/lib/contract-scanner";
 import { formatBytes, LocalDocument } from "@/lib/local-documents";
 import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
 import {
-  getStoredScanReports,
   parseScanReportContent,
   type ScanReportEntry,
 } from "@/lib/scan-reports";
@@ -79,14 +78,19 @@ export default function VaultPage() {
   }, []);
 
   useEffect(() => {
-    setScanReports(getStoredScanReports());
+    fetch("/api/scan-reports")
+      .then((response) => (response.ok ? response.json() : { reports: [] }))
+      .then((data: { reports?: ScanReportEntry[] }) => {
+        setScanReports(Array.isArray(data.reports) ? data.reports : []);
+      })
+      .catch(() => setScanReports([]));
   }, []);
 
   return (
     <main className="h-screen flex-1 overflow-y-auto bg-[var(--bg)]">
       <div className="flex items-center justify-between px-8 py-4">
         <div>
-          <h1 className="font-display text-[28px] font-normal text-[var(--text)]">
+          <h1 className="text-[28px] font-normal text-[var(--text)]">
             {selectedProject ? selectedProject.name : "Vault"}
           </h1>
           {selectedProject && (
@@ -237,7 +241,7 @@ export default function VaultPage() {
               ) : (
                 <div className="mx-auto flex w-full max-w-xs flex-col items-start py-24">
                   <FolderOpen className="mb-4 h-8 w-8 text-[var(--text-faint)]" />
-                  <p className="font-display text-[28px] font-normal text-[var(--text)]">
+                  <p className="text-[28px] font-normal text-[var(--text)]">
                     Vault
                   </p>
                   <p className="mt-1 max-w-xs text-xs text-[var(--text-faint)]">
@@ -305,6 +309,14 @@ function formatReportDate(date: string) {
 }
 
 function getReportRiskSummary(report: ScanReportEntry) {
+  if (
+    typeof report.highCount === "number" &&
+    typeof report.mediumCount === "number" &&
+    typeof report.standardCount === "number"
+  ) {
+    return `${report.highCount} High · ${report.mediumCount} Medium · ${report.standardCount} Standard`;
+  }
+
   const analysis = parseScanReportContent(report);
   if (!analysis) return "Risk summary unavailable";
 
@@ -325,7 +337,7 @@ function ScanReportsSection({
     <section className="px-8 pb-10 pt-8">
       <div className="mb-3 flex items-end justify-between">
         <div>
-          <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
+          <h2 className="text-[28px] font-normal text-[var(--text)]">
             Scan Reports
           </h2>
           <p className="mt-1 text-[13px] text-[var(--text-muted)]">
@@ -343,7 +355,7 @@ function ScanReportsSection({
               <FileText className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="truncate font-display text-[22px] font-normal text-[var(--text)]">
+              <h3 className="truncate text-[22px] font-normal text-[var(--text)]">
                 {report.title}
               </h3>
               <div className="mt-1 text-xs text-[var(--text-muted)]">
@@ -397,7 +409,7 @@ function VaultDetail({
       {documents.length === 0 ? (
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] text-center">
           <FolderOpen className="h-8 w-8 text-[var(--text-faint)]" />
-          <p className="font-display mt-3 text-[28px] font-normal text-[var(--text)]">No documents yet</p>
+          <p className="mt-3 text-[28px] font-normal text-[var(--text)]">No documents yet</p>
           <p className="mt-1 text-[13px] text-[var(--text-faint)]">
             Add documents to get started
           </p>
@@ -475,7 +487,7 @@ function VaultDocumentCard({
         onClick={onAttach}
         className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
       >
-        Attach to Assistant
+        Attach to Lex
       </button>
       <div className="relative">
         <button
@@ -533,7 +545,7 @@ function RenameVaultModal({
           if (nextName) onSave(nextName);
         }}
       >
-        <h2 className="font-display text-[28px] font-normal">Rename Vault</h2>
+        <h2 className="text-[28px] font-normal">Rename Vault</h2>
         <input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -568,7 +580,7 @@ function ConfirmDeleteModal({
         className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 className="font-display text-[28px] font-normal">Delete {name}?</h2>
+        <h2 className="text-[28px] font-normal">Delete {name}?</h2>
         <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">

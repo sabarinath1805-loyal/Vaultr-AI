@@ -1,12 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 *, *::before, *::after {
-  font-family: 'Geist', 'Inter', sans-serif !important;
-}
-
-h1, h2, h3, .font-display {
-  font-family: 'Lora', Georgia, serif !important;
-  font-weight: 400 !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
 }
 
 @tailwind base;
@@ -14,8 +9,7 @@ h1, h2, h3, .font-display {
 @tailwind utilities;
 
 :root {
-  --font-body: 'Geist', 'Inter', sans-serif;
-  --font-display: 'Lora', Georgia, serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   --bg-primary: #ffffff;
   --bg-secondary: #f9f9f8;
   --bg-tertiary: #f3f2ef;

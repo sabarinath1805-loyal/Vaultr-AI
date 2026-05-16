@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { GeistSans } from "geist/font/sans";
+import { Inter } from "next/font/google";
 import "../globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/components/app-shell";
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Vaultr",
@@ -29,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
+    <html lang="en" className={inter.className} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon-32.png" />
       </head>

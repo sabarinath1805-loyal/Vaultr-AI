@@ -1,5 +1,6 @@
 import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
+import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -23,6 +24,10 @@ interface State {
   downloadProgress: number;
   downloadingModel: string | null;
   hasLoadedChats: boolean;
+  scanProgress: number;
+  scanningStep: string;
+  scanResult: ContractAnalysis | null;
+  isScanning: boolean;
 }
 
 export interface AttachedWorkflow {
@@ -57,6 +62,10 @@ interface Actions {
   startDownload: (modelName: string) => void;
   stopDownload: () => void;
   setDownloadProgress: (progress: number) => void;
+  setScanProgress: (progress: number) => void;
+  setScanningStep: (step: string) => void;
+  setScanResult: (result: ContractAnalysis | null) => void;
+  setIsScanning: (scanning: boolean) => void;
 }
 
 const syncChatMessages = async (chatId: string, messages: Message[]) => {
@@ -104,6 +113,10 @@ const useChatStore = create<State & Actions>()(
       downloadProgress: 0,
       downloadingModel: null,
       hasLoadedChats: false,
+      scanProgress: 0,
+      scanningStep: "Reading document...",
+      scanResult: null,
+      isScanning: false,
 
       setBase64Images: (base64Images) => set({ base64Images }),
       setUserName: (userName) => set({ userName }),
@@ -296,6 +309,10 @@ const useChatStore = create<State & Actions>()(
       stopDownload: () =>
         set({ isDownloading: false, downloadingModel: null, downloadProgress: 0 }),
       setDownloadProgress: (progress) => set({ downloadProgress: progress }),
+      setScanProgress: (progress) => set({ scanProgress: progress }),
+      setScanningStep: (step) => set({ scanningStep: step }),
+      setScanResult: (result) => set({ scanResult: result }),
+      setIsScanning: (scanning) => set({ isScanning: scanning }),
     }),
     {
       name: "nextjs-ollama-ui-state",

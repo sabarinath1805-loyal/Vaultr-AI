@@ -54,7 +54,7 @@ export default function WorkflowsPage() {
     <main className="flex h-screen overflow-hidden bg-[var(--bg)]">
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center justify-between px-8 py-4">
-          <h1 className="font-display text-[28px] font-normal text-[var(--text)]">Workflows</h1>
+          <h1 className="text-[28px] font-normal text-[var(--text)]">Workflows</h1>
           <div className="flex items-center gap-2">
             <select
               value={practiceFilter}
@@ -107,7 +107,7 @@ export default function WorkflowsPage() {
             <div />
           </div>
           {filtered.length === 0 ? (
-            <div className="font-display px-8 py-12 text-center text-[28px] font-normal text-[var(--text)]">No workflows found</div>
+            <div className="px-8 py-12 text-center text-[28px] font-normal text-[var(--text)]">No workflows found</div>
           ) : (
             filtered.map((workflow) => (
               <button
@@ -135,7 +135,7 @@ export default function WorkflowsPage() {
       {selected && (
         <aside className="flex w-[420px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--sidebar-bg)]">
           <div className="border-b border-[var(--border)] px-5 py-4">
-            <h2 className="font-display text-[28px] font-normal text-[var(--text)]">Workflow Prompt</h2>
+            <h2 className="text-[28px] font-normal text-[var(--text)]">Workflow Prompt</h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">{selected.title}</p>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
