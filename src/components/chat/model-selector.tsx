@@ -121,20 +121,42 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                 </button>
               </div>
             ) : (
-              availableModels.map((modelId) => (
-                <button
-                  key={modelId}
-                  type="button"
-                  onClick={() => {
-                    setSelectedModel(modelId);
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-sm text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[var(--surface)]"
-                >
-                  <span>{ollamaIdToLexName(modelId)}</span>
-                  {modelId === selectedModel && <Check size={14} />}
-                </button>
-              ))
+              <>
+                {availableModels.map((modelId) => (
+                  <button
+                    key={modelId}
+                    type="button"
+                    onClick={() => {
+                      setSelectedModel(modelId);
+                      setOpen(false);
+                    }}
+                    className="flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-sm text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[var(--surface)]"
+                  >
+                    <span>{ollamaIdToLexName(modelId)}</span>
+                    {modelId === selectedModel && <Check size={14} />}
+                  </button>
+                ))}
+                <div style={{ borderTop: "1px solid #e0ded8", marginTop: "4px", paddingTop: "4px" }}>
+                  <div
+                    onClick={() => {
+                      setOpen(false);
+                      router.push("/models");
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      fontSize: "13px",
+                      color: "#378ADD",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <span>⊕</span>
+                    <span>Install more Lex models →</span>
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </>
