@@ -285,7 +285,7 @@ export default function ModelsPage() {
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)] px-6 py-8" style={{ paddingLeft: "2rem" }}>
       <div className="max-w-5xl">
-        <h1 className="font-display text-[28px] font-normal text-[var(--text)]">Models</h1>
+        <h1 className="text-[28px] font-normal text-[var(--text)]">Models</h1>
         <p className="mb-8 mt-1 text-[13px] text-[var(--text-muted)]">
           Manage your local Lex models. All models run 100% on your device.
         </p>
@@ -310,7 +310,7 @@ export default function ModelsPage() {
                 style={{ borderTop: `3px solid ${cardStyle.accent}` }}
               >
                 <div className="flex items-start justify-between gap-4">
-                  <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
+                  <h2 className="text-[28px] font-normal text-[var(--text)]">
                     {model.name}
                   </h2>
                   <span

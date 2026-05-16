@@ -53,7 +53,7 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
       >
         <div className="flex items-center justify-between border-b border-[var(--border)] px-4 py-4">
           <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-            <span>Assistant</span>
+            <span>Lex</span>
             <span>›</span>
             <span>Add workflow</span>
           </div>
@@ -124,19 +124,19 @@ export function WorkflowsModal({ open, onClose, onUse }: WorkflowsModalProps) {
 
           <div className="flex flex-1 flex-col overflow-hidden border-l border-[var(--border)] px-3 pb-3">
             <div className="flex shrink-0 items-center justify-between py-3">
-              <p className="font-display text-[28px] font-normal text-[var(--text)]">Workflow Prompt</p>
+              <p className="text-[28px] font-normal text-[var(--text)]">Workflow Prompt</p>
             </div>
             <div className="flex-1 overflow-y-auto rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-sm leading-relaxed text-[var(--text-muted)]">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
                   h1: ({ children }) => (
-                    <h1 className="mb-1 mt-4 font-display text-[28px] font-normal text-[var(--text)] first:mt-0">
+                    <h1 className="mb-1 mt-4 text-[28px] font-normal text-[var(--text)] first:mt-0">
                       {children}
                     </h1>
                   ),
                   h2: ({ children }) => (
-                    <h2 className="mb-1 mt-3 font-display text-[28px] font-normal text-[var(--text)] first:mt-0">
+                    <h2 className="mb-1 mt-3 text-[28px] font-normal text-[var(--text)] first:mt-0">
                       {children}
                     </h2>
                   ),

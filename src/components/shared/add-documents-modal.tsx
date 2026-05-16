@@ -131,7 +131,7 @@ export function AddDocumentsModal({
               <div className="space-y-1">
                 {documents.length === 0 ? (
                   <div className="py-12 text-center">
-                    <p className="font-display text-[28px] font-normal text-[var(--text)]">No documents yet</p>
+                    <p className="text-[28px] font-normal text-[var(--text)]">No documents yet</p>
                     <p className="mt-2 text-[13px] text-[var(--text-secondary)]">Upload documents to Vault first.</p>
                   </div>
                 ) : (

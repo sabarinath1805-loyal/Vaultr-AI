@@ -96,7 +96,7 @@ export function FileDirectory({
   };
 
   if (allDocs.length === 0 && directoryProjects.length === 0) {
-    return <p className="font-display py-8 text-center text-[28px] font-normal text-[var(--text)]">{emptyMessage}</p>;
+    return <p className="py-8 text-center text-[28px] font-normal text-[var(--text)]">{emptyMessage}</p>;
   }
 
   const renderDoc = (doc: LocalDocument) => {
