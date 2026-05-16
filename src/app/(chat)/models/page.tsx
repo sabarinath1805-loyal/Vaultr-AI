@@ -33,6 +33,12 @@ const MODEL_CARD_STYLES: Record<
     badgeBackground: "#E1F5EE",
     badgeColor: "#085041",
   },
+  "lex-flash": {
+    accent: "#1D9E75",
+    badge: "SWIFT",
+    badgeBackground: "#E1F5EE",
+    badgeColor: "#085041",
+  },
   "lex-core": {
     accent: "#378ADD",
     badge: "BALANCED",
@@ -70,19 +76,24 @@ export default function ModelsPage() {
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
   const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
   const [removals, setRemovals] = useState<Record<string, RemoveState>>({});
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const syncSelectedModel = useCallback((modelIds: string[]) => {
-    const preferredLexModel = LEX_MODELS.find(
-      (model) => model.ollamaId === defaultModelPreference && modelIds.includes(model.ollamaId)
+    const allModelIds = LEX_MODELS.flatMap((model) => [
+      model.ollamaId,
+      ...(model.alternatives || []).map((alternative) => alternative.ollamaId),
+    ]);
+    const preferredLexModel = allModelIds.find(
+      (modelId) => modelId === defaultModelPreference && modelIds.includes(modelId)
     );
-    const firstLexModel = preferredLexModel || LEX_MODELS.find((model) =>
-      modelIds.includes(model.ollamaId)
+    const firstLexModel = preferredLexModel || allModelIds.find((modelId) =>
+      modelIds.includes(modelId)
     );
 
     if (!selectedModel && firstLexModel) {
-      setSelectedModel(firstLexModel.ollamaId);
+      setSelectedModel(firstLexModel);
       return;
     }
 
@@ -90,7 +101,7 @@ export default function ModelsPage() {
       selectedModel &&
       (!isLexModel(selectedModel) || !modelIds.includes(selectedModel))
     ) {
-      setSelectedModel(firstLexModel?.ollamaId || null);
+      setSelectedModel(firstLexModel || null);
     }
   }, [defaultModelPreference, selectedModel, setSelectedModel]);
 
@@ -250,10 +261,11 @@ export default function ModelsPage() {
       const nextInstalled = installedModels.filter((modelId) => modelId !== ollamaId);
       setInstalledModels(nextInstalled);
       if (selectedModel === ollamaId) {
-        const nextLexModel = LEX_MODELS.find((model) =>
-          nextInstalled.includes(model.ollamaId)
-        );
-        setSelectedModel(nextLexModel?.ollamaId || null);
+        const nextLexModelId = LEX_MODELS.flatMap((model) => [
+          model.ollamaId,
+          ...(model.alternatives || []).map((alternative) => alternative.ollamaId),
+        ]).find((modelId) => nextInstalled.includes(modelId));
+        setSelectedModel(nextLexModelId || null);
       }
       setRemovals((state) => {
         const next = { ...state };
@@ -271,7 +283,7 @@ export default function ModelsPage() {
   };
 
   return (
-    <main className="h-screen overflow-y-auto bg-[var(--bg)] px-6 py-8">
+    <main className="h-screen overflow-y-auto bg-[var(--bg)] px-6 py-8" style={{ paddingLeft: "2rem" }}>
       <div className="max-w-5xl">
         <h1 className="font-display text-[28px] font-normal text-[var(--text)]">Models</h1>
         <p className="mb-8 mt-1 text-[13px] text-[var(--text-muted)]">
@@ -284,11 +296,12 @@ export default function ModelsPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto mt-6">
           {LEX_MODELS.map((model) => {
-            const installed = installedModels.includes(model.ollamaId);
-            const download = downloads[model.ollamaId];
-            const removal = removals[model.ollamaId];
+            const selectedVariant = selectedVariants[model.id] || model.ollamaId;
+            const installed = installedModels.includes(selectedVariant);
+            const download = downloads[selectedVariant];
+            const removal = removals[selectedVariant];
             const cardStyle = MODEL_CARD_STYLES[model.id];
             return (
               <article
@@ -315,8 +328,39 @@ export default function ModelsPage() {
                   </span>
                 </div>
 
+                {model.alternatives && model.alternatives.length > 0 && (
+                  <select
+                    value={selectedVariant}
+                    onChange={(event) =>
+                      setSelectedVariants((state) => ({
+                        ...state,
+                        [model.id]: event.target.value,
+                      }))
+                    }
+                    style={{
+                      fontSize: "12px",
+                      padding: "4px 8px",
+                      borderRadius: "6px",
+                      border: "1px solid #e0ded8",
+                      backgroundColor: "#fafaf8",
+                      color: "#1a1916",
+                      marginTop: "12px",
+                      marginBottom: "8px",
+                      cursor: "pointer",
+                      width: "100%",
+                    }}
+                  >
+                    <option value={model.ollamaId}>{model.ollamaId} (default)</option>
+                    {model.alternatives.map((alternative) => (
+                      <option key={alternative.ollamaId} value={alternative.ollamaId}>
+                        {alternative.label} — {alternative.ramSize}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
                 <div className="mt-4 text-xs text-[var(--text-muted)]">
-                  {model.ram} RAM · {model.size}
+                  {model.ramRequired}
                 </div>
                 <p className="mt-2 text-[13px] text-[var(--text)]">
                   {model.description}
@@ -333,15 +377,15 @@ export default function ModelsPage() {
                     <>
                       <button
                         type="button"
-                        onClick={() => setSelectedModel(model.ollamaId)}
+                        onClick={() => setSelectedModel(selectedVariant)}
                         className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-[13px] text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[var(--surface)]"
                       >
-                        {selectedModel === model.ollamaId ? "Using Model" : "Use Model"}
+                        {selectedModel === selectedVariant ? "Using Model" : "Use Model"}
                       </button>
                       <button
                         type="button"
                         disabled={removal?.removing}
-                        onClick={() => removeModel(model.ollamaId)}
+                        onClick={() => removeModel(selectedVariant)}
                         className="border-0 bg-transparent text-[13px] text-[var(--danger)] transition-[color,background-color] duration-150 hover:text-[var(--danger-hover)]"
                       >
                         {removal?.removing ? "Removing..." : "Remove"}
@@ -353,7 +397,7 @@ export default function ModelsPage() {
                         type="button"
                         className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--white)] transition-[color,background-color] duration-150"
                         style={{
-                          background: `linear-gradient(90deg, var(--accent) ${download.progress}%, var(--text-secondary) ${download.progress}%)`,
+                          background: `linear-gradient(90deg, ${cardStyle.accent} ${download.progress}%, var(--text-secondary) ${download.progress}%)`,
                         }}
                       >
                         Downloading... {download.progress}%
@@ -363,7 +407,7 @@ export default function ModelsPage() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => cancelDownload(model.ollamaId)}
+                        onClick={() => cancelDownload(selectedVariant)}
                         className="mt-1 text-[12px] text-[var(--text-muted)] hover:text-[var(--text)]"
                       >
                         Cancel
@@ -373,8 +417,9 @@ export default function ModelsPage() {
                     <button
                       type="button"
                       disabled={!isOllamaRunning}
-                      onClick={() => downloadModel(model.ollamaId, model.name)}
-                      className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-[color,background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => downloadModel(selectedVariant, model.name)}
+                      className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-[color,background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: cardStyle.accent }}
                     >
                       Download
                     </button>

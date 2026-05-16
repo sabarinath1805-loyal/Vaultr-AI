@@ -33,7 +33,13 @@ export default function ChatList({
     ? [...messages].reverse().find((message) => message.role === "assistant")
     : null;
   const showThinkingIndicator = Boolean(
-    isThinking || (lastAssistantMessage && !lastAssistantMessage.content.includes(" "))
+    isThinking ||
+      (lastAssistantMessage &&
+        lastAssistantMessage.role === "assistant" &&
+        (lastAssistantMessage.content
+          .split(" ")
+          .filter((word: string) => word.length > 0).length < 1 ||
+          !lastAssistantMessage.content.includes(" ")))
   );
 
   useEffect(() => {
