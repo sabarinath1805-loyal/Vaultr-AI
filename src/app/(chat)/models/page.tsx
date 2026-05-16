@@ -284,7 +284,7 @@ export default function ModelsPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-2 gap-6 max-w-4xl mx-auto">
           {LEX_MODELS.map((model) => {
             const installed = installedModels.includes(model.ollamaId);
             const download = downloads[model.ollamaId];
