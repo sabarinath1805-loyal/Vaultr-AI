@@ -10,10 +10,21 @@ import { isLexModel } from "@/lib/models";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const scanningSteps = [
   "Reading document...",
-  "Analyzing clauses...",
-  "Identifying risks...",
-  "Checking obligations...",
-  "Generating report...",
+  "Extracting key clauses...",
+  "Reviewing payment terms...",
+  "Checking liability provisions...",
+  "Scanning termination rights...",
+  "Reviewing confidentiality obligations...",
+  "Checking dispute resolution clauses...",
+  "Analysing governing law...",
+  "Reviewing IP ownership...",
+  "Checking non-compete provisions...",
+  "Scanning indemnification clauses...",
+  "Reviewing representations and warranties...",
+  "Checking assignment restrictions...",
+  "Analysing force majeure provisions...",
+  "Reviewing insurance requirements...",
+  "Preparing risk assessment...",
 ];
 
 export default function ContractScannerPage() {
@@ -42,10 +53,10 @@ export default function ContractScannerPage() {
     const startedAt = Date.now();
     const stepInterval = window.setInterval(() => {
       setScanningStepIndex((index) => (index + 1) % scanningSteps.length);
-    }, 4000);
+    }, 6000);
     const progressInterval = window.setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      setScanProgress(Math.min(90, Math.round((elapsed / 60000) * 90)));
+      setScanProgress(Math.min(85, Math.round((elapsed / 60000) * 85)));
       if (elapsed >= 90000) setSlowScan(true);
     }, 500);
 
@@ -80,9 +91,6 @@ export default function ContractScannerPage() {
     setScanProgress(0);
     setSlowScan(false);
 
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 180000);
-
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -91,7 +99,6 @@ export default function ContractScannerPage() {
       const response = await fetch("/api/chats", {
         method: "POST",
         body: formData,
-        signal: controller.signal,
       });
       const data = await response.json();
 
@@ -105,11 +112,11 @@ export default function ContractScannerPage() {
       }
 
       setAnalysis(data.analysis);
+      setScanProgress(100);
     } catch (error) {
       console.error("Contract scan failed", error);
       setError("Scan failed. Make sure Ollama is running and try again.");
     } finally {
-      window.clearTimeout(timeout);
       setIsScanning(false);
     }
   };

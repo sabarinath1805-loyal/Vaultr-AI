@@ -41,6 +41,41 @@ function LexAvatar() {
   );
 }
 
+export function LexThinkingIndicator() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 0" }}>
+      <LexAvatar />
+      <span
+        style={{
+          fontSize: "13px",
+          color: "#8a8880",
+          fontFamily: "'Geist', sans-serif",
+          display: "inline-flex",
+          alignItems: "center",
+        }}
+      >
+        Lex is thinking
+        <span style={{ display: "inline-flex", gap: "1px", marginLeft: "1px" }}>
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              style={{
+                animation: "dotFade 1.4s ease-in-out infinite",
+                animationDelay: `${i * 0.2}s`,
+                opacity: 0,
+                fontSize: "13px",
+                color: "#8a8880",
+              }}
+            >
+              .
+            </span>
+          ))}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 export type ChatMessageProps = {
   message: Message & {
     attachedDocuments?: Pick<LocalDocument, "id" | "filename" | "fileType" | "sizeBytes">[];

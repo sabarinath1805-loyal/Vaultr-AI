@@ -13,7 +13,6 @@ export async function POST(req: Request) {
     workflow,
     attachedDocuments,
     webSearch,
-    serperApiKey,
     thinking,
     ollamaUrl: requestedOllamaUrl,
   } = await req.json();
@@ -33,7 +32,7 @@ export async function POST(req: Request) {
   const initialMessages = messages.slice(0, -1).slice(-10);
   const currentMessage = messages[messages.length - 1];
   const searchContext = webSearch
-    ? await getWebSearchContext(currentMessage.content, serperApiKey)
+    ? await getWebSearchContext(currentMessage.content)
     : "";
   const workflowContext = workflow?.prompt
     ? `\n\nWorkflow context (${workflow.title}):\n${workflow.prompt}`
@@ -44,18 +43,20 @@ export async function POST(req: Request) {
           async (document: {
             filename: string;
             fileType?: string | null;
+            extractedText?: string;
             content?: string;
             dataUrl?: string;
           }) => {
             const extractedText = await extractDocumentText(document);
             if (!extractedText) return "";
-            return `\n\nThe user has attached a document titled '${document.filename}'. Full content:\n\n${extractedText}\n\nAnswer the user's question based on this document.`;
+            return `\n\nThe user has attached a document titled '${document.filename}'. Here is the full content:\n\n---BEGIN DOCUMENT---\n${extractedText}\n---END DOCUMENT---\n\nAnswer the user's question based on this document. If they say "analyse this" or similar, provide a thorough analysis of the document content above.`;
           }
         )
       )
     : [];
   const documentContext = documentContexts.filter(Boolean).join("");
-  const systemContent = `${LEX_SYSTEM_PROMPT}${documentContext}${workflowContext}${searchContext}`;
+  const systemMessage = `${LEX_SYSTEM_PROMPT}${documentContext}${workflowContext}${searchContext}`;
+  console.log("📨 SYSTEM MESSAGE SENT TO OLLAMA:", systemMessage.substring(0, 500));
   const userContent = data?.images?.length
     ? [
         { type: "text", text: currentMessage.content },
@@ -79,7 +80,7 @@ export async function POST(req: Request) {
         stream: true,
         ...(thinking ? { think: true } : {}),
         messages: [
-          { role: "system", content: systemContent },
+          { role: "system", content: systemMessage },
           ...initialMessages.map(
             (message: { role: string; content: string }) => ({
               role: message.role,
@@ -202,9 +203,11 @@ function enqueueSseLine(
   }
 }
 
-async function getWebSearchContext(query: string, apiKey?: string) {
+async function getWebSearchContext(query: string) {
+  const apiKey = process.env.SERPER_API_KEY;
+
   if (!apiKey?.trim()) {
-    return "\n\nAdd a Serper API key in Settings to use web search.";
+    return "\n\nWeb search is unavailable because SERPER_API_KEY is not configured.";
   }
 
   try {
@@ -218,7 +221,7 @@ async function getWebSearchContext(query: string, apiKey?: string) {
     });
 
     if (!response.ok) {
-      return "\n\nAdd a Serper API key in Settings to use web search.";
+      return "\n\nWeb search is unavailable right now.";
     }
 
     const data = await response.json();
@@ -233,6 +236,6 @@ async function getWebSearchContext(query: string, apiKey?: string) {
       )
       .join("\n\n")}\n\nUse these results to inform your response if relevant.`;
   } catch {
-    return "\n\nAdd a Serper API key in Settings to use web search.";
+    return "\n\nWeb search is unavailable right now.";
   }
 }
