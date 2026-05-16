@@ -272,7 +272,7 @@ export default function ModelsPage() {
 
   return (
     <main className="h-screen overflow-y-auto bg-[var(--bg)] px-6 py-8">
-      <div className="mx-auto max-w-5xl">
+      <div className="max-w-5xl">
         <h1 className="font-display text-[28px] font-normal text-[var(--text)]">Models</h1>
         <p className="mb-8 mt-1 text-[13px] text-[var(--text-muted)]">
           Manage your local Lex models. All models run 100% on your device.

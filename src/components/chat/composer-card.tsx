@@ -29,6 +29,24 @@ interface ComposerCardProps {
 const toolbarButtonClass =
   "flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]";
 
+function decodeBase64Text(base64: string) {
+  const binary = window.atob(base64);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder("utf-8").decode(bytes).trim();
+}
+
+function extractClientDocumentText(doc: LocalDocument) {
+  const fileType = doc.fileType?.toLowerCase();
+  const filename = doc.filename.toLowerCase();
+  if (fileType !== "txt" && fileType !== "md" && !filename.endsWith(".txt") && !filename.endsWith(".md")) {
+    return "";
+  }
+
+  const base64 = doc.content || doc.dataUrl?.split(",")[1] || "";
+  if (!base64) return "";
+  return decodeBase64Text(base64);
+}
+
 export function ComposerCard({
   input,
   handleInputChange,
@@ -62,7 +80,7 @@ export function ComposerCard({
   }, []);
 
   React.useEffect(() => {
-    const savedWebSearch = window.localStorage.getItem("vaultr-web-search-enabled");
+    const savedWebSearch = window.localStorage.getItem("vaultr-web-search-default");
     const savedThinking = window.localStorage.getItem("vaultr-thinking-enabled");
     setWebSearchEnabled(savedWebSearch === "true");
     setThinkingEnabled(savedThinking === null ? thinkingModeDefault : savedThinking === "true");
@@ -157,13 +175,24 @@ export function ComposerCard({
   ) => {
     event.preventDefault();
     const documentsWithContent = await waitForDocumentContent(attachedDocuments);
+    const documentsWithExtractedText = documentsWithContent.map((doc) => {
+      const extractedText = extractClientDocumentText(doc);
+      if (extractedText) {
+        console.log("📄 DOCUMENT CONTENT:", extractedText.substring(0, 200));
+      }
+      return {
+        ...doc,
+        extractedText,
+      };
+    });
     const metadata = {
       workflow: selectedWorkflow,
-      attachedDocuments: documentsWithContent.map((doc) => ({
+      attachedDocuments: documentsWithExtractedText.map((doc) => ({
         id: doc.id,
         filename: doc.filename,
         fileType: doc.fileType,
         sizeBytes: doc.sizeBytes,
+        extractedText: doc.extractedText || undefined,
         content: doc.content,
         dataUrl: doc.dataUrl,
       })),
@@ -176,7 +205,6 @@ export function ComposerCard({
       body: {
         ...options?.body,
         ...metadata,
-        serperApiKey: useChatStore.getState().serperApiKey,
         ollamaUrl,
       },
     });
@@ -192,7 +220,7 @@ export function ComposerCard({
 
   const setPersistentWebSearch = () => {
     setWebSearchEnabled((enabled) => {
-      window.localStorage.setItem("vaultr-web-search-enabled", String(!enabled));
+      window.localStorage.setItem("vaultr-web-search-default", String(!enabled));
       return !enabled;
     });
   };
