@@ -4,9 +4,11 @@ import remarkGfm from "remark-gfm";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
-import { ChevronRight, Edit3, RefreshCcw } from "lucide-react";
+import { ChevronRight, Edit3, File, FileText, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { LEX_MODELS } from "@/lib/models";
+import { formatBytes } from "@/lib/local-documents";
+import type { LocalDocument } from "@/lib/local-documents";
 
 function LexAvatar() {
   return (
@@ -40,7 +42,9 @@ function LexAvatar() {
 }
 
 export type ChatMessageProps = {
-  message: Message;
+  message: Message & {
+    attachedDocuments?: Pick<LocalDocument, "id" | "filename" | "fileType" | "sizeBytes">[];
+  };
   isLast: boolean;
   isLoading: boolean | undefined;
   reload: (
@@ -125,6 +129,28 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
         >
           {message.content}
         </div>
+        {message.attachedDocuments && message.attachedDocuments.length > 0 && (
+          <div className="mt-1 flex max-w-[70%] flex-wrap justify-end gap-1.5">
+            {message.attachedDocuments.map((document) => (
+              <div
+                key={document.id}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface)] px-2 py-1 text-[11px] text-[var(--text-secondary)]"
+              >
+                {document.fileType === "pdf" ? (
+                  <FileText className="h-3 w-3 shrink-0 text-[var(--danger)]" />
+                ) : (
+                  <File className="h-3 w-3 shrink-0 text-[var(--blue)]" />
+                )}
+                <span className="max-w-[160px] truncate">{document.filename}</span>
+                {typeof document.sizeBytes === "number" && (
+                  <span className="text-[var(--text-tertiary)]">
+                    {formatBytes(document.sizeBytes)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
         <div className="message-actions mt-1 flex items-center justify-end gap-2 text-[11px] text-[var(--text-tertiary)]">
           {timestamp && <span>{timestamp}</span>}
           {isLast && (
