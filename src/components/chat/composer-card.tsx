@@ -74,6 +74,7 @@ export function ComposerCard({
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const ollamaUrl = useChatStore((state) => state.ollamaUrl);
+  const usePrivacyMode = useChatStore((state) => state.usePrivacyMode);
 
   React.useEffect(() => {
     textareaRef.current?.focus();
@@ -197,7 +198,8 @@ export function ComposerCard({
         dataUrl: doc.dataUrl,
       })),
       webSearch: webSearchEnabled,
-      thinking: thinkingEnabled && isThinkingCapableModel(selectedModel),
+      thinking: usePrivacyMode && thinkingEnabled && isThinkingCapableModel(selectedModel),
+      usePrivacyMode,
     };
 
     handleSubmit(event, {
@@ -232,7 +234,7 @@ export function ComposerCard({
     });
   };
 
-  const thinkingSupported = isThinkingCapableModel(selectedModel);
+  const thinkingSupported = usePrivacyMode && isThinkingCapableModel(selectedModel);
 
   return (
     <>
