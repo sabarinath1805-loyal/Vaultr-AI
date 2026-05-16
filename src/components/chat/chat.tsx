@@ -98,7 +98,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const setBase64Images = useChatStore((state) => state.setBase64Images);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
-  const serperApiKey = useChatStore((state) => state.serperApiKey);
   const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
   const pendingComposerText = useChatStore((state) => state.pendingComposerText);
   const setPendingComposerText = useChatStore((state) => state.setPendingComposerText);
@@ -144,12 +143,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           workflow?: AttachedWorkflow | null;
           webSearch?: boolean;
           thinking?: boolean;
-          serperApiKey?: string;
+          ollamaUrl?: string;
           attachedDocuments?: {
             id: string;
             filename: string;
             fileType?: string | null;
             sizeBytes?: number;
+            extractedText?: string;
             content?: string;
             dataUrl?: string;
           }[];
@@ -223,8 +223,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         workflow,
         attachedDocuments: requestBody?.attachedDocuments || [],
         webSearch,
-        serperApiKey: requestBody?.serperApiKey || serperApiKey,
         thinking,
+        ollamaUrl: requestBody?.ollamaUrl,
       },
       ...(base64Images && {
         data: {
