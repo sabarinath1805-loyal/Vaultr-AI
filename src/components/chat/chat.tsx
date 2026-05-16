@@ -55,6 +55,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     input,
     handleInputChange,
     handleSubmit,
+    append,
     isLoading,
     stop,
     setMessages,
@@ -233,7 +234,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       }),
     };
 
-    handleSubmit(e, requestOptions);
+    void append(userMessage, requestOptions);
+    setInput("");
     saveMessages(id, [...messages, userMessage]);
     setBase64Images(null);
     router.replace(`/c/${id}`);
