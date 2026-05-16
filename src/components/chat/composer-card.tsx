@@ -392,7 +392,7 @@ export function ComposerCard({
         open={docSelectorOpen}
         onClose={() => setDocSelectorOpen(false)}
         onSelect={handleAddDocuments}
-        breadcrumb={["Assistant", "Select from Vault"]}
+        breadcrumb={["Lex", "Select from Vault"]}
         title="Select from Vault"
         describeDocument={(doc) => {
           const project = projects.find((item) => item.id === doc.projectId);

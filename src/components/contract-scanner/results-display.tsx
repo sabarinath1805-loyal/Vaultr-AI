@@ -91,7 +91,7 @@ export function ResultsDisplay({
       <article className="rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--bg)] p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
+            <h2 className="text-[28px] font-normal text-[var(--text)]">
               {analysis.contract_title}
             </h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
@@ -164,7 +164,7 @@ export function ResultsDisplay({
             className={`rounded-[var(--radius-md)] border border-l-4 border-[var(--border)] bg-[var(--bg)] px-6 py-5 ${riskClasses[clause.risk].border}`}
           >
             <div className="flex items-start justify-between gap-4">
-              <h3 className="font-display text-[28px] font-normal text-[var(--text)]">
+              <h3 className="text-[28px] font-normal text-[var(--text)]">
                 {clause.title}
               </h3>
               <RiskBadge risk={clause.risk} />

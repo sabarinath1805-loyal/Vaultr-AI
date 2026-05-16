@@ -49,7 +49,7 @@ export function LexThinkingIndicator() {
         style={{
           fontSize: "13px",
           color: "#8a8880",
-          fontFamily: "'Geist', sans-serif",
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
           display: "inline-flex",
           alignItems: "center",
         }}
@@ -156,7 +156,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
             padding: "12px 16px",
             maxWidth: "70%",
             alignSelf: "flex-end",
-            fontFamily: "'Geist', sans-serif",
+            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
             fontSize: "14px",
             lineHeight: "1.6",
             wordBreak: "break-word",
@@ -206,7 +206,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   if (message.content === "LEX_MODEL_REQUIRED") {
     return (
-      <div className="animate-message-in w-full max-w-[680px]">
+      <div className="animate-message-in w-full max-w-4xl">
         <div className="rounded-[var(--radius-md)] border border-[var(--danger)] bg-[var(--danger-bg)] p-4 text-sm text-[var(--text)]">
           <div>Lex requires a dedicated legal model. Please install a Lex model to start chatting.</div>
           <button
@@ -222,7 +222,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   }
 
   return (
-    <div className="message animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
+    <div className="message animate-message-in w-full max-w-4xl text-left text-sm leading-[1.7] text-[var(--text-primary)]">
       {message.role === "assistant" ? (
         <div
           style={{
@@ -281,7 +281,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
                   ))}
               </div>
             )}
-            <div className="prose prose-sm max-w-none text-sm leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
+            <div className="prose prose-sm max-w-none text-sm leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
