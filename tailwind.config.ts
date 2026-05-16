@@ -18,8 +18,9 @@ const config = {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-        body: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: ['Sora', '-apple-system', 'sans-serif'],
+        body: ['Sora', '-apple-system', 'sans-serif'],
+        display: ['Instrument Serif', 'Georgia', 'serif'],
       },
       colors: {
         border: "var(--border)",

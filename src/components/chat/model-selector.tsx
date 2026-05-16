@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { Check, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
-  LEX_MODELS,
+  GROQ_MODELS,
+  GROQ_DEFAULT_MODEL,
+  getModelDisplayMetadata,
+  groqIdToLexName,
   isLexModel,
   ollamaIdToLexName,
   sortModelsByLexOrder,
@@ -23,12 +26,22 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
+  const usePrivacyMode = useChatStore((state) => state.usePrivacyMode);
   const router = useRouter();
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadModels() {
+      if (!usePrivacyMode) {
+        setIsOllamaRunning(true);
+        setAvailableModels(GROQ_MODELS.map((model) => model.groqId));
+        if (!GROQ_MODELS.some((model) => model.groqId === selectedModel)) {
+          setSelectedModel(GROQ_DEFAULT_MODEL);
+        }
+        return;
+      }
+
       try {
         const response = await fetch("/api/tags");
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
@@ -67,9 +80,13 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
       cancelled = true;
       window.removeEventListener("vaultr-models-updated", loadModels);
     };
-  }, [defaultModelPreference, selectedModel, setSelectedModel]);
+  }, [defaultModelPreference, selectedModel, setSelectedModel, usePrivacyMode]);
 
-  const selectedLabel = !isOllamaRunning
+  const selectedLabel = !usePrivacyMode
+    ? selectedModel
+      ? groqIdToLexName(selectedModel)
+      : "Lex Core"
+    : !isOllamaRunning
     ? "Ollama not running"
     : selectedModel && availableModels.includes(selectedModel)
     ? ollamaIdToLexName(selectedModel)
@@ -100,13 +117,13 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
             onClick={() => setOpen(false)}
           />
           <div
-            className={`absolute right-0 z-50 min-w-[180px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-1.5 text-[var(--text)] shadow-[0_4px_16px_var(--shadow-soft)] ${menuPosition}`}
+            className={`absolute right-0 z-50 min-w-[360px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-1.5 text-[var(--text)] shadow-[0_4px_16px_var(--shadow-soft)] ${menuPosition}`}
           >
-            {!isOllamaRunning ? (
+            {usePrivacyMode && !isOllamaRunning ? (
               <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">
                 Ollama not running
               </div>
-            ) : availableModels.length === 0 ? (
+            ) : usePrivacyMode && availableModels.length === 0 ? (
               <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">
                 <div>No Lex models installed</div>
                 <button
@@ -122,20 +139,43 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
               </div>
             ) : (
               <>
-                {availableModels.map((modelId) => (
-                  <button
-                    key={modelId}
-                    type="button"
-                    onClick={() => {
-                      setSelectedModel(modelId);
-                      setOpen(false);
-                    }}
-                    className="flex w-full items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-sm text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[var(--surface)]"
-                  >
-                    <span>{ollamaIdToLexName(modelId)}</span>
-                    {modelId === selectedModel && <Check size={14} />}
-                  </button>
-                ))}
+                {availableModels.map((modelId) => {
+                  const metadata = getModelDisplayMetadata(modelId);
+                  return (
+                    <button
+                      key={modelId}
+                      type="button"
+                      onClick={() => {
+                        setSelectedModel(modelId);
+                        setOpen(false);
+                      }}
+                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-[var(--surface)]"
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
+                        <span
+                          style={{
+                            fontSize: "10px",
+                            fontWeight: 600,
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            backgroundColor: `${metadata.color}20`,
+                            color: metadata.color,
+                            letterSpacing: "0.05em",
+                          }}
+                        >
+                          {metadata.badge}
+                        </span>
+                        <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
+                          {metadata.name}
+                        </span>
+                        <span style={{ fontSize: "11px", color: "#8a8880", marginLeft: "auto" }}>
+                          {metadata.modelId}
+                        </span>
+                        {modelId === selectedModel && <Check size={14} />}
+                      </div>
+                    </button>
+                  );
+                })}
                 <div style={{ borderTop: "1px solid #e0ded8", marginTop: "4px", paddingTop: "4px" }}>
                   <div
                     onClick={() => {
