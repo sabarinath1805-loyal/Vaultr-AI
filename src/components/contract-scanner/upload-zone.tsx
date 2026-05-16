@@ -7,6 +7,8 @@ interface UploadZoneProps {
   file: File | null;
   error: string | null;
   isScanning: boolean;
+  scanningMessage: string;
+  scanProgress: number;
   onFileSelected: (file: File) => void;
   onRemoveFile?: () => void;
   onScan: () => void;
@@ -38,6 +40,8 @@ export function UploadZone({
   file,
   error,
   isScanning,
+  scanningMessage,
+  scanProgress,
   onFileSelected,
   onRemoveFile,
   onScan,
@@ -138,6 +142,17 @@ export function UploadZone({
               {error}
             </div>
           )}
+          {isScanning && (
+            <div className="mt-5 space-y-2">
+              <div className="text-[13px] text-[var(--text-muted)]">{scanningMessage}</div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface)]">
+                <div
+                  className="h-full rounded-full bg-[#1a1916] transition-[width] duration-500 ease-out"
+                  style={{ width: `${scanProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
           <div className="mt-5 flex items-center gap-4">
             <button
               type="button"
@@ -148,7 +163,7 @@ export function UploadZone({
               {isScanning ? (
                 <>
                   <span className="mr-2 h-3 w-3 animate-spin rounded-full border border-[#ffffff] border-t-transparent" />
-                  Scanning...
+                  {scanningMessage}
                 </>
               ) : error ? (
                 "Retry"
