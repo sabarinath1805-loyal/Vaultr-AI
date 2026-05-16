@@ -49,7 +49,7 @@ export async function POST(req: Request) {
           }) => {
             const extractedText = await extractDocumentText(document);
             if (!extractedText) return "";
-            return `\n\nThe user has attached the following document titled '${document.filename}':\n\n${extractedText}\n\nAnswer the user's question based on this document.`;
+            return `\n\nThe user has attached a document titled '${document.filename}'. Full content:\n\n${extractedText}\n\nAnswer the user's question based on this document.`;
           }
         )
       )

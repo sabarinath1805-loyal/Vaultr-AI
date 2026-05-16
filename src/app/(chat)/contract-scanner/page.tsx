@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { UploadZone } from "@/components/contract-scanner/upload-zone";
 import { ResultsDisplay } from "@/components/contract-scanner/results-display";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -7,8 +8,18 @@ import useContractScannerStore from "@/app/hooks/useContractScannerStore";
 import { isLexModel } from "@/lib/models";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const scanningSteps = [
+  "Reading document...",
+  "Analyzing clauses...",
+  "Identifying risks...",
+  "Checking obligations...",
+  "Generating report...",
+];
 
 export default function ContractScannerPage() {
+  const [scanningStepIndex, setScanningStepIndex] = useState(0);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [slowScan, setSlowScan] = useState(false);
   const file = useContractScannerStore((state) => state.file);
   const analysis = useContractScannerStore((state) => state.analysis);
   const error = useContractScannerStore((state) => state.error);
@@ -19,6 +30,30 @@ export default function ContractScannerPage() {
   const setIsScanning = useContractScannerStore((state) => state.setIsScanning);
   const reset = useContractScannerStore((state) => state.reset);
   const selectedModel = useChatStore((state) => state.selectedModel);
+
+  useEffect(() => {
+    if (!isScanning) {
+      setScanningStepIndex(0);
+      setScanProgress(0);
+      setSlowScan(false);
+      return;
+    }
+
+    const startedAt = Date.now();
+    const stepInterval = window.setInterval(() => {
+      setScanningStepIndex((index) => (index + 1) % scanningSteps.length);
+    }, 4000);
+    const progressInterval = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      setScanProgress(Math.min(90, Math.round((elapsed / 60000) * 90)));
+      if (elapsed >= 90000) setSlowScan(true);
+    }, 500);
+
+    return () => {
+      window.clearInterval(stepInterval);
+      window.clearInterval(progressInterval);
+    };
+  }, [isScanning]);
 
   const handleFileSelected = (selectedFile: File) => {
     setAnalysis(null);
@@ -41,9 +76,12 @@ export default function ContractScannerPage() {
 
     setIsScanning(true);
     setError(null);
+    setScanningStepIndex(0);
+    setScanProgress(0);
+    setSlowScan(false);
 
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 60000);
+    const timeout = window.setTimeout(() => controller.abort(), 180000);
 
     try {
       const formData = new FormData();
@@ -58,7 +96,10 @@ export default function ContractScannerPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error("Contract scan failed", data);
+        console.error("Contract scan failed", {
+          status: response.status,
+          body: data,
+        });
         setError("Scan failed. Make sure Ollama is running and try again.");
         return;
       }
@@ -94,6 +135,12 @@ export default function ContractScannerPage() {
           file={file}
           error={error}
           isScanning={isScanning}
+          scanningMessage={
+            slowScan
+              ? "Still scanning... large documents can take a few minutes."
+              : scanningSteps[scanningStepIndex]
+          }
+          scanProgress={scanProgress}
           onFileSelected={handleFileSelected}
           onRemoveFile={() => setFile(null)}
           onScan={scanContract}

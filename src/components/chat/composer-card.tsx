@@ -111,7 +111,10 @@ export function ComposerCard({
   const handleAddDocument = React.useCallback((doc: LocalDocument) => {
     setAttachedDocuments((current) => {
       if (current.some((item) => item.id === doc.id)) return current;
-      return [...current, doc];
+      const currentDoc = useLocalVaultStore
+        .getState()
+        .documents.find((item) => item.id === doc.id);
+      return [...current, currentDoc || doc];
     });
   }, []);
 
@@ -122,13 +125,41 @@ export function ComposerCard({
     });
   }, []);
 
-  const submitWithReset = (
+  const waitForDocumentContent = async (docs: LocalDocument[]) => {
+    if (docs.length === 0) return docs;
+
+    const docIds = docs.map((doc) => doc.id);
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < 3000) {
+      const latestDocuments = useLocalVaultStore.getState().documents;
+      const resolvedDocuments = docIds
+        .map((docId) => latestDocuments.find((item) => item.id === docId))
+        .filter((doc): doc is LocalDocument => Boolean(doc));
+
+      if (
+        resolvedDocuments.length === docs.length &&
+        resolvedDocuments.every((doc) => Boolean(doc.content || doc.dataUrl))
+      ) {
+        return resolvedDocuments;
+      }
+
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+
+    const latestDocuments = useLocalVaultStore.getState().documents;
+    return docs.map((doc) => latestDocuments.find((item) => item.id === doc.id) || doc);
+  };
+
+  const submitWithReset = async (
     event: React.FormEvent<HTMLFormElement>,
     options?: ChatRequestOptions
   ) => {
+    event.preventDefault();
+    const documentsWithContent = await waitForDocumentContent(attachedDocuments);
     const metadata = {
       workflow: selectedWorkflow,
-      attachedDocuments: attachedDocuments.map((doc) => ({
+      attachedDocuments: documentsWithContent.map((doc) => ({
         id: doc.id,
         filename: doc.filename,
         fileType: doc.fileType,
@@ -151,7 +182,6 @@ export function ComposerCard({
     });
     if (safeInput.trim() || attachedDocuments.length > 0) {
       setSelectedWorkflow(null);
-      setAttachedDocuments([]);
     }
   };
 

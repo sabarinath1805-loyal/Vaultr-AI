@@ -8,24 +8,32 @@ import { ChevronRight, Edit3, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { LEX_MODELS } from "@/lib/models";
 
-function LexResponseMarker() {
+function LexAvatar() {
   return (
-    <div style={{ marginBottom: "8px" }}>
+    <div
+      style={{
+        width: "32px",
+        height: "32px",
+        borderRadius: "50%",
+        backgroundColor: "#1a1916",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        animation: "lexAvatarPulse 2.5s ease-in-out infinite",
+        transformOrigin: "center",
+      }}
+    >
       <svg
-        width="20"
-        height="20"
+        width="16"
+        height="16"
         viewBox="0 0 22 22"
         fill="none"
-        style={{
-          animation: "lexSpin 8s linear infinite",
-          transformOrigin: "center",
-          display: "block",
-        }}
       >
-        <line x1="11" y1="1" x2="11" y2="21" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
-        <line x1="1" y1="11" x2="21" y2="11" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
-        <line x1="4" y1="4" x2="18" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
-        <line x1="18" y1="4" x2="4" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="11" y1="1" x2="11" y2="21" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="1" y1="11" x2="21" y2="11" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="4" y1="4" x2="18" y2="18" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+        <line x1="18" y1="4" x2="4" y2="18" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
       </svg>
     </div>
   );
@@ -154,87 +162,93 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   return (
     <div className="message animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
-      {message.role === "assistant" && <LexResponseMarker />}
-      {thinkContent && (
-        <div className="mb-3">
-          <button
-            type="button"
-            onClick={() => setThinkingOpen((open) => !open)}
-            className="flex items-center gap-1 text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-          >
-            <ChevronRight
-              className={`h-3.5 w-3.5 transition-transform ${
-                thinkingOpen ? "rotate-90" : ""
-              }`}
-            />
-            Lex&apos;s reasoning
-          </button>
-          {thinkingOpen && (
-            <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px] italic leading-relaxed text-[var(--text-muted)]">
-              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{thinkContent}</Markdown>
-            </div>
-          )}
-        </div>
-      )}
-      {message.experimental_attachments?.some((attachment) =>
-        attachment.contentType?.startsWith("image/")
-      ) && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {message.experimental_attachments
-            ?.filter((attachment) => attachment.contentType?.startsWith("image/"))
-            .map((attachment, index) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={`${message.id}-${index}`}
-                src={attachment.url}
-                alt="attached"
-                className="max-h-[200px] rounded-[var(--radius-md)] object-contain"
-              />
-            ))}
-        </div>
-      )}
-      <div className="prose prose-sm max-w-none text-sm leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
-        <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
-      </div>
-      <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
-        {timestamp && <div>{timestamp}</div>}
-        {webSearchUsed && (
-          <div>
-            <span className="text-[11px]">🔍</span> Web search used · Prepared using {webSearchModel}
-          </div>
-        )}
-        {documentAnalyzed.map((match) => (
-          <div key={match[1]}>
-            <span className="text-[11px]">📄</span> {match[1]} analyzed
-          </div>
-        ))}
-      </div>
-      <div className="message-actions flex gap-2 pt-2 text-[var(--text-muted)]">
-        {!isLoading && (
-          <button
-            type="button"
-            onClick={handleCopy}
-            className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
-            aria-label="Copy response"
-          >
-            {isCopied ? (
-              <CheckIcon className="h-3.5 w-3.5" />
-            ) : (
-              <CopyIcon className="h-3.5 w-3.5" />
+      {message.role === "assistant" ? (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+          <LexAvatar />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {thinkContent && (
+              <div className="mb-3">
+                <button
+                  type="button"
+                  onClick={() => setThinkingOpen((open) => !open)}
+                  className="flex items-center gap-1 text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+                >
+                  <ChevronRight
+                    className={`h-3.5 w-3.5 transition-transform ${
+                      thinkingOpen ? "rotate-90" : ""
+                    }`}
+                  />
+                  Lex&apos;s reasoning
+                </button>
+                {thinkingOpen && (
+                  <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px] italic leading-relaxed text-[var(--text-muted)]">
+                    <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{thinkContent}</Markdown>
+                  </div>
+                )}
+              </div>
             )}
-          </button>
-        )}
-        {!isLoading && isLast && (
-          <button
-            type="button"
-            onClick={() => reload()}
-            className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
-            aria-label="Regenerate response"
-          >
-            <RefreshCcw className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+            {message.experimental_attachments?.some((attachment) =>
+              attachment.contentType?.startsWith("image/")
+            ) && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {message.experimental_attachments
+                  ?.filter((attachment) => attachment.contentType?.startsWith("image/"))
+                  .map((attachment, index) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={`${message.id}-${index}`}
+                      src={attachment.url}
+                      alt="attached"
+                      className="max-h-[200px] rounded-[var(--radius-md)] object-contain"
+                    />
+                  ))}
+              </div>
+            )}
+            <div className="prose prose-sm max-w-none text-sm leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:font-body prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
+              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
+            </div>
+            <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
+              {timestamp && <div>{timestamp}</div>}
+              {webSearchUsed && (
+                <div>
+                  <span className="text-[11px]">🔍</span> Web search used · Prepared using {webSearchModel}
+                </div>
+              )}
+              {documentAnalyzed.map((match) => (
+                <div key={match[1]}>
+                  <span className="text-[11px]">📄</span> {match[1]} analyzed
+                </div>
+              ))}
+            </div>
+            <div className="message-actions flex gap-2 pt-2 text-[var(--text-muted)]">
+              {!isLoading && (
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+                  aria-label="Copy response"
+                >
+                  {isCopied ? (
+                    <CheckIcon className="h-3.5 w-3.5" />
+                  ) : (
+                    <CopyIcon className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+              {!isLoading && isLast && (
+                <button
+                  type="button"
+                  onClick={() => reload()}
+                  className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+                  aria-label="Regenerate response"
+                >
+                  <RefreshCcw className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

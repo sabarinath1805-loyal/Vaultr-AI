@@ -135,6 +135,17 @@ html[data-theme="dark"] {
   }
 }
 
+@keyframes lexAvatarPulse {
+  0%, 100% {
+    opacity: 0.75;
+    transform: scale(0.93);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.07);
+  }
+}
+
 .message-actions {
   opacity: 0;
   transition: opacity 150ms ease;
