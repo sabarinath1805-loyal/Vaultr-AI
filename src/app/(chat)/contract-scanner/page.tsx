@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { UploadZone } from "@/components/contract-scanner/upload-zone";
+import type { RiskFilter } from "@/components/contract-scanner/results-display";
 import { ResultsDisplay } from "@/components/contract-scanner/results-display";
 import useChatStore from "@/app/hooks/useChatStore";
 import useContractScannerStore from "@/app/hooks/useContractScannerStore";
 import { isLexModel } from "@/lib/models";
+import { getStoredScanReports, parseScanReportContent, saveScanReport } from "@/lib/scan-reports";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const scanningSteps = [
@@ -31,6 +35,7 @@ export default function ContractScannerPage() {
   const [scanningStepIndex, setScanningStepIndex] = useState(0);
   const [scanProgress, setScanProgress] = useState(0);
   const [slowScan, setSlowScan] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
   const file = useContractScannerStore((state) => state.file);
   const analysis = useContractScannerStore((state) => state.analysis);
   const error = useContractScannerStore((state) => state.error);
@@ -41,6 +46,29 @@ export default function ContractScannerPage() {
   const setIsScanning = useContractScannerStore((state) => state.setIsScanning);
   const reset = useContractScannerStore((state) => state.reset);
   const selectedModel = useChatStore((state) => state.selectedModel);
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const reportId = searchParams.get("report");
+    if (!reportId) return;
+
+    const report = getStoredScanReports().find((entry) => entry.id === reportId);
+    if (!report) {
+      setError("Saved report not found.");
+      return;
+    }
+
+    const savedAnalysis = parseScanReportContent(report);
+    if (!savedAnalysis) {
+      setError("Saved report could not be loaded.");
+      return;
+    }
+
+    setFile(null);
+    setAnalysis(savedAnalysis);
+    setActiveFilter("all");
+    setError(null);
+  }, [setAnalysis, setError, setFile]);
 
   useEffect(() => {
     if (!isScanning) {
@@ -68,6 +96,7 @@ export default function ContractScannerPage() {
 
   const handleFileSelected = (selectedFile: File) => {
     setAnalysis(null);
+    setActiveFilter("all");
     if (selectedFile.size > MAX_FILE_SIZE) {
       setFile(null);
       setError("File too large. Please upload a contract under 10MB.");
@@ -109,6 +138,15 @@ export default function ContractScannerPage() {
       }
 
       setAnalysis(data.analysis);
+      saveScanReport(file.name, data.analysis);
+      toast.success("Report saved to Vault", {
+        action: {
+          label: "Open Vault",
+          onClick: () => {
+            window.location.href = "/vault";
+          },
+        },
+      });
       setScanProgress(100);
     } catch (error) {
       console.error("Contract scan failed", error);
@@ -133,7 +171,15 @@ export default function ContractScannerPage() {
       </div>
 
       {analysis ? (
-        <ResultsDisplay analysis={analysis} onReset={reset} />
+        <ResultsDisplay
+          analysis={analysis}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          onReset={() => {
+            setActiveFilter("all");
+            reset();
+          }}
+        />
       ) : (
         <UploadZone
           file={file}
@@ -149,6 +195,16 @@ export default function ContractScannerPage() {
           onRemoveFile={() => setFile(null)}
           onScan={scanContract}
         />
+      )}
+      {analysis && (
+        <div className="px-6 pb-8">
+          <Link
+            href="/vault"
+            className="text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+          >
+            View saved reports in Vault →
+          </Link>
+        </div>
       )}
     </main>
   );
