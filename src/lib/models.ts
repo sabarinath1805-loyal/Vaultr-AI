@@ -21,6 +21,44 @@ export interface LexModel {
   alternatives?: LexModelAlternative[];
 }
 
+export interface GroqModel {
+  id: string;
+  name: string;
+  groqId: string;
+  badge: string;
+  color: string;
+  description: string;
+}
+
+export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+
+export const GROQ_MODELS: GroqModel[] = [
+  {
+    id: "groq-flash",
+    name: "Lex Flash",
+    groqId: "llama-3.1-8b-instant",
+    badge: "SWIFT",
+    color: "#1D9E75",
+    description: "Fastest responses for quick legal queries.",
+  },
+  {
+    id: "groq-core",
+    name: "Lex Core",
+    groqId: GROQ_DEFAULT_MODEL,
+    badge: "BALANCED",
+    color: "#378ADD",
+    description: "Best all-round quality for daily legal work.",
+  },
+  {
+    id: "groq-pro",
+    name: "Lex Pro",
+    groqId: "mixtral-8x7b-32768",
+    badge: "POWERFUL",
+    color: "#7F77DD",
+    description: "Long context for complex contracts.",
+  },
+];
+
 export const LEX_MODELS: LexModel[] = [
   {
     id: "lex-flash",
@@ -153,6 +191,54 @@ function getLexModelIds(): string[] {
     model.ollamaId,
     ...(model.alternatives || []).map((alternative) => alternative.ollamaId),
   ]);
+}
+
+export function getGroqModelIds(): string[] {
+  return GROQ_MODELS.map((model) => model.groqId);
+}
+
+export function isGroqModel(modelId: string | null | undefined): boolean {
+  return !!modelId && getGroqModelIds().includes(modelId);
+}
+
+export function groqIdToLexName(groqId: string): string {
+  return GROQ_MODELS.find((model) => model.groqId === groqId)?.name || "Lex Core";
+}
+
+export function getModelDisplayMetadata(modelId: string) {
+  const groqModel = GROQ_MODELS.find((model) => model.groqId === modelId);
+  if (groqModel) {
+    return {
+      badge: groqModel.badge,
+      color: groqModel.color,
+      name: groqModel.name,
+      modelId: groqModel.groqId,
+    };
+  }
+
+  const tierModel = LEX_MODELS.find((model) => model.ollamaId === modelId);
+  if (tierModel) {
+    return {
+      badge: tierModel.badge,
+      color: tierModel.color,
+      name: tierModel.name,
+      modelId: tierModel.ollamaId,
+    };
+  }
+
+  const alternativeTier = LEX_MODELS.find((model) =>
+    model.alternatives?.some((alternative) => alternative.ollamaId === modelId)
+  );
+  const alternative = alternativeTier?.alternatives?.find(
+    (variant) => variant.ollamaId === modelId
+  );
+
+  return {
+    badge: alternativeTier?.badge || "LEX",
+    color: alternativeTier?.color || "#378ADD",
+    name: alternative ? alternativeTier?.name || "Lex Model" : "Lex Model",
+    modelId,
+  };
 }
 
 export function ollamaIdToLexName(ollamaId: string): string {

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
-import { LEX_MODELS } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
 
 type Tab = "general" | "ollama" | "privacy";
 
@@ -195,6 +195,8 @@ function GeneralSettings() {
 function OllamaSettings() {
   const ollamaUrl = useChatStore((state) => state.ollamaUrl);
   const setOllamaUrl = useChatStore((state) => state.setOllamaUrl);
+  const usePrivacyMode = useChatStore((state) => state.usePrivacyMode);
+  const setUsePrivacyMode = useChatStore((state) => state.setUsePrivacyMode);
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
@@ -207,6 +209,22 @@ function OllamaSettings() {
   useEffect(() => {
     setWebSearchDefault(window.localStorage.getItem("vaultr-web-search-default") === "true");
   }, []);
+
+  const defaultModelOptions = usePrivacyMode
+    ? LEX_MODELS
+        .filter(
+          (model, index, models) =>
+            models.findIndex((candidate) => candidate.ollamaId === model.ollamaId) === index
+        )
+        .map((model) => ({ value: model.ollamaId, label: model.name }))
+    : GROQ_MODELS.map((model) => ({ value: model.groqId, label: model.name }));
+  const defaultModelValue = defaultModelOptions.some(
+    (option) => option.value === defaultModelPreference
+  )
+    ? defaultModelPreference
+    : usePrivacyMode
+    ? defaultModelOptions[0]?.value || ""
+    : GROQ_DEFAULT_MODEL;
 
   const exportConversations = async () => {
     const response = await fetch("/api/chats", { cache: "no-store" });
@@ -226,6 +244,32 @@ function OllamaSettings() {
 
   return (
     <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Inference</h2>
+        <button
+          type="button"
+          onClick={() => setUsePrivacyMode(!usePrivacyMode)}
+          className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium text-[var(--text)]">
+              Privacy Mode
+            </span>
+            <span className="mt-1 block text-sm text-[var(--text-muted)]">
+              Run AI completely on your Mac using Ollama. Your documents never leave your device.
+            </span>
+            <span className="mt-2 block text-[13px] text-[var(--text-muted)]">
+              {usePrivacyMode
+                ? "Switching to local model. Responses will be slower."
+                : "Using Groq cloud inference. Fast and smart."}
+            </span>
+          </span>
+          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${usePrivacyMode ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
+            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${usePrivacyMode ? "translate-x-4" : "translate-x-0"}`} />
+          </span>
+        </button>
+      </section>
+
       <section className="pb-6">
         <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">
           Ollama Connection
@@ -345,16 +389,16 @@ function OllamaSettings() {
               Default Lex model
             </span>
             <select
-              value={defaultModelPreference}
+              value={defaultModelValue}
               onChange={(event) => {
                 setDefaultModelPreference(event.target.value);
                 setSelectedModel(event.target.value);
               }}
               className={fieldClass}
             >
-              {LEX_MODELS.map((model) => (
-                <option key={model.ollamaId} value={model.ollamaId}>
-                  {model.name}
+              {defaultModelOptions.map((model) => (
+                <option key={model.value} value={model.value}>
+                  {model.label}
                 </option>
               ))}
             </select>
