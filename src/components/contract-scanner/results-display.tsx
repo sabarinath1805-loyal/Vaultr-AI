@@ -3,9 +3,13 @@
 import type { ContractAnalysis, ContractRisk } from "@/lib/contract-scanner";
 import { getRiskCounts, sortClausesByRisk } from "@/lib/contract-scanner";
 
+export type RiskFilter = "all" | "high" | "medium" | "standard";
+
 interface ResultsDisplayProps {
   analysis: ContractAnalysis;
   onReset: () => void;
+  activeFilter: RiskFilter;
+  onFilterChange: (filter: RiskFilter) => void;
 }
 
 const riskClasses: Record<ContractRisk, { badge: string; border: string; text: string }> = {
@@ -26,6 +30,25 @@ const riskClasses: Record<ContractRisk, { badge: string; border: string; text: s
   },
 };
 
+const filterClasses: Record<RiskFilter, { active: string; inactive: string }> = {
+  all: {
+    active: "border-[#1a1916] bg-[#1a1916] text-white",
+    inactive: "border-[#1a1916] bg-transparent text-[#1a1916]",
+  },
+  high: {
+    active: "border-[#A32D2D] bg-[#A32D2D] text-white",
+    inactive: "border-[#A32D2D] bg-transparent text-[#A32D2D]",
+  },
+  medium: {
+    active: "border-[#BA7517] bg-[#BA7517] text-white",
+    inactive: "border-[#BA7517] bg-transparent text-[#BA7517]",
+  },
+  standard: {
+    active: "border-[var(--text-muted)] bg-[var(--text-muted)] text-white",
+    inactive: "border-[var(--text-muted)] bg-transparent text-[var(--text-muted)]",
+  },
+};
+
 function RiskBadge({ risk, large = false }: { risk: ContractRisk; large?: boolean }) {
   return (
     <span
@@ -38,8 +61,19 @@ function RiskBadge({ risk, large = false }: { risk: ContractRisk; large?: boolea
   );
 }
 
-export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
+export function ResultsDisplay({
+  analysis,
+  onReset,
+  activeFilter,
+  onFilterChange,
+}: ResultsDisplayProps) {
   const clauses = sortClausesByRisk(analysis.clauses);
+  const filteredClauses = clauses.filter((clause) => {
+    if (activeFilter === "all") return true;
+    if (activeFilter === "high") return clause.risk === "HIGH";
+    if (activeFilter === "medium") return clause.risk === "MEDIUM";
+    return clause.risk === "LOW";
+  });
   const counts = getRiskCounts(clauses);
   const reportText = [
     analysis.contract_title,
@@ -73,14 +107,37 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
         </p>
       </article>
 
-      <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px]">
-        <span className={riskClasses.HIGH.text}>{counts.high} High</span>
-        <span className="px-2 text-[var(--border)]">·</span>
-        <span className={riskClasses.MEDIUM.text}>{counts.medium} Medium</span>
-        <span className="px-2 text-[var(--border)]">·</span>
-        <span className="text-[var(--text-muted)]">
-          {counts.standard} Standard Clauses
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px]">
+        <div>
+          <span className={riskClasses.HIGH.text}>{counts.high} High</span>
+          <span className="px-2 text-[var(--border)]">·</span>
+          <span className={riskClasses.MEDIUM.text}>{counts.medium} Medium</span>
+          <span className="px-2 text-[var(--border)]">·</span>
+          <span className="text-[var(--text-muted)]">
+            {counts.standard} Standard Clauses
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: "all", label: "All" },
+            { id: "high", label: "High" },
+            { id: "medium", label: "Medium" },
+            { id: "standard", label: "Standard" },
+          ].map((filter) => (
+            <button
+              key={filter.id}
+              type="button"
+              onClick={() => onFilterChange(filter.id as RiskFilter)}
+              className={`rounded-full border px-3 py-1 text-[12px] font-medium transition-colors ${
+                activeFilter === filter.id
+                  ? filterClasses[filter.id as RiskFilter].active
+                  : filterClasses[filter.id as RiskFilter].inactive
+              }`}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -101,7 +158,7 @@ export function ResultsDisplay({ analysis, onReset }: ResultsDisplayProps) {
       </div>
 
       <div className="space-y-4">
-        {clauses.map((clause) => (
+        {filteredClauses.map((clause) => (
           <article
             key={`${clause.title}-${clause.excerpt}`}
             className={`rounded-[var(--radius-md)] border border-l-4 border-[var(--border)] bg-[var(--bg)] px-6 py-5 ${riskClasses[clause.risk].border}`}

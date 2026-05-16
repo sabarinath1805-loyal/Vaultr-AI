@@ -224,9 +224,25 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   return (
     <div className="message animate-message-in w-full max-w-[85%] text-left text-sm leading-[1.7] text-[var(--text-primary)]">
       {message.role === "assistant" ? (
-        <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "flex-start",
+            gap: "12px",
+            width: "100%",
+          }}
+        >
           <LexAvatar />
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              marginTop: "4px",
+              paddingTop: "0",
+              lineHeight: "1.6",
+            }}
+          >
             {thinkContent && (
               <div className="mb-3">
                 <button
