@@ -8,8 +8,14 @@ import { ToolbarTabs } from "@/components/shared/toolbar-tabs";
 import { NewVaultModal } from "@/components/vault/new-vault-modal";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { useReturnDocumentsToComposer } from "@/components/vault/vault-route-bridge";
+import { getRiskCounts } from "@/lib/contract-scanner";
 import { formatBytes, LocalDocument } from "@/lib/local-documents";
 import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
+import {
+  getStoredScanReports,
+  parseScanReportContent,
+  type ScanReportEntry,
+} from "@/lib/scan-reports";
 
 const CHECK_W = "w-8 shrink-0";
 const NAME_COL_W = "w-[300px] shrink-0";
@@ -32,6 +38,7 @@ export default function VaultPage() {
   const [renameProjectId, setRenameProjectId] = useState<string | null>(null);
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
+  const [scanReports, setScanReports] = useState<ScanReportEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const documents = useLocalVaultStore((state) => state.documents);
@@ -69,6 +76,10 @@ export default function VaultPage() {
       document.removeEventListener("click", closeMenus);
       document.removeEventListener("keydown", closeOnEscape);
     };
+  }, []);
+
+  useEffect(() => {
+    setScanReports(getStoredScanReports());
   }, []);
 
   return (
@@ -243,6 +254,10 @@ export default function VaultPage() {
               )}
             </div>
           </div>
+          <ScanReportsSection
+            reports={scanReports}
+            onViewReport={(id) => router.push(`/contract-scanner?report=${id}`)}
+          />
         </>
       )}
       {renameProjectTarget && (
@@ -278,6 +293,74 @@ export default function VaultPage() {
       )}
       <NewVaultModal open={newVaultOpen} onClose={() => setNewVaultOpen(false)} />
     </main>
+  );
+}
+
+function formatReportDate(date: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(new Date(date));
+}
+
+function getReportRiskSummary(report: ScanReportEntry) {
+  const analysis = parseScanReportContent(report);
+  if (!analysis) return "Risk summary unavailable";
+
+  const counts = getRiskCounts(analysis.clauses);
+  return `${counts.high} High · ${counts.medium} Medium · ${counts.standard} Standard`;
+}
+
+function ScanReportsSection({
+  reports,
+  onViewReport,
+}: {
+  reports: ScanReportEntry[];
+  onViewReport: (id: string) => void;
+}) {
+  if (reports.length === 0) return null;
+
+  return (
+    <section className="px-8 pb-10 pt-8">
+      <div className="mb-3 flex items-end justify-between">
+        <div>
+          <h2 className="font-display text-[28px] font-normal text-[var(--text)]">
+            Scan Reports
+          </h2>
+          <p className="mt-1 text-[13px] text-[var(--text-muted)]">
+            Contract Scanner reports saved automatically after each scan.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3">
+        {reports.map((report) => (
+          <article
+            key={report.id}
+            className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4"
+          >
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--surface)] text-[var(--text-muted)]">
+              <FileText className="h-4 w-4" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="truncate font-display text-[22px] font-normal text-[var(--text)]">
+                {report.title}
+              </h3>
+              <div className="mt-1 text-xs text-[var(--text-muted)]">
+                {formatReportDate(report.date)} · {getReportRiskSummary(report)}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onViewReport(report.id)}
+              className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+            >
+              View Report
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 }
 
