@@ -5,6 +5,7 @@ import { extractFileContent } from "@/lib/extract-file-content";
 interface DocumentForExtraction {
   filename: string;
   fileType?: string | null;
+  extractedText?: string;
   content?: string;
   dataUrl?: string;
 }
@@ -22,6 +23,8 @@ function fileFromDocument(document: DocumentForExtraction) {
 }
 
 export async function extractDocumentText(document: DocumentForExtraction) {
+  if (document.extractedText?.trim()) return document.extractedText.trim();
+
   const filename = document.filename.toLowerCase();
   const fileType = document.fileType?.toLowerCase();
   const buffer = bufferFromDocument(document);

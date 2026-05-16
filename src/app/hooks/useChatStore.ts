@@ -15,7 +15,6 @@ interface State {
   userName: string;
   organisation: string;
   ollamaUrl: string;
-  serperApiKey: string;
   thinkingModeDefault: boolean;
   themePreference: "light" | "dark" | "system";
   defaultModelPreference: string;
@@ -51,7 +50,6 @@ interface Actions {
   setUserName: (userName: string) => void;
   setOrganisation: (organisation: string) => void;
   setOllamaUrl: (ollamaUrl: string) => void;
-  setSerperApiKey: (serperApiKey: string) => void;
   setThinkingModeDefault: (enabled: boolean) => void;
   setThemePreference: (theme: "light" | "dark" | "system") => void;
   setDefaultModelPreference: (modelId: string) => void;
@@ -98,7 +96,6 @@ const useChatStore = create<State & Actions>()(
       userName: "Local User",
       organisation: "",
       ollamaUrl: "http://localhost:11434",
-      serperApiKey: "4a998b3762951c8ce1f4ca43d1740af581d84f94",
       thinkingModeDefault: false,
       themePreference: "light",
       defaultModelPreference: "gemma4:e4b",
@@ -112,7 +109,6 @@ const useChatStore = create<State & Actions>()(
       setUserName: (userName) => set({ userName }),
       setOrganisation: (organisation) => set({ organisation }),
       setOllamaUrl: (ollamaUrl) => set({ ollamaUrl }),
-      setSerperApiKey: (serperApiKey) => set({ serperApiKey }),
       setThinkingModeDefault: (enabled) => set({ thinkingModeDefault: enabled }),
       setThemePreference: (theme) => {
         window.localStorage.setItem("vaultr-theme", theme);
@@ -308,7 +304,6 @@ const useChatStore = create<State & Actions>()(
         userName: state.userName,
         organisation: state.organisation,
         ollamaUrl: state.ollamaUrl,
-        serperApiKey: state.serperApiKey,
         thinkingModeDefault: state.thinkingModeDefault,
         themePreference: state.themePreference,
         defaultModelPreference: state.defaultModelPreference,
@@ -329,7 +324,6 @@ const useChatStore = create<State & Actions>()(
               : currentState.userName,
           organisation: persisted.organisation || currentState.organisation,
           ollamaUrl: persisted.ollamaUrl || currentState.ollamaUrl,
-          serperApiKey: persisted.serperApiKey || currentState.serperApiKey,
           thinkingModeDefault:
             typeof persisted.thinkingModeDefault === "boolean"
               ? persisted.thinkingModeDefault
