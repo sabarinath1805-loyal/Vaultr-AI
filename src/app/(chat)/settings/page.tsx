@@ -195,8 +195,10 @@ function GeneralSettings() {
 function OllamaSettings() {
   const ollamaUrl = useChatStore((state) => state.ollamaUrl);
   const setOllamaUrl = useChatStore((state) => state.setOllamaUrl);
-  const usePrivacyMode = useChatStore((state) => state.usePrivacyMode);
-  const setUsePrivacyMode = useChatStore((state) => state.setUsePrivacyMode);
+  const cloudMode = useChatStore((state) => state.cloudMode);
+  const setCloudMode = useChatStore((state) => state.setCloudMode);
+  const showCloudModeWarning = useChatStore((state) => state.showCloudModeWarning);
+  const setShowCloudModeWarning = useChatStore((state) => state.setShowCloudModeWarning);
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
@@ -210,7 +212,7 @@ function OllamaSettings() {
     setWebSearchDefault(window.localStorage.getItem("vaultr-web-search-default") === "true");
   }, []);
 
-  const defaultModelOptions = usePrivacyMode
+  const defaultModelOptions = !cloudMode
     ? LEX_MODELS
         .filter(
           (model, index, models) =>
@@ -222,7 +224,7 @@ function OllamaSettings() {
     (option) => option.value === defaultModelPreference
   )
     ? defaultModelPreference
-    : usePrivacyMode
+    : !cloudMode
     ? defaultModelOptions[0]?.value || ""
     : GROQ_DEFAULT_MODEL;
 
@@ -248,24 +250,45 @@ function OllamaSettings() {
         <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Inference</h2>
         <button
           type="button"
-          onClick={() => setUsePrivacyMode(!usePrivacyMode)}
+          onClick={() => setCloudMode(!cloudMode)}
           className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left"
         >
           <span>
             <span className="block text-sm font-medium text-[var(--text)]">
-              Privacy Mode
+              Cloud Mode
             </span>
             <span className="mt-1 block text-sm text-[var(--text-muted)]">
-              Run AI completely on your Mac using Ollama. Your documents never leave your device.
+              Use Groq for fast, smart responses. Switch off for local Ollama inference.
             </span>
             <span className="mt-2 block text-[13px] text-[var(--text-muted)]">
-              {usePrivacyMode
-                ? "Switching to local model. Responses will be slower."
-                : "Using Groq cloud inference. Fast and smart."}
+              {cloudMode
+                ? "Using Groq cloud inference. Fast and smart."
+                : "Private Mode active. Responses run locally and may be slower."}
             </span>
           </span>
-          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${usePrivacyMode ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
-            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${usePrivacyMode ? "translate-x-4" : "translate-x-0"}`} />
+          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${cloudMode ? "bg-[#378ADD]" : "bg-[#3B6D11]"}`}>
+            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${cloudMode ? "translate-x-4" : "translate-x-0"}`} />
+          </span>
+        </button>
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Cloud Warning</h2>
+        <button
+          type="button"
+          onClick={() => setShowCloudModeWarning(!showCloudModeWarning)}
+          className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left"
+        >
+          <span>
+            <span className="block text-sm font-medium text-[var(--text)]">
+              Show Cloud Mode warning
+            </span>
+            <span className="mt-1 block text-sm text-[var(--text-muted)]">
+              Display the amber Groq processing notice above the composer when Cloud Mode is active.
+            </span>
+          </span>
+          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${showCloudModeWarning ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
+            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${showCloudModeWarning ? "translate-x-4" : "translate-x-0"}`} />
           </span>
         </button>
       </section>
@@ -364,8 +387,14 @@ function OllamaSettings() {
         <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Thinking Mode</h2>
         <button
           type="button"
-          onClick={() => setThinkingModeDefault(!thinkingModeDefault)}
-          className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left"
+          disabled={cloudMode}
+          title={cloudMode ? "Thinking mode is only available in Private Mode with qwen3" : undefined}
+          onClick={() => {
+            if (!cloudMode) setThinkingModeDefault(!thinkingModeDefault);
+          }}
+          className={`flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left ${
+            cloudMode ? "cursor-not-allowed opacity-45 grayscale" : ""
+          }`}
         >
           <span>
             <span className="block text-sm font-medium text-[var(--text)]">
@@ -375,7 +404,7 @@ function OllamaSettings() {
               Shows Lex&apos;s reasoning process. Works with Lex Nano, Core, Pro, Elite and Max.
             </span>
           </span>
-          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${thinkingModeDefault ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
+          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${thinkingModeDefault && !cloudMode ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
             <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${thinkingModeDefault ? "translate-x-4" : "translate-x-0"}`} />
           </span>
         </button>

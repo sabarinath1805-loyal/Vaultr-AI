@@ -3,7 +3,7 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Brain, Check, File, FileText, FolderOpen, Globe, Library, Square, X } from "lucide-react";
+import { ArrowRight, Brain, Check, Cloud, File, FileText, FolderOpen, Globe, Library, Lock, Square, X } from "lucide-react";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { WorkflowsModal } from "@/components/workflows/workflows-modal";
 import { AddDocButton } from "@/components/chat/add-doc-button";
@@ -11,7 +11,7 @@ import { AddDocumentsModal } from "@/components/shared/add-documents-modal";
 import { formatBytes, type LocalDocument } from "@/lib/local-documents";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import useChatStore, { type AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { isThinkingCapableModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isLexModel, isThinkingCapableModel, sortModelsByLexOrder } from "@/lib/models";
 
 interface ComposerCardProps {
   input: string;
@@ -74,7 +74,8 @@ export function ComposerCard({
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const ollamaUrl = useChatStore((state) => state.ollamaUrl);
-  const usePrivacyMode = useChatStore((state) => state.usePrivacyMode);
+  const cloudMode = useChatStore((state) => state.cloudMode);
+  const setCloudMode = useChatStore((state) => state.setCloudMode);
 
   React.useEffect(() => {
     textareaRef.current?.focus();
@@ -234,6 +235,29 @@ export function ComposerCard({
     });
   };
 
+  const switchMode = async () => {
+    if (!cloudMode) {
+      setCloudMode(true, GROQ_DEFAULT_MODEL);
+      return;
+    }
+
+    let privateModel = isLexModel(selectedModel) ? selectedModel : null;
+    try {
+      const response = await fetch("/api/tags", { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        const modelIds = Array.isArray(data?.models)
+          ? data.models.map(({ name }: { name: string }) => name)
+          : [];
+        privateModel = sortModelsByLexOrder(modelIds.filter(isLexModel))[0] || privateModel;
+      }
+    } catch {
+      privateModel = privateModel || null;
+    }
+    setCloudMode(false, privateModel);
+  };
+
+  const usePrivacyMode = !cloudMode;
   const thinkingSupported = usePrivacyMode && isThinkingCapableModel(selectedModel);
 
   return (
@@ -301,6 +325,34 @@ export function ComposerCard({
 
           <div className="flex items-center justify-between p-2 md:p-2.5">
             <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={switchMode}
+                aria-pressed={cloudMode}
+                title={cloudMode ? "Switch to Private Mode" : "Switch to Cloud Mode"}
+                className="mr-1 flex h-8 items-center gap-2 rounded-lg px-2 text-[12px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
+              >
+                <span className={`hidden items-center gap-1 sm:flex ${cloudMode ? "text-[var(--text-faint)]" : "text-[var(--text)]"}`}>
+                  <Lock className="h-3.5 w-3.5" />
+                  Private
+                </span>
+                <span
+                  className={`flex h-5 w-10 items-center rounded-full p-0.5 transition-colors ${
+                    cloudMode ? "bg-[#378ADD]" : "bg-[#3B6D11]"
+                  }`}
+                >
+                  <span
+                    className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
+                      cloudMode ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </span>
+                <span className={`hidden items-center gap-1 sm:flex ${cloudMode ? "text-[var(--text)]" : "text-[var(--text-faint)]"}`}>
+                  <Cloud className="h-3.5 w-3.5" />
+                  Cloud
+                </span>
+              </button>
+              <div className="mx-1 hidden h-5 w-px bg-[var(--border)] sm:block" />
               <AddDocButton
                 onSelectDoc={handleAddDocument}
                 onBrowseAll={() => setDocSelectorOpen(true)}

@@ -3,7 +3,7 @@ import { createChat, deleteAllChats, listChatsWithMessages } from "@/lib/db/chat
 import { toClientChat } from "@/lib/api/chats";
 import { CONTRACT_ANALYSIS_PROMPT } from "@/lib/contract-scanner";
 import { OLLAMA_DEFAULT_URL } from "@/lib/lex";
-import { isLexModel, lexNameToOllamaId } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isGroqModel, isLexModel, lexNameToOllamaId } from "@/lib/models";
 import { extractPdfText } from "@/lib/file-extraction/pdf-extractor";
 import { extractDocxText } from "@/lib/file-extraction/docx-extractor";
 
@@ -29,6 +29,19 @@ function getOllamaResponseText(payload: unknown) {
   }
   if (typeof payload.response === "string") {
     return payload.response;
+  }
+  return "";
+}
+
+function getOpenAiResponseText(payload: unknown) {
+  if (!isRecord(payload)) return "";
+  const choices = payload.choices;
+  if (!Array.isArray(choices)) return "";
+  const firstChoice = choices[0];
+  if (!isRecord(firstChoice)) return "";
+  const message = firstChoice.message;
+  if (isRecord(message) && typeof message.content === "string") {
+    return message.content;
   }
   return "";
 }
@@ -86,8 +99,9 @@ export async function POST(req: Request) {
     }
 
     const selectedModel = lexNameToOllamaId(selectedModelValue) || selectedModelValue;
+    const cloudScan = isGroqModel(selectedModel) || selectedModel === GROQ_DEFAULT_MODEL;
 
-    if (!isLexModel(selectedModel)) {
+    if (!cloudScan && !isLexModel(selectedModel)) {
       return NextResponse.json(
         { error: "Contract Scanner requires a Lex model. Please install one first." },
         { status: 400 }
@@ -98,31 +112,48 @@ export async function POST(req: Request) {
       const contractText = await extractText(file);
       const ollamaUrl = process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
       const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
-      const ollamaResponse = await fetch(`${ollamaUrl}/api/chat`, {
+      const response = await fetch(cloudScan ? "https://api.groq.com/openai/v1/chat/completions" : `${ollamaUrl}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: selectedModel,
-          stream: false,
-          messages: [{ role: "user", content: prompt }],
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(cloudScan ? { Authorization: `Bearer ${process.env.GROQ_API_KEY}` } : {}),
+        },
+        body: JSON.stringify(
+          cloudScan
+            ? {
+                model: selectedModel,
+                stream: false,
+                messages: [{ role: "user", content: prompt }],
+              }
+            : {
+                model: selectedModel,
+                stream: false,
+                messages: [{ role: "user", content: prompt }],
+              }
+        ),
       });
-      const responseBody = await ollamaResponse.text();
+      const responseBody = await response.text();
 
-      if (!ollamaResponse.ok) {
-        console.error("Contract scanner Ollama error response", {
+      if (!response.ok) {
+        console.error("Contract scanner model error response", {
           model: selectedModel,
-          status: ollamaResponse.status,
+          status: response.status,
           body: responseBody,
         });
         return NextResponse.json(
-          { error: "Ollama is not running. Start Ollama to use Contract Scanner." },
+          {
+            error: cloudScan
+              ? "Lex is unavailable. Check your internet connection and try again."
+              : "Ollama is not running. Start Ollama to use Contract Scanner.",
+          },
           { status: 503 }
         );
       }
 
       const payload = JSON.parse(responseBody);
-      const responseText = getOllamaResponseText(payload);
+      const responseText = cloudScan
+        ? getOpenAiResponseText(payload)
+        : getOllamaResponseText(payload);
 
       if (!responseText) {
         console.error("Contract scanner empty Ollama response", {
@@ -149,7 +180,11 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json(
-        { error: "Ollama is not running. Start Ollama to use Contract Scanner." },
+        {
+          error: cloudScan
+            ? "Lex is unavailable. Check your internet connection and try again."
+            : "Ollama is not running. Start Ollama to use Contract Scanner.",
+        },
         { status: 503 }
       );
     }

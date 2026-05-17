@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
+import { X } from "lucide-react";
 
 declare global {
   interface Window {
@@ -87,7 +88,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       const errorMessage: Message = {
         id: generateId(),
         role: "assistant",
-        content: "Lex is unavailable. Make sure Ollama is running and try again.",
+        content: cloudMode
+          ? "Lex is unavailable. Check your internet connection and try again."
+          : "Lex is unavailable. Make sure Ollama is running and try again.",
         createdAt: new Date(),
       };
 
@@ -109,7 +112,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const base64Images = useChatStore((state) => state.base64Images);
   const setBase64Images = useChatStore((state) => state.setBase64Images);
   const selectedModel = useChatStore((state) => state.selectedModel);
-  const usePrivacyMode = useChatStore((state) => state.usePrivacyMode);
+  const cloudMode = useChatStore((state) => state.cloudMode);
+  const setCloudMode = useChatStore((state) => state.setCloudMode);
+  const showCloudModeWarning = useChatStore((state) => state.showCloudModeWarning);
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
   const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
   const pendingComposerText = useChatStore((state) => state.pendingComposerText);
@@ -119,6 +124,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const router = useRouter();
   const pathname = usePathname();
   const isOpenEmptyChat = pathname.startsWith("/c/");
+  const usePrivacyMode = !cloudMode;
+  const [cloudBannerDismissed, setCloudBannerDismissed] = React.useState(false);
 
   React.useEffect(() => {
     setCurrentChatId(isOpenEmptyChat ? id : null);
@@ -305,6 +312,15 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               )}
             </div>
             <div className="flex w-full flex-col items-center">
+              {cloudMode && showCloudModeWarning && !cloudBannerDismissed && (
+                <CloudModeBanner
+                  onSwitchPrivate={() => {
+                    setCloudMode(false, isLexModel(selectedModel) ? selectedModel : null);
+                    setCloudBannerDismissed(true);
+                  }}
+                  onDismiss={() => setCloudBannerDismissed(true)}
+                />
+              )}
               <ChatBottombar
                 input={input}
                 handleInputChange={handleInputChange}
@@ -357,9 +373,18 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             }}
           />
           <div
-            className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] -translate-x-1/2 bg-[var(--bg)]"
+            className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 flex w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] -translate-x-1/2 flex-col items-center gap-2 bg-[var(--bg)]"
             style={{ maxWidth: "780px" }}
           >
+            {cloudMode && showCloudModeWarning && !cloudBannerDismissed && (
+              <CloudModeBanner
+                onSwitchPrivate={() => {
+                  setCloudMode(false, isLexModel(selectedModel) ? selectedModel : null);
+                  setCloudBannerDismissed(true);
+                }}
+                onDismiss={() => setCloudBannerDismissed(true)}
+              />
+            )}
             <ChatBottombar
               input={input}
               handleInputChange={handleInputChange}
@@ -372,6 +397,37 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function CloudModeBanner({
+  onSwitchPrivate,
+  onDismiss,
+}: {
+  onSwitchPrivate: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="flex w-full items-center gap-2 rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--color-background-warning)] px-3 py-2 text-[13px] text-[var(--color-text-warning)]">
+      <span className="flex-1">
+        ☁ Cloud Mode — Documents are processed by Groq. Groq does not use your data for training.
+      </span>
+      <button
+        type="button"
+        onClick={onSwitchPrivate}
+        className="whitespace-nowrap rounded-[var(--radius-sm)] border border-[var(--warning-border)] px-2 py-1 text-[12px] font-medium"
+      >
+        Switch to Private
+      </button>
+      <button
+        type="button"
+        onClick={onDismiss}
+        aria-label="Dismiss Cloud Mode warning"
+        className="rounded-[var(--radius-sm)] p-1"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
