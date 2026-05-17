@@ -139,7 +139,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const [cloudWarningCount, setCloudWarningCount] = React.useState(0);
 
   React.useEffect(() => {
-    setCurrentChatId(isOpenEmptyChat ? id : null);
+    const nextChatId = isOpenEmptyChat ? id : null;
+    const currentChatId = useChatStore.getState().currentChatId;
+    if (currentChatId === nextChatId) return;
+    setCurrentChatId(nextChatId);
+    // Guarding the store write keeps route changes from creating a store update
+    // loop while chat messages stream and the layout re-renders.
   }, [id, isOpenEmptyChat, setCurrentChatId]);
 
   React.useEffect(() => {
@@ -152,6 +157,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     if (!input.trim() && loadingSubmit) {
       setLoadingSubmit(false);
     }
+    // Only input and loadingSubmit are observed here; the setter is stable, and the
+    // guard prevents the loading reset from firing repeatedly during streaming.
   }, [input, loadingSubmit]);
 
   React.useEffect(() => {
@@ -163,9 +170,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     lastMessage?.role === "assistant" && lastMessage.content.trim().length > 0;
 
   React.useEffect(() => {
-    if (showThinking && assistantResponseStarted) {
-      markFirstTokenArrived();
-    }
+    if (!showThinking || !assistantResponseStarted) return;
+    markFirstTokenArrived();
+    // assistantResponseStarted is a boolean derived from the last streamed message,
+    // not the full messages array, so token streaming cannot retrigger this endlessly.
   }, [showThinking, assistantResponseStarted, markFirstTokenArrived]);
 
   const onSubmit = (

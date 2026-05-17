@@ -61,6 +61,8 @@ export default function ContractScannerPage() {
     hasForcedCloudMode.current = true;
     setForcedCloudFromPrivate(true);
     setCloudMode(true, GROQ_DEFAULT_MODEL);
+    // hasForcedCloudMode is a one-shot ref so this Cloud Mode write cannot repeat
+    // when the store update changes cloudMode and re-renders the scanner.
   }, [allowPrivateAfterScan, cloudMode, setCloudMode]);
 
   const switchBackToPrivate = async () => {
