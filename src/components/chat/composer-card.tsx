@@ -82,7 +82,13 @@ export function ComposerCard({
 
   React.useEffect(() => {
     const savedThinking = window.localStorage.getItem("vaultr-thinking-enabled");
-    setThinkingEnabled(savedThinking === null ? thinkingModeDefault : savedThinking === "true");
+    const nextThinkingEnabled =
+      savedThinking === null ? thinkingModeDefault : savedThinking === "true";
+    setThinkingEnabled((current) =>
+      current === nextThinkingEnabled ? current : nextThinkingEnabled
+    );
+    // This only mirrors the persisted default when that default changes; the guarded
+    // setter avoids a same-value state write during Strict Mode remounts.
   }, [thinkingModeDefault]);
 
   React.useEffect(() => {
@@ -91,10 +97,13 @@ export function ComposerCard({
     if (pendingDocuments.length > 0) {
       setAttachedDocuments((current) => {
         const existing = new Set(current.map((doc) => doc.id));
-        return [...current, ...pendingDocuments.filter((doc) => !existing.has(doc.id))];
+        const nextDocuments = pendingDocuments.filter((doc) => !existing.has(doc.id));
+        return nextDocuments.length > 0 ? [...current, ...nextDocuments] : current;
       });
     }
     setPendingAttachedDocumentIds([]);
+    // The effect clears pendingAttachedDocumentIds after consuming them so the
+    // dependency cannot retrigger the attachment write on subsequent renders.
   }, [documents, pendingAttachedDocumentIds, setPendingAttachedDocumentIds]);
 
   React.useEffect(() => {
@@ -102,13 +111,17 @@ export function ComposerCard({
     setSelectedWorkflow(pendingWorkflow);
     setPendingWorkflow(null);
     requestAnimationFrame(() => textareaRef.current?.focus());
+    // pendingWorkflow is reset to null after one transfer from global state, which
+    // prevents this local selection write from looping during composer re-renders.
   }, [pendingWorkflow, setPendingWorkflow]);
 
   React.useEffect(() => {
-    setSelectedWorkflow(null);
-    setAttachedDocuments([]);
+    setSelectedWorkflow((current) => (current === null ? current : null));
+    setAttachedDocuments((current) => (current.length === 0 ? current : []));
     if (setInput) setInput("");
     requestAnimationFrame(() => textareaRef.current?.focus());
+    // composerResetToken is a monotonic reset signal; it is the only reset trigger
+    // so streaming input changes cannot repeatedly clear composer state.
   }, [composerResetToken, setInput]);
 
   const submitFromTextarea = () => {

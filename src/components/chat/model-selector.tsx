@@ -45,31 +45,11 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
         if (!cancelled) {
           setIsOllamaRunning(true);
           setAvailableModels(orderedModels);
-          if (cloudMode) {
-            if (!GROQ_MODELS.some((model) => model.groqId === selectedModel)) {
-              setSelectedModel(GROQ_DEFAULT_MODEL);
-            }
-          } else if (orderedModels.length === 0 && selectedModel) {
-            setSelectedModel(null);
-          } else if (orderedModels.length > 0 && !orderedModels.includes(selectedModel || "")) {
-            setSelectedModel(
-              orderedModels.includes(defaultModelPreference)
-                ? defaultModelPreference
-                : orderedModels[0]
-            );
-          }
         }
       } catch {
         if (!cancelled) {
           setIsOllamaRunning(false);
           setAvailableModels([]);
-          if (cloudMode) {
-            if (!GROQ_MODELS.some((model) => model.groqId === selectedModel)) {
-              setSelectedModel(GROQ_DEFAULT_MODEL);
-            }
-          } else if (selectedModel) {
-            setSelectedModel(null);
-          }
         }
       }
     }
@@ -77,11 +57,35 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
     loadModels();
     window.addEventListener("vaultr-models-updated", loadModels);
 
+    // This effect only refreshes Ollama availability. Model selection is reconciled
+    // in the guarded effect below so streaming message updates cannot retrigger fetches.
     return () => {
       cancelled = true;
       window.removeEventListener("vaultr-models-updated", loadModels);
     };
-  }, [cloudMode, defaultModelPreference, selectedModel, setSelectedModel]);
+  }, []);
+
+  useEffect(() => {
+    const nextModel = getNextSelectedModel({
+      availableModels,
+      cloudMode,
+      defaultModelPreference,
+      isOllamaRunning,
+      selectedModel,
+    });
+
+    if (nextModel === selectedModel) return;
+    setSelectedModel(nextModel);
+    // This effect intentionally depends on primitive model state and exits unless
+    // the derived target changes, preventing selectedModel writes from looping.
+  }, [
+    availableModels,
+    cloudMode,
+    defaultModelPreference,
+    isOllamaRunning,
+    selectedModel,
+    setSelectedModel,
+  ]);
 
   const selectedLabel = cloudMode
     ? selectedModel
@@ -250,4 +254,30 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
       )}
     </div>
   );
+}
+
+function getNextSelectedModel({
+  availableModels,
+  cloudMode,
+  defaultModelPreference,
+  isOllamaRunning,
+  selectedModel,
+}: {
+  availableModels: string[];
+  cloudMode: boolean;
+  defaultModelPreference: string;
+  isOllamaRunning: boolean;
+  selectedModel: string | null;
+}) {
+  if (cloudMode) {
+    return GROQ_MODELS.some((model) => model.groqId === selectedModel)
+      ? selectedModel
+      : GROQ_DEFAULT_MODEL;
+  }
+
+  if (!isOllamaRunning || availableModels.length === 0) return null;
+  if (selectedModel && availableModels.includes(selectedModel)) return selectedModel;
+  return availableModels.includes(defaultModelPreference)
+    ? defaultModelPreference
+    : availableModels[0];
 }
