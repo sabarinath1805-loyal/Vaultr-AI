@@ -9,7 +9,7 @@ import { ResultsDisplay } from "@/components/contract-scanner/results-display";
 import useChatStore from "@/app/hooks/useChatStore";
 import useContractScannerStore from "@/app/hooks/useContractScannerStore";
 import { getRiskCounts } from "@/lib/contract-scanner";
-import { isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isLexModel, sortModelsByLexOrder } from "@/lib/models";
 import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -35,12 +35,16 @@ const scanningSteps = [
 export default function ContractScannerPage() {
   const [slowScan, setSlowScan] = useState(false);
   const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
+  const [forcedCloudFromPrivate, setForcedCloudFromPrivate] = useState(false);
+  const [allowPrivateAfterScan, setAllowPrivateAfterScan] = useState(false);
   const file = useContractScannerStore((state) => state.file);
   const error = useContractScannerStore((state) => state.error);
   const setFile = useContractScannerStore((state) => state.setFile);
   const setError = useContractScannerStore((state) => state.setError);
   const reset = useContractScannerStore((state) => state.reset);
   const selectedModel = useChatStore((state) => state.selectedModel);
+  const cloudMode = useChatStore((state) => state.cloudMode);
+  const setCloudMode = useChatStore((state) => state.setCloudMode);
   const scanProgress = useChatStore((state) => state.scanProgress);
   const scanningStep = useChatStore((state) => state.scanningStep);
   const analysis = useChatStore((state) => state.scanResult);
@@ -49,6 +53,32 @@ export default function ContractScannerPage() {
   const setScanningStep = useChatStore((state) => state.setScanningStep);
   const setAnalysis = useChatStore((state) => state.setScanResult);
   const setIsScanning = useChatStore((state) => state.setIsScanning);
+
+  useEffect(() => {
+    if (!cloudMode && !allowPrivateAfterScan) {
+      setForcedCloudFromPrivate(true);
+      setCloudMode(true, GROQ_DEFAULT_MODEL);
+    }
+  }, [allowPrivateAfterScan, cloudMode, setCloudMode]);
+
+  const switchBackToPrivate = async () => {
+    let privateModel = isLexModel(selectedModel) ? selectedModel : null;
+    try {
+      const response = await fetch("/api/tags", { cache: "no-store" });
+      if (response.ok) {
+        const data = await response.json();
+        const modelIds = Array.isArray(data?.models)
+          ? data.models.map(({ name }: { name: string }) => name)
+          : [];
+        privateModel = sortModelsByLexOrder(modelIds.filter(isLexModel))[0] || privateModel;
+      }
+    } catch {
+      privateModel = privateModel || null;
+    }
+    setAllowPrivateAfterScan(true);
+    setCloudMode(false, privateModel);
+    setForcedCloudFromPrivate(false);
+  };
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -123,7 +153,7 @@ export default function ContractScannerPage() {
 
   const scanContract = async () => {
     if (!file) return;
-    const modelToUse = selectedModel && isLexModel(selectedModel) ? selectedModel : "qwen3:8b";
+    const modelToUse = GROQ_DEFAULT_MODEL;
 
     setIsScanning(true);
     setError(null);
@@ -192,10 +222,36 @@ export default function ContractScannerPage() {
           </h1>
           <p className="mt-2 max-w-[600px] text-sm leading-[1.6] text-[var(--text-muted)]">
             Upload any contract and Lex will identify risks, flag problem clauses, and give you
-            negotiation recommendations. 100% local — your documents never leave your device.
+            negotiation recommendations using Cloud Mode for faster, more accurate analysis.
           </p>
         </div>
       </div>
+
+      <div className="mx-6 mb-5 rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--color-background-warning)] px-4 py-3 text-sm text-[var(--color-text-warning)]">
+        Contract Scanner uses Cloud Mode for faster, more accurate analysis. Switch to Private Mode after scanning if needed.
+      </div>
+
+      {analysis && (
+        <div className="mx-6 mb-5 flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-sm text-[var(--text)]">
+          <span className="flex-1">Scan complete.</span>
+          <button
+            type="button"
+            onClick={() => setForcedCloudFromPrivate(false)}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[13px]"
+          >
+            Stay in Cloud
+          </button>
+          {forcedCloudFromPrivate && (
+            <button
+              type="button"
+              onClick={switchBackToPrivate}
+              className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-1.5 text-[13px] text-[var(--bg-primary)]"
+            >
+              Switch back to Private
+            </button>
+          )}
+        </div>
+      )}
 
       {analysis ? (
         <ResultsDisplay

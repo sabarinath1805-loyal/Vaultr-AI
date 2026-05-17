@@ -334,7 +334,7 @@ export default function ModelsPage() {
                   {tier.tierDescription}
                 </span>
               </div>
-              <div className="grid grid-cols-3 gap-4 max-w-5xl mx-auto mt-6">
+              <div className="grid grid-cols-3 gap-6 max-w-5xl mx-auto mt-6">
                 {tier.models.map((model) => {
                   const installed = installedModels.includes(model.id);
                   const download = downloads[model.id];
@@ -342,7 +342,7 @@ export default function ModelsPage() {
                   return (
                     <article
                       key={model.id}
-                      className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4"
+                      className="min-h-[280px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-6"
                       style={{ borderTop: `3px solid ${model.color}` }}
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -369,14 +369,14 @@ export default function ModelsPage() {
                         </span>
                       </div>
 
-                      <div className="mt-4 text-xs font-medium text-[var(--text-muted)]">
+                      <div className="mt-6 text-xs font-medium text-[var(--text-muted)]">
                         {model.ram}
                       </div>
-                      <p className="mt-2 min-h-[38px] text-[13px] text-[var(--text)]">
+                      <p className="mt-4 min-h-[48px] text-[13px] leading-relaxed text-[var(--text)]">
                         {model.description}
                       </p>
 
-                      <div className="mt-5 flex items-center gap-3">
+                      <div className="mt-6 flex items-center gap-3">
                         {installed ? (
                           <>
                             <button
