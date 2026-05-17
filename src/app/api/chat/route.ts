@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   const documentContext = documentContexts.filter(Boolean).join("");
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
-  const systemPrompt = LEX_SYSTEM_PROMPT;
+  const systemPrompt = LEX_SYSTEM_PROMPT + (thinkingEnabled ? "" : "\n\n/no_think");
   const finalSystemPrompt = workflowTemplatePrompt
     ? `${workflowTemplatePrompt}\n\n${systemPrompt}`
     : systemPrompt;
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     clearTimeout(timeout);
 
     if (!response.ok || !response.body) {
-      throw new Error(`Ollama request failed: ${response.status}`);
+      throw new Error(`${privacyMode ? "Ollama" : "Groq"} request failed: ${response.status}`);
     }
 
     const encoder = new TextEncoder();
@@ -189,7 +189,7 @@ export async function POST(req: Request) {
       `3:${JSON.stringify(
         privacyMode
           ? "Lex is unavailable. Make sure Ollama is running and try again."
-          : "Lex is unavailable. Check the Groq connection and try again."
+          : "Lex is unavailable. Check your internet connection and try again."
       )}\n`,
       {
         status: 503,
