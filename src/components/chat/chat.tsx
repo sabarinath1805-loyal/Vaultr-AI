@@ -9,7 +9,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 
 declare global {
   interface Window {
@@ -109,6 +109,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const base64Images = useChatStore((state) => state.base64Images);
   const setBase64Images = useChatStore((state) => state.setBase64Images);
   const selectedModel = useChatStore((state) => state.selectedModel);
+  const usePrivacyMode = useChatStore((state) => state.usePrivacyMode);
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
   const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
   const pendingComposerText = useChatStore((state) => state.pendingComposerText);
@@ -176,7 +177,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     const thinking = requestBody?.thinking === true;
 
 
-    if (!isLexModel(selectedModel)) {
+    if (usePrivacyMode && !isLexModel(selectedModel)) {
       const userMessage: Message = {
         id: generateId(),
         role: "user",
@@ -234,13 +235,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
     const requestOptions: ChatRequestOptions = {
       body: {
-        selectedModel,
+        selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
         workflow,
         workflowPrompt: workflow?.prompt,
         attachedDocuments: requestBody?.attachedDocuments || [],
         webSearch,
         thinking,
         thinkingMode: thinking,
+        usePrivacyMode,
         ollamaUrl: requestBody?.ollamaUrl,
       },
       ...(base64Images && {
@@ -294,7 +296,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 </>
               ) : (
                 <h1
-                  className="flex items-center justify-center gap-3 font-normal leading-none text-[var(--text)]"
+                  className="greeting-heading flex items-center justify-center gap-3 font-normal leading-none text-[var(--text)]"
                   style={{ fontSize: "52px", marginBottom: "28px" }}
                 >
                   <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
@@ -334,7 +336,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
               const requestOptions: ChatRequestOptions = {
                 body: {
-                  selectedModel,
+                  selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+                  usePrivacyMode,
                   workflowPrompt: pendingWorkflow?.prompt,
                 },
               };
