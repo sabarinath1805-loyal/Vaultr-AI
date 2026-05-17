@@ -30,6 +30,8 @@ h1, h2, h3, .font-display, .greeting-heading {
   --warning: #b7791f;
   --warning-border: #d69e2e;
   --warning-bg: #fffbf0;
+  --color-background-warning: var(--warning-bg);
+  --color-text-warning: var(--warning);
   --success: #276749;
   --success-border: #38a169;
   --success-bg: #f0fff4;
@@ -73,6 +75,8 @@ html[data-theme="dark"] {
   --accent: #ffffff;
   --danger-bg: #2a1515;
   --warning-bg: #2a2415;
+  --color-background-warning: var(--warning-bg);
+  --color-text-warning: #f6ad55;
   --success-bg: #152419;
   --shadow-soft: rgba(0, 0, 0, 0.35);
   --shadow-modal: rgba(0, 0, 0, 0.45);
