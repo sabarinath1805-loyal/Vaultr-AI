@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  reactStrictMode: false,
   webpack: (config, { isServer }) => {
         // Fixes npm packages that depend on `fs` module
         if (!isServer) {

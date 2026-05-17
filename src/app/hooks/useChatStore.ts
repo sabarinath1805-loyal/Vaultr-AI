@@ -144,7 +144,10 @@ const useChatStore = create<State & Actions>()(
         set({ autoCleanupConversations: enabled });
       },
 
-      setCurrentChatId: (chatId) => set({ currentChatId: chatId }),
+      setCurrentChatId: (chatId) =>
+        set((state) =>
+          state.currentChatId === chatId ? state : { currentChatId: chatId }
+        ),
       setPendingComposerText: (text) =>
         set({ pendingComposerText: typeof text === "string" ? text : null }),
       setPendingAttachedDocumentIds: (documentIds) =>
@@ -159,25 +162,62 @@ const useChatStore = create<State & Actions>()(
           pendingWorkflow: null,
           composerResetToken: state.composerResetToken + 1,
         })),
-      setSelectedModel: (selectedModel) => set({ selectedModel }),
+      setSelectedModel: (selectedModel) =>
+        set((state) =>
+          state.selectedModel === selectedModel ? state : { selectedModel }
+        ),
       setCloudMode: (enabled, privateModel) => {
         window.localStorage.setItem("vaultr-cloud-mode", String(enabled));
         window.localStorage.setItem("vaultr-privacy-mode", String(!enabled));
-        set({
-          cloudMode: enabled,
-          usePrivacyMode: !enabled,
-          selectedModel: enabled ? GROQ_CORE_MODEL_ID : privateModel || get().selectedModel,
-          defaultModelPreference: enabled ? GROQ_CORE_MODEL_ID : get().defaultModelPreference,
+        set((state) => {
+          const selectedModel = enabled
+            ? GROQ_CORE_MODEL_ID
+            : privateModel || state.selectedModel;
+          const defaultModelPreference = enabled
+            ? GROQ_CORE_MODEL_ID
+            : state.defaultModelPreference;
+
+          if (
+            state.cloudMode === enabled &&
+            state.usePrivacyMode === !enabled &&
+            state.selectedModel === selectedModel &&
+            state.defaultModelPreference === defaultModelPreference
+          ) {
+            return state;
+          }
+
+          return {
+            cloudMode: enabled,
+            usePrivacyMode: !enabled,
+            selectedModel,
+            defaultModelPreference,
+          };
         });
       },
       setUsePrivacyMode: (enabled) => {
         window.localStorage.setItem("vaultr-privacy-mode", String(enabled));
         window.localStorage.setItem("vaultr-cloud-mode", String(!enabled));
-        set({
-          cloudMode: !enabled,
-          usePrivacyMode: enabled,
-          selectedModel: enabled ? get().selectedModel : GROQ_CORE_MODEL_ID,
-          defaultModelPreference: enabled ? get().defaultModelPreference : GROQ_CORE_MODEL_ID,
+        set((state) => {
+          const selectedModel = enabled ? state.selectedModel : GROQ_CORE_MODEL_ID;
+          const defaultModelPreference = enabled
+            ? state.defaultModelPreference
+            : GROQ_CORE_MODEL_ID;
+
+          if (
+            state.cloudMode === !enabled &&
+            state.usePrivacyMode === enabled &&
+            state.selectedModel === selectedModel &&
+            state.defaultModelPreference === defaultModelPreference
+          ) {
+            return state;
+          }
+
+          return {
+            cloudMode: !enabled,
+            usePrivacyMode: enabled,
+            selectedModel,
+            defaultModelPreference,
+          };
         });
       },
       loadChats: async () => {

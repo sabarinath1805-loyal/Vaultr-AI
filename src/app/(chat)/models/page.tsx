@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { isLexModel } from "@/lib/models";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -112,26 +112,27 @@ export default function ModelsPage() {
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
-  const syncSelectedModel = useCallback((modelIds: string[]) => {
+  const cloudMode = useChatStore((state) => state.cloudMode);
+  const modelIdsKey = installedModels.join("\u0000");
+  const selectedLocalModel = useMemo(() => {
     const preferredLexModel = ALL_LOCAL_MODEL_IDS.find(
-      (modelId) => modelId === defaultModelPreference && modelIds.includes(modelId)
+      (modelId) =>
+        modelId === defaultModelPreference && installedModels.includes(modelId)
     );
     const firstLexModel = preferredLexModel || ALL_LOCAL_MODEL_IDS.find((modelId) =>
-      modelIds.includes(modelId)
+      installedModels.includes(modelId)
     );
-
-    if (!selectedModel && firstLexModel) {
-      setSelectedModel(firstLexModel);
-      return;
-    }
 
     if (
       selectedModel &&
-      (!isLexModel(selectedModel) || !modelIds.includes(selectedModel))
+      isLexModel(selectedModel) &&
+      installedModels.includes(selectedModel)
     ) {
-      setSelectedModel(firstLexModel || null);
+      return selectedModel;
     }
-  }, [defaultModelPreference, selectedModel, setSelectedModel]);
+
+    return firstLexModel || null;
+  }, [defaultModelPreference, installedModels, selectedModel]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +149,6 @@ export default function ModelsPage() {
         if (!cancelled) {
           setInstalledModels(modelIds);
           setIsOllamaRunning(true);
-          syncSelectedModel(modelIds);
         }
       } catch {
         if (!cancelled) {
@@ -163,7 +163,18 @@ export default function ModelsPage() {
     return () => {
       cancelled = true;
     };
-  }, [syncSelectedModel]);
+    // Initial Ollama inventory load is isolated from selectedModel updates; a
+    // separate guarded effect reconciles selection without refetching in a loop.
+  }, []);
+
+  useEffect(() => {
+    if (cloudMode) return;
+    if (selectedModel === selectedLocalModel) return;
+    if (!selectedModel && !selectedLocalModel) return;
+    setSelectedModel(selectedLocalModel);
+    // This effect only writes when the derived local model actually changes, so
+    // selectedModel updates cannot recurse through the models inventory effect.
+  }, [cloudMode, modelIdsKey, selectedLocalModel, selectedModel, setSelectedModel]);
 
   const refreshModels = async () => {
     const response = await fetch("/api/tags");
@@ -174,7 +185,6 @@ export default function ModelsPage() {
       : [];
     setInstalledModels(modelIds);
     setIsOllamaRunning(true);
-    syncSelectedModel(modelIds);
   };
 
   const downloadModel = async (ollamaId: string, label: string) => {
