@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/contract-scanner/upload-zone";
 import type { RiskFilter } from "@/components/contract-scanner/results-display";
@@ -37,6 +37,7 @@ export default function ContractScannerPage() {
   const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
   const [forcedCloudFromPrivate, setForcedCloudFromPrivate] = useState(false);
   const [allowPrivateAfterScan, setAllowPrivateAfterScan] = useState(false);
+  const hasForcedCloudMode = useRef(false);
   const file = useContractScannerStore((state) => state.file);
   const error = useContractScannerStore((state) => state.error);
   const setFile = useContractScannerStore((state) => state.setFile);
@@ -55,10 +56,11 @@ export default function ContractScannerPage() {
   const setIsScanning = useChatStore((state) => state.setIsScanning);
 
   useEffect(() => {
-    if (!cloudMode && !allowPrivateAfterScan) {
-      setForcedCloudFromPrivate(true);
-      setCloudMode(true, GROQ_DEFAULT_MODEL);
-    }
+    if (cloudMode || allowPrivateAfterScan || hasForcedCloudMode.current) return;
+
+    hasForcedCloudMode.current = true;
+    setForcedCloudFromPrivate(true);
+    setCloudMode(true, GROQ_DEFAULT_MODEL);
   }, [allowPrivateAfterScan, cloudMode, setCloudMode]);
 
   const switchBackToPrivate = async () => {

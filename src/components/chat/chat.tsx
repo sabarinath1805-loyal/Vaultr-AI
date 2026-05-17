@@ -143,16 +143,15 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     }
   }, [input, loadingSubmit]);
 
+  const lastMessage = messages[messages.length - 1];
+  const assistantResponseStarted =
+    lastMessage?.role === "assistant" && lastMessage.content.trim().length > 0;
+
   React.useEffect(() => {
-    const lastMessage = messages[messages.length - 1];
-    if (
-      showThinking &&
-      lastMessage?.role === "assistant" &&
-      lastMessage.content.trim().length > 0
-    ) {
+    if (showThinking && assistantResponseStarted) {
       markFirstTokenArrived();
     }
-  }, [showThinking, markFirstTokenArrived, messages]);
+  }, [showThinking, assistantResponseStarted, markFirstTokenArrived]);
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>,
