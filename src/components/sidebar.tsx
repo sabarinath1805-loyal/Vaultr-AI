@@ -57,6 +57,7 @@ export function Sidebar() {
   const loadChats = useChatStore((state) => state.loadChats);
   const resetComposerState = useChatStore((state) => state.resetComposerState);
   const userName = useChatStore((state) => state.userName);
+  const cloudMode = useChatStore((state) => state.cloudMode);
 
   useEffect(() => {
     loadChats();
@@ -173,7 +174,9 @@ export function Sidebar() {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1">
         <nav className="flex flex-col gap-1">
-          {navItems.map(({ href, label, icon: Icon }) => {
+          {navItems
+            .filter((item) => !cloudMode || item.href !== "/models")
+            .map(({ href, label, icon: Icon }) => {
             const active = isNavActive(href);
             return (
               <Link
