@@ -106,7 +106,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
         message.role === "assistant" ? getThinkContent(message.content) : null,
       cleanContent: message.content
         .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
-        .replace(/<web-search-used[^>]*\/>/g, "")
+        .replace(/<web-search-used[^>]*\/>\s*/g, "")
         .replace(/<document-analyzed[^>]*\/>/g, "")
         .trim(),
     };
