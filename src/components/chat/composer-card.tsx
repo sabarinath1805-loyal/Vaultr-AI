@@ -62,7 +62,6 @@ export function ComposerCard({
   const [docSelectorOpen, setDocSelectorOpen] = React.useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = React.useState<AttachedWorkflow | null>(null);
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
-  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
@@ -82,9 +81,7 @@ export function ComposerCard({
   }, []);
 
   React.useEffect(() => {
-    const savedWebSearch = window.localStorage.getItem("vaultr-web-search-default");
     const savedThinking = window.localStorage.getItem("vaultr-thinking-enabled");
-    setWebSearchEnabled(savedWebSearch === "true");
     setThinkingEnabled(savedThinking === null ? thinkingModeDefault : savedThinking === "true");
   }, [thinkingModeDefault]);
 
@@ -198,7 +195,6 @@ export function ComposerCard({
         content: doc.content,
         dataUrl: doc.dataUrl,
       })),
-      webSearch: webSearchEnabled,
       thinking: usePrivacyMode && thinkingEnabled && isThinkingCapableModel(selectedModel),
       usePrivacyMode,
     };
@@ -219,13 +215,6 @@ export function ComposerCard({
   const useWorkflowPrompt = (workflow: AttachedWorkflow) => {
     setSelectedWorkflow(workflow);
     requestAnimationFrame(() => textareaRef.current?.focus());
-  };
-
-  const setPersistentWebSearch = () => {
-    setWebSearchEnabled((enabled) => {
-      window.localStorage.setItem("vaultr-web-search-default", String(!enabled));
-      return !enabled;
-    });
   };
 
   const setPersistentThinking = () => {
@@ -389,15 +378,9 @@ export function ComposerCard({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                title={webSearchEnabled ? "Web search on" : "Web search off"}
-                onClick={setPersistentWebSearch}
-                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
-                  webSearchEnabled
-                    ? "text-[var(--blue)]"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
-                }`}
-                aria-pressed={webSearchEnabled}
-                aria-label="Web search"
+                title="Web search activates automatically for search intent"
+                className="flex h-8 w-8 cursor-default items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)]"
+                aria-label="Web search activates automatically for search intent"
               >
                 <Globe className="h-4 w-4" />
               </button>

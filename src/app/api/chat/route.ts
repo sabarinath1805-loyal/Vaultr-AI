@@ -5,6 +5,23 @@ import { extractDocumentText } from "@/lib/document-extraction";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const SEARCH_TRIGGERS = [
+  "research",
+  "search",
+  "find",
+  "look up",
+  "lookup",
+  "latest",
+  "recent",
+  "current",
+  "today",
+  "news",
+  "what happened",
+  "update me",
+  "developments",
+  "just happened",
+];
+
 export async function POST(req: Request) {
   const {
     messages,
@@ -40,8 +57,16 @@ export async function POST(req: Request) {
   const activeModel = privacyMode ? requestedModel : groqModel;
   const initialMessages = messages.slice(0, -1).slice(-10);
   const currentMessage = messages[messages.length - 1];
-  const searchContext = webSearch
-    ? await getWebSearchContext(currentMessage.content)
+  const userMessage =
+    typeof currentMessage?.content === "string" ? currentMessage.content : "";
+  const shouldSearch =
+    !privacyMode &&
+    webSearch !== false &&
+    SEARCH_TRIGGERS.some((trigger) =>
+      userMessage.toLowerCase().includes(trigger)
+    );
+  const searchContext = shouldSearch
+    ? await getWebSearchContext(userMessage)
     : "";
   const workflowTemplatePrompt =
     typeof workflowPrompt === "string" && workflowPrompt.trim()
@@ -67,7 +92,12 @@ export async function POST(req: Request) {
   const documentContext = documentContexts.filter(Boolean).join("");
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
-  const systemPrompt = LEX_SYSTEM_PROMPT + (thinkingEnabled ? "" : "\n\n/no_think");
+  const recentDataFallback =
+    "\n\nIf asked about recent events or news and you don't have real-time data, respond in one sentence: \"I don't have real-time data on that — want me to search?\" Do not write a long explanation about your training cutoff.";
+  const systemPrompt =
+    LEX_SYSTEM_PROMPT +
+    (shouldSearch ? "" : recentDataFallback) +
+    (thinkingEnabled ? "" : "\n\n/no_think");
   const finalSystemPrompt = workflowTemplatePrompt
     ? `${workflowTemplatePrompt}\n\n${systemPrompt}`
     : systemPrompt;
@@ -75,13 +105,13 @@ export async function POST(req: Request) {
   console.log("SYSTEM PROMPT APPLIED:", systemPrompt.substring(0, 100));
   const userContent = data?.images?.length
     ? [
-        { type: "text", text: currentMessage.content },
+        { type: "text", text: userMessage },
         ...data.images.map((imageUrl: string) => ({
           type: "image_url",
           image_url: { url: imageUrl },
         })),
       ]
-    : currentMessage.content;
+    : userMessage;
 
   const abortController = new AbortController();
   const timeout = setTimeout(() => abortController.abort(), 120_000);
@@ -143,23 +173,41 @@ export async function POST(req: Request) {
           if (buffer.trim()) {
             flushSseToken(buffer, controller, encoder);
           }
-          flushSseToken(null, controller, encoder);
-          if (webSearch) {
-            controller.enqueue(
-              encoder.encode(`0:${JSON.stringify(`\n\n<web-search-used model="${activeModel}" />`)}\n`)
-            );
-          }
-          if (Array.isArray(attachedDocuments)) {
-            for (const document of attachedDocuments) {
-              if (document?.filename) {
-                controller.enqueue(
-                  encoder.encode(
-                    `0:${JSON.stringify(`\n\n<document-analyzed filename="${document.filename}" />`)}\n`
-                  )
-                );
-              }
+          if (shouldSearch) {
+            const state = tokenFlushState.get(controller);
+            const marker = `<web-search-used model="${activeModel}" />`;
+            if (state) {
+              state.buffer += `\n\n${marker}`;
+              tokenFlushState.set(controller, state);
+            } else {
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(marker)}\n`));
             }
           }
+          if (Array.isArray(attachedDocuments)) {
+            const state = tokenFlushState.get(controller);
+            const markers = attachedDocuments
+              .filter((document) => document?.filename)
+              .map(
+                (document) =>
+                  `<document-analyzed filename="${document.filename}" />`
+              )
+              .join("\n\n");
+            if (markers && state) {
+              state.buffer += `\n\n${markers}`;
+              tokenFlushState.set(controller, state);
+            } else if (markers) {
+              controller.enqueue(
+                encoder.encode(`0:${JSON.stringify(markers)}\n`)
+              );
+            }
+          }
+          const remaining = tokenFlushState.get(controller);
+          if (remaining?.buffer) {
+            controller.enqueue(
+              encoder.encode(`0:${JSON.stringify(remaining.buffer)}\n`)
+            );
+          }
+          tokenFlushState.delete(controller);
           controller.enqueue(
             encoder.encode(
               `d:${JSON.stringify({
