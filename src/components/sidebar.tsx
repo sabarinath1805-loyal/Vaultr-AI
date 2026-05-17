@@ -56,7 +56,6 @@ export function Sidebar() {
   const clearAllChatsAction = useChatStore((state) => state.clearAllChats);
   const loadChats = useChatStore((state) => state.loadChats);
   const resetComposerState = useChatStore((state) => state.resetComposerState);
-  const userName = useChatStore((state) => state.userName);
   const cloudMode = useChatStore((state) => state.cloudMode);
 
   useEffect(() => {
@@ -318,19 +317,6 @@ export function Sidebar() {
           )}
         </div>}
       </div>
-      <button type="button" onClick={() => router.push("/settings")} className={`flex items-center gap-2 border-t border-[var(--border)] p-3 text-left transition-colors hover:bg-[var(--bg-tertiary)] ${collapsed ? "justify-center px-1" : ""}`}>
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--border)] text-xs font-medium text-[var(--text)]">
-          L
-        </div>
-        {!collapsed && (<>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-medium text-[var(--text)]">
-              {userName}
-            </div>
-            <div className="text-[11px] text-[var(--text-muted)]">Solo</div>
-          </div>
-        </>)}
-      </button>
       <Dialog open={Boolean(renameChatId)} onOpenChange={(open) => !open && setRenameChatId(null)}>
         <DialogContent className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text)] shadow-[0_8px_32px_var(--shadow-modal)]">
           <DialogHeader>
