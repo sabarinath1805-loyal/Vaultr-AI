@@ -74,7 +74,18 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     onFinish: async (message) => {
       markFirstTokenArrived();
       const savedMessages = getMessagesById(id);
-      await saveMessages(id, [...savedMessages, message]);
+      const matchingAssistantIndex = savedMessages.findIndex(
+        (savedMessage) =>
+          savedMessage.role === "assistant" &&
+          message.content.trim().length > 0 &&
+          savedMessage.content.includes(message.content.trim())
+      );
+      const savedAssistantMessage =
+        matchingAssistantIndex >= 0 ? savedMessages[matchingAssistantIndex] : null;
+      await saveMessages(id, [
+        ...savedMessages.filter((_, index) => index !== matchingAssistantIndex),
+        savedAssistantMessage || message,
+      ]);
       setLoadingSubmit(false);
       router.replace(`/c/${id}`);
     },
@@ -114,7 +125,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const selectedModel = useChatStore((state) => state.selectedModel);
   const cloudMode = useChatStore((state) => state.cloudMode);
   const setCloudMode = useChatStore((state) => state.setCloudMode);
-  const showCloudModeWarning = useChatStore((state) => state.showCloudModeWarning);
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
   const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
   const pendingComposerText = useChatStore((state) => state.pendingComposerText);
@@ -126,6 +136,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const isOpenEmptyChat = pathname.startsWith("/c/");
   const usePrivacyMode = !cloudMode;
   const [cloudBannerDismissed, setCloudBannerDismissed] = React.useState(false);
+  const [cloudWarningCount, setCloudWarningCount] = React.useState(0);
 
   React.useEffect(() => {
     setCurrentChatId(isOpenEmptyChat ? id : null);
@@ -142,6 +153,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       setLoadingSubmit(false);
     }
   }, [input, loadingSubmit]);
+
+  React.useEffect(() => {
+    setCloudWarningCount(readCloudWarningCount());
+  }, []);
 
   const lastMessage = messages[messages.length - 1];
   const assistantResponseStarted =
@@ -179,7 +194,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     const requestBody = options?.body as ChatRequestBody | undefined;
     const workflow = (requestBody?.workflow ||
       pendingWorkflow) as AttachedWorkflow | null;
-    const webSearch = requestBody?.webSearch === true;
+    const webSearch = requestBody?.webSearch;
     const thinking = requestBody?.thinking === true;
 
 
@@ -245,7 +260,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         workflow,
         workflowPrompt: workflow?.prompt,
         attachedDocuments: requestBody?.attachedDocuments || [],
-        webSearch,
+        ...(typeof webSearch === "boolean" ? { webSearch } : {}),
         thinking,
         thinkingMode: thinking,
         usePrivacyMode,
@@ -281,6 +296,16 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setShowThinking(false);
   };
 
+  const dismissCloudBanner = () => {
+    setCloudWarningCount(incrementCloudWarningCount());
+    setCloudBannerDismissed(true);
+  };
+
+  const showCloudBanner =
+    cloudMode &&
+    !cloudBannerDismissed &&
+    cloudWarningCount < 3;
+
   return (
     <div className="h-full w-full bg-[var(--bg)]">
       {messages.length === 0 ? (
@@ -311,13 +336,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               )}
             </div>
             <div className="flex w-full flex-col items-center">
-              {cloudMode && showCloudModeWarning && !cloudBannerDismissed && (
+              {showCloudBanner && (
                 <CloudModeBanner
                   onSwitchPrivate={() => {
                     setCloudMode(false, isLexModel(selectedModel) ? selectedModel : null);
-                    setCloudBannerDismissed(true);
+                    dismissCloudBanner();
                   }}
-                  onDismiss={() => setCloudBannerDismissed(true)}
+                  onDismiss={dismissCloudBanner}
                 />
               )}
               <ChatBottombar
@@ -332,10 +357,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               />
             </div>
           </div>
-          <p className="fixed bottom-4 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-10 -translate-x-1/2 whitespace-nowrap text-center text-xs text-[var(--text-tertiary)]">
-            Lex is not a substitute for legal advice. Always verify with
-            primary sources.
-          </p>
         </div>
       ) : (
         <div className="relative h-full w-full">
@@ -375,13 +396,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             className="fixed bottom-6 left-[calc(var(--sidebar-current-w,220px)+(100vw-var(--sidebar-current-w,220px))/2)] z-20 flex w-[calc(100vw-var(--sidebar-current-w,220px)-48px)] -translate-x-1/2 flex-col items-center gap-2 bg-[var(--bg)]"
             style={{ maxWidth: "780px" }}
           >
-            {cloudMode && showCloudModeWarning && !cloudBannerDismissed && (
+            {showCloudBanner && (
               <CloudModeBanner
                 onSwitchPrivate={() => {
                   setCloudMode(false, isLexModel(selectedModel) ? selectedModel : null);
-                  setCloudBannerDismissed(true);
+                  dismissCloudBanner();
                 }}
-                onDismiss={() => setCloudBannerDismissed(true)}
+                onDismiss={dismissCloudBanner}
               />
             )}
             <ChatBottombar
@@ -398,6 +419,21 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       )}
     </div>
   );
+}
+
+function readCloudWarningCount() {
+  if (typeof window === "undefined") return 0;
+  const count = Number.parseInt(
+    window.localStorage.getItem("cloudWarningCount") || "0",
+    10
+  );
+  return Number.isFinite(count) ? count : 0;
+}
+
+function incrementCloudWarningCount() {
+  const next = readCloudWarningCount() + 1;
+  window.localStorage.setItem("cloudWarningCount", String(next));
+  return next;
 }
 
 function CloudModeBanner({
