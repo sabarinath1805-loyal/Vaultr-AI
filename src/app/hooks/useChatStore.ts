@@ -17,7 +17,6 @@ interface State {
   selectedModel: string | null;
   cloudMode: boolean;
   usePrivacyMode: boolean;
-  showCloudModeWarning: boolean;
   userName: string;
   organisation: string;
   ollamaUrl: string;
@@ -51,7 +50,6 @@ interface Actions {
   setSelectedModel: (selectedModel: string | null) => void;
   setCloudMode: (enabled: boolean, privateModel?: string | null) => void;
   setUsePrivacyMode: (enabled: boolean) => void;
-  setShowCloudModeWarning: (enabled: boolean) => void;
   loadChats: () => Promise<void>;
   loadChatById: (chatId: string) => Promise<ChatSession | undefined>;
   getChatById: (chatId: string) => ChatSession | undefined;
@@ -112,7 +110,6 @@ const useChatStore = create<State & Actions>()(
       selectedModel: GROQ_CORE_MODEL_ID,
       cloudMode: true,
       usePrivacyMode: false,
-      showCloudModeWarning: true,
       userName: "Local User",
       organisation: "",
       ollamaUrl: "http://localhost:11434",
@@ -182,10 +179,6 @@ const useChatStore = create<State & Actions>()(
           selectedModel: enabled ? get().selectedModel : GROQ_CORE_MODEL_ID,
           defaultModelPreference: enabled ? get().defaultModelPreference : GROQ_CORE_MODEL_ID,
         });
-      },
-      setShowCloudModeWarning: (enabled) => {
-        window.localStorage.setItem("vaultr-show-cloud-warning", String(enabled));
-        set({ showCloudModeWarning: enabled });
       },
       loadChats: async () => {
         const response = await fetch("/api/chats");
@@ -355,7 +348,6 @@ const useChatStore = create<State & Actions>()(
         selectedModel: state.selectedModel,
         cloudMode: state.cloudMode,
         usePrivacyMode: state.usePrivacyMode,
-        showCloudModeWarning: state.showCloudModeWarning,
         userName: state.userName,
         organisation: state.organisation,
         ollamaUrl: state.ollamaUrl,
@@ -456,13 +448,6 @@ const useChatStore = create<State & Actions>()(
               : typeof persisted.autoCleanupConversations === "boolean"
               ? persisted.autoCleanupConversations
               : currentState.autoCleanupConversations,
-          showCloudModeWarning:
-            typeof window !== "undefined" &&
-            window.localStorage.getItem("vaultr-show-cloud-warning") !== null
-              ? window.localStorage.getItem("vaultr-show-cloud-warning") !== "false"
-              : typeof persisted.showCloudModeWarning === "boolean"
-              ? persisted.showCloudModeWarning
-              : currentState.showCloudModeWarning,
         };
       },
     }

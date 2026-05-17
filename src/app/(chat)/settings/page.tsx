@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -197,20 +197,13 @@ function OllamaSettings() {
   const setOllamaUrl = useChatStore((state) => state.setOllamaUrl);
   const cloudMode = useChatStore((state) => state.cloudMode);
   const setCloudMode = useChatStore((state) => state.setCloudMode);
-  const showCloudModeWarning = useChatStore((state) => state.showCloudModeWarning);
-  const setShowCloudModeWarning = useChatStore((state) => state.setShowCloudModeWarning);
   const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const setDefaultModelPreference = useChatStore((state) => state.setDefaultModelPreference);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const [ollamaDraft, setOllamaDraft] = useState(ollamaUrl);
-  const [webSearchDefault, setWebSearchDefault] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "down">("idle");
-
-  useEffect(() => {
-    setWebSearchDefault(window.localStorage.getItem("vaultr-web-search-default") === "true");
-  }, []);
 
   const defaultModelOptions = !cloudMode
     ? LEX_MODELS
@@ -272,27 +265,6 @@ function OllamaSettings() {
         </button>
       </section>
 
-      <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Cloud Warning</h2>
-        <button
-          type="button"
-          onClick={() => setShowCloudModeWarning(!showCloudModeWarning)}
-          className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left"
-        >
-          <span>
-            <span className="block text-sm font-medium text-[var(--text)]">
-              Show Cloud Mode warning
-            </span>
-            <span className="mt-1 block text-sm text-[var(--text-muted)]">
-              Display the amber Groq processing notice above the composer when Cloud Mode is active.
-            </span>
-          </span>
-          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${showCloudModeWarning ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
-            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${showCloudModeWarning ? "translate-x-4" : "translate-x-0"}`} />
-          </span>
-        </button>
-      </section>
-
       <section className="pb-6">
         <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">
           Ollama Connection
@@ -343,43 +315,6 @@ function OllamaSettings() {
               )}
             </p>
           )}
-        </div>
-      </section>
-
-      <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Web Search</h2>
-        <div className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3">
-          <div>
-            <div className="text-sm font-medium text-[var(--text)]">Web Search</div>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Enable web search by default for new Lex prompts.
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-pressed={webSearchDefault}
-            onClick={() => {
-              setWebSearchDefault((enabled) => {
-                const next = !enabled;
-                window.localStorage.setItem("vaultr-web-search-default", String(next));
-                return next;
-              });
-            }}
-            className={`relative h-6 w-11 rounded-full transition-colors ${
-              webSearchDefault ? "bg-[var(--accent)]" : "bg-[var(--border)]"
-            }`}
-          >
-            <span
-              className={`absolute top-1 h-4 w-4 rounded-full bg-[var(--bg-primary)] transition-transform ${
-                webSearchDefault ? "translate-x-5" : "translate-x-1"
-              }`}
-            />
-          </button>
-        </div>
-        <div className="max-w-xl">
-          <p className="mt-2 text-sm text-[var(--text-muted)]">
-            Search credentials are loaded on the server and are never sent to the frontend.
-          </p>
         </div>
       </section>
 
