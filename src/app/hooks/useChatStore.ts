@@ -15,7 +15,9 @@ interface State {
   pendingWorkflow: AttachedWorkflow | null;
   composerResetToken: number;
   selectedModel: string | null;
+  cloudMode: boolean;
   usePrivacyMode: boolean;
+  showCloudModeWarning: boolean;
   userName: string;
   organisation: string;
   ollamaUrl: string;
@@ -47,7 +49,9 @@ interface Actions {
   setPendingWorkflow: (workflow: AttachedWorkflow | null) => void;
   resetComposerState: () => void;
   setSelectedModel: (selectedModel: string | null) => void;
+  setCloudMode: (enabled: boolean, privateModel?: string | null) => void;
   setUsePrivacyMode: (enabled: boolean) => void;
+  setShowCloudModeWarning: (enabled: boolean) => void;
   loadChats: () => Promise<void>;
   loadChatById: (chatId: string) => Promise<ChatSession | undefined>;
   getChatById: (chatId: string) => ChatSession | undefined;
@@ -106,7 +110,9 @@ const useChatStore = create<State & Actions>()(
       pendingWorkflow: null,
       composerResetToken: 0,
       selectedModel: GROQ_CORE_MODEL_ID,
+      cloudMode: true,
       usePrivacyMode: false,
+      showCloudModeWarning: true,
       userName: "Local User",
       organisation: "",
       ollamaUrl: "http://localhost:11434",
@@ -157,9 +163,29 @@ const useChatStore = create<State & Actions>()(
           composerResetToken: state.composerResetToken + 1,
         })),
       setSelectedModel: (selectedModel) => set({ selectedModel }),
+      setCloudMode: (enabled, privateModel) => {
+        window.localStorage.setItem("vaultr-cloud-mode", String(enabled));
+        window.localStorage.setItem("vaultr-privacy-mode", String(!enabled));
+        set({
+          cloudMode: enabled,
+          usePrivacyMode: !enabled,
+          selectedModel: enabled ? GROQ_CORE_MODEL_ID : privateModel || get().selectedModel,
+          defaultModelPreference: enabled ? GROQ_CORE_MODEL_ID : get().defaultModelPreference,
+        });
+      },
       setUsePrivacyMode: (enabled) => {
         window.localStorage.setItem("vaultr-privacy-mode", String(enabled));
-        set({ usePrivacyMode: enabled });
+        window.localStorage.setItem("vaultr-cloud-mode", String(!enabled));
+        set({
+          cloudMode: !enabled,
+          usePrivacyMode: enabled,
+          selectedModel: enabled ? get().selectedModel : GROQ_CORE_MODEL_ID,
+          defaultModelPreference: enabled ? get().defaultModelPreference : GROQ_CORE_MODEL_ID,
+        });
+      },
+      setShowCloudModeWarning: (enabled) => {
+        window.localStorage.setItem("vaultr-show-cloud-warning", String(enabled));
+        set({ showCloudModeWarning: enabled });
       },
       loadChats: async () => {
         const response = await fetch("/api/chats");
@@ -327,7 +353,9 @@ const useChatStore = create<State & Actions>()(
       name: "nextjs-ollama-ui-state",
       partialize: (state) => ({
         selectedModel: state.selectedModel,
+        cloudMode: state.cloudMode,
         usePrivacyMode: state.usePrivacyMode,
+        showCloudModeWarning: state.showCloudModeWarning,
         userName: state.userName,
         organisation: state.organisation,
         ollamaUrl: state.ollamaUrl,
@@ -341,22 +369,41 @@ const useChatStore = create<State & Actions>()(
 
         return {
           ...currentState,
-          usePrivacyMode:
-            typeof window !== "undefined" &&
-            window.localStorage.getItem("vaultr-privacy-mode") !== null
-              ? window.localStorage.getItem("vaultr-privacy-mode") === "true"
-              : typeof persisted.usePrivacyMode === "boolean"
-              ? persisted.usePrivacyMode
-              : currentState.usePrivacyMode,
+          cloudMode: (() => {
+            if (typeof window !== "undefined") {
+              const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+              if (savedCloudMode !== null) return savedCloudMode === "true";
+              const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+              if (savedPrivacyMode !== null) return savedPrivacyMode !== "true";
+            }
+            if (typeof persisted.cloudMode === "boolean") return persisted.cloudMode;
+            if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
+            return currentState.cloudMode;
+          })(),
+          usePrivacyMode: (() => {
+            if (typeof window !== "undefined") {
+              const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+              if (savedCloudMode !== null) return savedCloudMode !== "true";
+              const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+              if (savedPrivacyMode !== null) return savedPrivacyMode === "true";
+            }
+            if (typeof persisted.cloudMode === "boolean") return !persisted.cloudMode;
+            if (typeof persisted.usePrivacyMode === "boolean") return persisted.usePrivacyMode;
+            return currentState.usePrivacyMode;
+          })(),
           selectedModel: (() => {
-            const privacyMode =
-              typeof window !== "undefined" &&
-              window.localStorage.getItem("vaultr-privacy-mode") !== null
-                ? window.localStorage.getItem("vaultr-privacy-mode") === "true"
-                : typeof persisted.usePrivacyMode === "boolean"
-                ? persisted.usePrivacyMode
-                : currentState.usePrivacyMode;
-            if (!privacyMode) return GROQ_CORE_MODEL_ID;
+            const cloudMode = (() => {
+              if (typeof window !== "undefined") {
+                const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+                if (savedCloudMode !== null) return savedCloudMode === "true";
+                const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+                if (savedPrivacyMode !== null) return savedPrivacyMode !== "true";
+              }
+              if (typeof persisted.cloudMode === "boolean") return persisted.cloudMode;
+              if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
+              return currentState.cloudMode;
+            })();
+            if (cloudMode) return GROQ_CORE_MODEL_ID;
             return persisted.selectedModel === "qwen3:30b" || persisted.selectedModel === "magistral"
               ? currentState.selectedModel
               : persisted.selectedModel || currentState.selectedModel;
@@ -381,14 +428,18 @@ const useChatStore = create<State & Actions>()(
             persisted.themePreference ||
             currentState.themePreference,
           defaultModelPreference: (() => {
-            const privacyMode =
-              typeof window !== "undefined" &&
-              window.localStorage.getItem("vaultr-privacy-mode") !== null
-                ? window.localStorage.getItem("vaultr-privacy-mode") === "true"
-                : typeof persisted.usePrivacyMode === "boolean"
-                ? persisted.usePrivacyMode
-                : currentState.usePrivacyMode;
-            if (!privacyMode) return GROQ_CORE_MODEL_ID;
+            const cloudMode = (() => {
+              if (typeof window !== "undefined") {
+                const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+                if (savedCloudMode !== null) return savedCloudMode === "true";
+                const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+                if (savedPrivacyMode !== null) return savedPrivacyMode !== "true";
+              }
+              if (typeof persisted.cloudMode === "boolean") return persisted.cloudMode;
+              if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
+              return currentState.cloudMode;
+            })();
+            if (cloudMode) return GROQ_CORE_MODEL_ID;
             const model =
               (typeof window !== "undefined" &&
                 window.localStorage.getItem("vaultr-default-model")) ||
@@ -405,6 +456,13 @@ const useChatStore = create<State & Actions>()(
               : typeof persisted.autoCleanupConversations === "boolean"
               ? persisted.autoCleanupConversations
               : currentState.autoCleanupConversations,
+          showCloudModeWarning:
+            typeof window !== "undefined" &&
+            window.localStorage.getItem("vaultr-show-cloud-warning") !== null
+              ? window.localStorage.getItem("vaultr-show-cloud-warning") !== "false"
+              : typeof persisted.showCloudModeWarning === "boolean"
+              ? persisted.showCloudModeWarning
+              : currentState.showCloudModeWarning,
         };
       },
     }
