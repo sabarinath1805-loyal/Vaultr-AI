@@ -1,5 +1,5 @@
 import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
-import { isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isLexModel, isGroqModel } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
 
 export const runtime = "nodejs";
@@ -16,9 +16,12 @@ export async function POST(req: Request) {
     thinkingMode,
     thinking,
     workflowPrompt,
+    usePrivacyMode,
     ollamaUrl: requestedOllamaUrl,
   } = await req.json();
-  if (!isLexModel(selectedModel)) {
+  const privacyMode = usePrivacyMode === true;
+  const requestedModel = typeof selectedModel === "string" ? selectedModel : null;
+  if (privacyMode && !isLexModel(requestedModel)) {
     return new Response(
       `0:${JSON.stringify("LEX_MODEL_REQUIRED")}\n`,
       {
@@ -31,6 +34,10 @@ export async function POST(req: Request) {
     );
   }
   const ollamaUrl = requestedOllamaUrl || process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
+  const groqModel = isGroqModel(requestedModel)
+    ? requestedModel
+    : process.env.GROQ_DEFAULT_MODEL || GROQ_DEFAULT_MODEL;
+  const activeModel = privacyMode ? requestedModel : groqModel;
   const initialMessages = messages.slice(0, -1).slice(-10);
   const currentMessage = messages[messages.length - 1];
   const searchContext = webSearch
@@ -60,12 +67,12 @@ export async function POST(req: Request) {
   const documentContext = documentContexts.filter(Boolean).join("");
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
-  const systemPrompt = LEX_SYSTEM_PROMPT + (thinkingEnabled ? "" : "\n\n/no_think");
+  const systemPrompt = LEX_SYSTEM_PROMPT;
   const finalSystemPrompt = workflowTemplatePrompt
     ? `${workflowTemplatePrompt}\n\n${systemPrompt}`
     : systemPrompt;
   const systemMessage = `${finalSystemPrompt}${documentContext}${searchContext}`;
-  console.log("📨 SYSTEM MESSAGE SENT TO OLLAMA:", systemMessage.substring(0, 500));
+  console.log("SYSTEM PROMPT APPLIED:", systemPrompt.substring(0, 100));
   const userContent = data?.images?.length
     ? [
         { type: "text", text: currentMessage.content },
@@ -80,17 +87,22 @@ export async function POST(req: Request) {
   const timeout = setTimeout(() => abortController.abort(), 120_000);
 
   try {
-    const response = await fetch(`${ollamaUrl}/v1/chat/completions`, {
+    const response = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(privacyMode ? {} : { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }),
+      },
       signal: abortController.signal,
       body: JSON.stringify({
-        model: selectedModel,
+        model: activeModel,
         stream: true,
-        ...(thinkingEnabled ? { think: true } : {}),
-        options: {
-          num_ctx: documentContext ? 4096 : 2048,
-        },
+        ...(privacyMode && thinkingEnabled ? { think: true } : {}),
+        ...(privacyMode ? {
+          options: {
+            num_ctx: documentContext ? 4096 : 2048,
+          },
+        } : {}),
         messages: [
           { role: "system", content: systemMessage },
           ...initialMessages.map(
@@ -134,7 +146,7 @@ export async function POST(req: Request) {
           flushSseToken(null, controller, encoder);
           if (webSearch) {
             controller.enqueue(
-              encoder.encode(`0:${JSON.stringify(`\n\n<web-search-used model="${selectedModel}" />`)}\n`)
+              encoder.encode(`0:${JSON.stringify(`\n\n<web-search-used model="${activeModel}" />`)}\n`)
             );
           }
           if (Array.isArray(attachedDocuments)) {
@@ -175,7 +187,9 @@ export async function POST(req: Request) {
     clearTimeout(timeout);
     return new Response(
       `3:${JSON.stringify(
-        "Lex is unavailable. Make sure Ollama is running and try again."
+        privacyMode
+          ? "Lex is unavailable. Make sure Ollama is running and try again."
+          : "Lex is unavailable. Check the Groq connection and try again."
       )}\n`,
       {
         status: 503,

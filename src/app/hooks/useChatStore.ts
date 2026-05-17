@@ -4,6 +4,8 @@ import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+const GROQ_CORE_MODEL_ID = "llama-3.3-70b-versatile";
+
 interface State {
   base64Images: string[] | null;
   chats: Record<string, ChatSession>;
@@ -13,6 +15,7 @@ interface State {
   pendingWorkflow: AttachedWorkflow | null;
   composerResetToken: number;
   selectedModel: string | null;
+  usePrivacyMode: boolean;
   userName: string;
   organisation: string;
   ollamaUrl: string;
@@ -44,6 +47,7 @@ interface Actions {
   setPendingWorkflow: (workflow: AttachedWorkflow | null) => void;
   resetComposerState: () => void;
   setSelectedModel: (selectedModel: string | null) => void;
+  setUsePrivacyMode: (enabled: boolean) => void;
   loadChats: () => Promise<void>;
   loadChatById: (chatId: string) => Promise<ChatSession | undefined>;
   getChatById: (chatId: string) => ChatSession | undefined;
@@ -101,13 +105,14 @@ const useChatStore = create<State & Actions>()(
       pendingAttachedDocumentIds: [],
       pendingWorkflow: null,
       composerResetToken: 0,
-      selectedModel: null,
+      selectedModel: GROQ_CORE_MODEL_ID,
+      usePrivacyMode: false,
       userName: "Local User",
       organisation: "",
       ollamaUrl: "http://localhost:11434",
       thinkingModeDefault: false,
       themePreference: "light",
-      defaultModelPreference: "gemma4:e4b",
+      defaultModelPreference: GROQ_CORE_MODEL_ID,
       autoCleanupConversations: false,
       isDownloading: false,
       downloadProgress: 0,
@@ -152,6 +157,10 @@ const useChatStore = create<State & Actions>()(
           composerResetToken: state.composerResetToken + 1,
         })),
       setSelectedModel: (selectedModel) => set({ selectedModel }),
+      setUsePrivacyMode: (enabled) => {
+        window.localStorage.setItem("vaultr-privacy-mode", String(enabled));
+        set({ usePrivacyMode: enabled });
+      },
       loadChats: async () => {
         const response = await fetch("/api/chats");
         const data = (await response.json()) as { chats: ChatSessions };
@@ -318,6 +327,7 @@ const useChatStore = create<State & Actions>()(
       name: "nextjs-ollama-ui-state",
       partialize: (state) => ({
         selectedModel: state.selectedModel,
+        usePrivacyMode: state.usePrivacyMode,
         userName: state.userName,
         organisation: state.organisation,
         ollamaUrl: state.ollamaUrl,
@@ -331,10 +341,26 @@ const useChatStore = create<State & Actions>()(
 
         return {
           ...currentState,
-          selectedModel:
-            persisted.selectedModel === "qwen3:30b" || persisted.selectedModel === "magistral"
+          usePrivacyMode:
+            typeof window !== "undefined" &&
+            window.localStorage.getItem("vaultr-privacy-mode") !== null
+              ? window.localStorage.getItem("vaultr-privacy-mode") === "true"
+              : typeof persisted.usePrivacyMode === "boolean"
+              ? persisted.usePrivacyMode
+              : currentState.usePrivacyMode,
+          selectedModel: (() => {
+            const privacyMode =
+              typeof window !== "undefined" &&
+              window.localStorage.getItem("vaultr-privacy-mode") !== null
+                ? window.localStorage.getItem("vaultr-privacy-mode") === "true"
+                : typeof persisted.usePrivacyMode === "boolean"
+                ? persisted.usePrivacyMode
+                : currentState.usePrivacyMode;
+            if (!privacyMode) return GROQ_CORE_MODEL_ID;
+            return persisted.selectedModel === "qwen3:30b" || persisted.selectedModel === "magistral"
               ? currentState.selectedModel
-              : persisted.selectedModel || currentState.selectedModel,
+              : persisted.selectedModel || currentState.selectedModel;
+          })(),
           userName:
             persisted.userName && persisted.userName !== legacyDefaultUserName
               ? persisted.userName
@@ -355,6 +381,14 @@ const useChatStore = create<State & Actions>()(
             persisted.themePreference ||
             currentState.themePreference,
           defaultModelPreference: (() => {
+            const privacyMode =
+              typeof window !== "undefined" &&
+              window.localStorage.getItem("vaultr-privacy-mode") !== null
+                ? window.localStorage.getItem("vaultr-privacy-mode") === "true"
+                : typeof persisted.usePrivacyMode === "boolean"
+                ? persisted.usePrivacyMode
+                : currentState.usePrivacyMode;
+            if (!privacyMode) return GROQ_CORE_MODEL_ID;
             const model =
               (typeof window !== "undefined" &&
                 window.localStorage.getItem("vaultr-default-model")) ||

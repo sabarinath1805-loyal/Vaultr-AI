@@ -23,6 +23,7 @@ function LexAvatar() {
         justifyContent: "center",
         flexShrink: 0,
         animation: "lexAvatarPulse 2.5s ease-in-out infinite",
+        WebkitAnimation: "lexAvatarPulse 2.5s ease-in-out infinite",
         transformOrigin: "center",
       }}
     >
@@ -49,7 +50,7 @@ export function LexThinkingIndicator() {
         style={{
           fontSize: "13px",
           color: "#8a8880",
-          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+          fontFamily: "'Sora', -apple-system, sans-serif",
           display: "inline-flex",
           alignItems: "center",
         }}
@@ -156,7 +157,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
             padding: "12px 16px",
             maxWidth: "70%",
             alignSelf: "flex-end",
-            fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+            fontFamily: "'Sora', -apple-system, sans-serif",
             fontSize: "14px",
             lineHeight: "1.6",
             wordBreak: "break-word",
