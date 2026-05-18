@@ -133,7 +133,7 @@ export default function VaultPage() {
           projectId={selectedProject.id}
           documents={selectedDocuments}
           onAddDocuments={(files) => attachDocumentsToProject(selectedProject.id, files)}
-          onAttach={(ids) => returnDocumentsToComposer(ids)}
+          onAttach={(ids) => returnDocumentsToComposer(ids, "/")}
           onDelete={setDeleteDocumentId}
           onScan={(docId) => router.push(`/contract-scanner?document=${docId}`)}
           fileInputRef={fileInputRef}

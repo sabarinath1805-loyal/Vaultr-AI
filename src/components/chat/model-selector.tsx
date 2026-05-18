@@ -44,12 +44,16 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
 
         if (!cancelled) {
           setIsOllamaRunning(true);
-          setAvailableModels(orderedModels);
+          setAvailableModels((current) =>
+            current.join("\u0000") === orderedModels.join("\u0000")
+              ? current
+              : orderedModels
+          );
         }
       } catch {
         if (!cancelled) {
           setIsOllamaRunning(false);
-          setAvailableModels([]);
+          setAvailableModels((current) => (current.length === 0 ? current : []));
         }
       }
     }
@@ -144,7 +148,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
               </div>
             ) : (
               <>
-                {availableModels.map((modelId) => {
+                {!cloudMode && availableModels.map((modelId) => {
                   const metadata = getModelDisplayMetadata(modelId);
                   return (
                     <button
@@ -173,19 +177,16 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                         <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
                           {metadata.name}
                         </span>
-                        <span style={{ fontSize: "11px", color: "#8a8880", marginLeft: "auto" }}>
-                          {metadata.modelId}
-                        </span>
-                        <Lock size={13} color="#8a8880" />
+                        <Lock size={13} color="#8a8880" style={{ marginLeft: "auto" }} />
                         {modelId === selectedModel && <Check size={14} />}
                       </div>
                     </button>
                   );
                 })}
-                {availableModels.length > 0 && (
+                {!cloudMode && availableModels.length > 0 && (
                   <div style={{ borderTop: "1px solid #e0ded8", margin: "4px 0" }} />
                 )}
-                {GROQ_MODELS.map((model) => {
+                {cloudMode && GROQ_MODELS.map((model) => {
                   const modelId = model.groqId;
                   const metadata = getModelDisplayMetadata(modelId);
                   return (
@@ -215,10 +216,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                         <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
                           {metadata.name}
                         </span>
-                        <span style={{ fontSize: "11px", color: "#8a8880", marginLeft: "auto" }}>
-                          {metadata.modelId}
-                        </span>
-                        <Cloud size={13} color="#378ADD" />
+                        <Cloud size={13} color="#378ADD" style={{ marginLeft: "auto" }} />
                         {modelId === selectedModel && <Check size={14} />}
                       </div>
                     </button>

@@ -10,8 +10,8 @@ export function useReturnDocumentsToComposer() {
     (state) => state.setPendingAttachedDocumentIds
   );
 
-  return (documentIds: string[]) => {
+  return (documentIds: string[], destination?: string) => {
     setPendingAttachedDocumentIds(documentIds);
-    router.push(currentChatId ? `/c/${currentChatId}` : "/");
+    router.push(destination || (currentChatId ? `/c/${currentChatId}` : "/"));
   };
 }

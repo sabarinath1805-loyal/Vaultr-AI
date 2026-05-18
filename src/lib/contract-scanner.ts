@@ -1,4 +1,4 @@
-export type ContractRisk = "HIGH" | "MEDIUM" | "LOW";
+export type ContractRisk = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
 
 export interface ContractClause {
   title: string;
@@ -23,12 +23,12 @@ return a JSON response with this exact structure:
   "contract_title": "string — inferred title or document type",
   "parties": ["string array of party names"],
   "summary": "string — 2-3 sentence plain English summary",
-  "overall_risk": "HIGH | MEDIUM | LOW",
+  "overall_risk": "CRITICAL | HIGH | MEDIUM | LOW",
   "clauses": [
     {
       "title": "string — clause name",
       "excerpt": "string — relevant quote from contract, max 200 chars",
-      "risk": "HIGH | MEDIUM | LOW",
+      "risk": "CRITICAL | HIGH | MEDIUM | LOW",
       "issue": "string — plain English explanation of the problem",
       "recommendation": "string — specific negotiation recommendation"
     }
@@ -41,13 +41,23 @@ indemnification, termination rights, payment terms, IP ownership,
 non-compete/non-solicit, governing law, dispute resolution, auto-renewal,
 confidentiality scope.
 
+Pay special attention to these commonly missed predatory clauses:
+
+1. Any clause preventing a party from seeking independent legal advice — flag as CRITICAL, highest priority
+2. Unilateral amendment rights — one party can change any term by notice alone — flag as HIGH
+3. One-sided arbitration costs — one party always bears all costs regardless of outcome — flag as HIGH
+4. Clauses binding successors, heirs, or assigns without consent
+5. Perpetual post-termination obligations surviving indefinitely
+6. Data or IP rights granted to one party over the other's own business data or internal operations
+
 CONTRACT TEXT:
 {contract_text}`;
 
 export const RISK_ORDER: Record<ContractRisk, number> = {
-  HIGH: 0,
-  MEDIUM: 1,
-  LOW: 2,
+  CRITICAL: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
 };
 
 export function sortClausesByRisk(clauses: ContractClause[]) {
