@@ -44,7 +44,7 @@ export const GROQ_MODELS: GroqModel[] = [
   {
     id: "groq-pro",
     name: "Lex Pro",
-    groqId: "mixtral-8x7b-32768",
+    groqId: "qwen-qwq-32b",
     badge: "POWERFUL",
     color: "#7F77DD",
     description: "Long context for complex contracts.",
