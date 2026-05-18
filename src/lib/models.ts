@@ -17,37 +17,51 @@ export interface GroqModel {
   id: string;
   name: string;
   groqId: string;
+  provider: "groq" | "gemini";
   badge: string;
   color: string;
   description: string;
 }
 
 export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+export const GEMINI_MAX_MODEL = "gemini-2.5-flash";
 
 export const GROQ_MODELS: GroqModel[] = [
   {
     id: "groq-flash",
     name: "Lex Flash",
     groqId: "llama-3.1-8b-instant",
-    badge: "SWIFT",
+    provider: "groq",
+    badge: "Flash",
     color: "#1D9E75",
-    description: "Fastest responses for quick legal queries.",
+    description: "Fastest. Instant responses for quick queries.",
   },
   {
     id: "groq-core",
     name: "Lex Core",
     groqId: GROQ_DEFAULT_MODEL,
-    badge: "BALANCED",
+    provider: "groq",
+    badge: "Core",
     color: "#378ADD",
-    description: "Best all-round quality for daily legal work.",
+    description: "Best all-round. Default for most legal work.",
   },
   {
     id: "groq-pro",
     name: "Lex Pro",
     groqId: "qwen/qwen3-32b",
-    badge: "POWERFUL",
+    provider: "groq",
+    badge: "Pro",
     color: "#7F77DD",
-    description: "Long context for complex contracts.",
+    description: "Deep reasoning. Chain-of-thought for complex analysis.",
+  },
+  {
+    id: "gemini-max",
+    name: "Lex Max",
+    groqId: GEMINI_MAX_MODEL,
+    provider: "gemini",
+    badge: "Max",
+    color: "#9A6BFF",
+    description: "Maximum quality. 1M context for very long contracts.",
   },
 ];
 
@@ -58,7 +72,7 @@ export const LEX_MODELS: LexModel[] = [
     tierName: "Lex Flash",
     name: "Lex Flash",
     ollamaId: "qwen3:4b",
-    badge: "SWIFT",
+    badge: "Flash",
     color: "#1D9E75",
     ramRequired: "16GB RAM · 2.6GB",
     description: "Fastest local model. Strong reasoning for its size.",
@@ -72,7 +86,7 @@ export const LEX_MODELS: LexModel[] = [
     tierName: "Lex Core",
     name: "Lex Core",
     ollamaId: "qwen3:8b",
-    badge: "BALANCED",
+    badge: "Core",
     color: "#378ADD",
     ramRequired: "16GB RAM · 5GB",
     description: "Best all-round local model for 16GB Macs.",
@@ -86,7 +100,7 @@ export const LEX_MODELS: LexModel[] = [
     tierName: "Lex Pro",
     name: "Lex Pro",
     ollamaId: "deepseek-r1:7b",
-    badge: "POWERFUL",
+    badge: "Pro",
     color: "#7F77DD",
     ramRequired: "16GB RAM · 5GB",
     description: "Chain-of-thought reasoning for complex contracts.",
@@ -101,11 +115,27 @@ function getLexModelIds(): string[] {
 }
 
 export function getGroqModelIds(): string[] {
-  return GROQ_MODELS.map((model) => model.groqId);
+  return GROQ_MODELS.filter((model) => model.provider === "groq").map(
+    (model) => model.groqId
+  );
 }
 
 export function isGroqModel(modelId: string | null | undefined): boolean {
   return !!modelId && getGroqModelIds().includes(modelId);
+}
+
+export function getCloudModelIds(): string[] {
+  return GROQ_MODELS.map((model) => model.groqId);
+}
+
+export function isCloudModel(modelId: string | null | undefined): boolean {
+  return !!modelId && getCloudModelIds().includes(modelId);
+}
+
+export function isGeminiModel(modelId: string | null | undefined): boolean {
+  return !!modelId && GROQ_MODELS.some(
+    (model) => model.provider === "gemini" && model.groqId === modelId
+  );
 }
 
 export function groqIdToLexName(groqId: string): string {
