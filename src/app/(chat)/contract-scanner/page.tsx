@@ -9,7 +9,7 @@ import { ResultsDisplay } from "@/components/contract-scanner/results-display";
 import useChatStore from "@/app/hooks/useChatStore";
 import useContractScannerStore from "@/app/hooks/useContractScannerStore";
 import { getRiskCounts } from "@/lib/contract-scanner";
-import { GROQ_DEFAULT_MODEL, isLexModel, sortModelsByLexOrder } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL } from "@/lib/models";
 import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -35,15 +35,12 @@ const scanningSteps = [
 export default function ContractScannerPage() {
   const [slowScan, setSlowScan] = useState(false);
   const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
-  const [forcedCloudFromPrivate, setForcedCloudFromPrivate] = useState(false);
-  const [allowPrivateAfterScan, setAllowPrivateAfterScan] = useState(false);
   const hasForcedCloudMode = useRef(false);
   const file = useContractScannerStore((state) => state.file);
   const error = useContractScannerStore((state) => state.error);
   const setFile = useContractScannerStore((state) => state.setFile);
   const setError = useContractScannerStore((state) => state.setError);
   const reset = useContractScannerStore((state) => state.reset);
-  const selectedModel = useChatStore((state) => state.selectedModel);
   const cloudMode = useChatStore((state) => state.cloudMode);
   const setCloudMode = useChatStore((state) => state.setCloudMode);
   const scanProgress = useChatStore((state) => state.scanProgress);
@@ -56,33 +53,13 @@ export default function ContractScannerPage() {
   const setIsScanning = useChatStore((state) => state.setIsScanning);
 
   useEffect(() => {
-    if (cloudMode || allowPrivateAfterScan || hasForcedCloudMode.current) return;
+    if (cloudMode || hasForcedCloudMode.current) return;
 
     hasForcedCloudMode.current = true;
-    setForcedCloudFromPrivate(true);
     setCloudMode(true, GROQ_DEFAULT_MODEL);
     // hasForcedCloudMode is a one-shot ref so this Cloud Mode write cannot repeat
     // when the store update changes cloudMode and re-renders the scanner.
-  }, [allowPrivateAfterScan, cloudMode, setCloudMode]);
-
-  const switchBackToPrivate = async () => {
-    let privateModel = isLexModel(selectedModel) ? selectedModel : null;
-    try {
-      const response = await fetch("/api/tags", { cache: "no-store" });
-      if (response.ok) {
-        const data = await response.json();
-        const modelIds = Array.isArray(data?.models)
-          ? data.models.map(({ name }: { name: string }) => name)
-          : [];
-        privateModel = sortModelsByLexOrder(modelIds.filter(isLexModel))[0] || privateModel;
-      }
-    } catch {
-      privateModel = privateModel || null;
-    }
-    setAllowPrivateAfterScan(true);
-    setCloudMode(false, privateModel);
-    setForcedCloudFromPrivate(false);
-  };
+  }, [cloudMode, setCloudMode]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -116,6 +93,8 @@ export default function ContractScannerPage() {
     };
 
     loadReport().catch(() => setError("Saved report could not be loaded."));
+    // Saved reports are loaded once from the URL; store setters are guarded, so
+    // loading a report cannot retrigger when analysis state changes.
   }, [setAnalysis, setError, setFile]);
 
   useEffect(() => {
@@ -140,6 +119,8 @@ export default function ContractScannerPage() {
       window.clearInterval(stepInterval);
       window.clearInterval(progressInterval);
     };
+    // Progress writes are driven only by isScanning. The progress/scanning values
+    // being updated are intentionally excluded so the interval cannot recreate itself.
   }, [isScanning, setScanProgress, setScanningStep]);
 
   const handleFileSelected = (selectedFile: File) => {
@@ -181,7 +162,7 @@ export default function ContractScannerPage() {
           status: response.status,
           body: data,
         });
-        setError("Scan failed. Make sure Ollama is running and try again.");
+        setError(data?.error || "Lex is unavailable. Check your internet connection and try again.");
         return;
       }
 
@@ -210,7 +191,7 @@ export default function ContractScannerPage() {
       setScanProgress(100);
     } catch (error) {
       console.error("Contract scan failed", error);
-      setError("Scan failed. Make sure Ollama is running and try again.");
+      setError("Lex is unavailable. Check your internet connection and try again.");
       setScanProgress(0);
     } finally {
       setIsScanning(false);
@@ -234,28 +215,6 @@ export default function ContractScannerPage() {
       <div className="mx-6 mb-5 rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--color-background-warning)] px-4 py-3 text-sm text-[var(--color-text-warning)]">
         Contract Scanner uses Cloud Mode for faster, more accurate analysis. Switch to Private Mode after scanning if needed.
       </div>
-
-      {analysis && (
-        <div className="mx-6 mb-5 flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-sm text-[var(--text)]">
-          <span className="flex-1">Scan complete.</span>
-          <button
-            type="button"
-            onClick={() => setForcedCloudFromPrivate(false)}
-            className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-[13px]"
-          >
-            Stay in Cloud
-          </button>
-          {forcedCloudFromPrivate && (
-            <button
-              type="button"
-              onClick={switchBackToPrivate}
-              className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-1.5 text-[13px] text-[var(--bg-primary)]"
-            >
-              Switch back to Private
-            </button>
-          )}
-        </div>
-      )}
 
       {analysis ? (
         <ResultsDisplay

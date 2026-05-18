@@ -1,6 +1,7 @@
 import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
+import { isLexModel } from "@/lib/models";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -151,7 +152,11 @@ const useChatStore = create<State & Actions>()(
       setPendingComposerText: (text) =>
         set({ pendingComposerText: typeof text === "string" ? text : null }),
       setPendingAttachedDocumentIds: (documentIds) =>
-        set({ pendingAttachedDocumentIds: documentIds }),
+        set((state) =>
+          state.pendingAttachedDocumentIds.join("\u0000") === documentIds.join("\u0000")
+            ? state
+            : { pendingAttachedDocumentIds: documentIds }
+        ),
       setPendingWorkflow: (workflow) => set({ pendingWorkflow: workflow }),
       resetComposerState: () =>
         set((state) => ({
@@ -377,10 +382,14 @@ const useChatStore = create<State & Actions>()(
       stopDownload: () =>
         set({ isDownloading: false, downloadingModel: null, downloadProgress: 0 }),
       setDownloadProgress: (progress) => set({ downloadProgress: progress }),
-      setScanProgress: (progress) => set({ scanProgress: progress }),
-      setScanningStep: (step) => set({ scanningStep: step }),
-      setScanResult: (result) => set({ scanResult: result }),
-      setIsScanning: (scanning) => set({ isScanning: scanning }),
+      setScanProgress: (progress) =>
+        set((state) => (state.scanProgress === progress ? state : { scanProgress: progress })),
+      setScanningStep: (step) =>
+        set((state) => (state.scanningStep === step ? state : { scanningStep: step })),
+      setScanResult: (result) =>
+        set((state) => (state.scanResult === result ? state : { scanResult: result })),
+      setIsScanning: (scanning) =>
+        set((state) => (state.isScanning === scanning ? state : { isScanning: scanning })),
     }),
     {
       name: "nextjs-ollama-ui-state",
@@ -436,9 +445,9 @@ const useChatStore = create<State & Actions>()(
               return currentState.cloudMode;
             })();
             if (cloudMode) return GROQ_CORE_MODEL_ID;
-            return persisted.selectedModel === "qwen3:30b" || persisted.selectedModel === "magistral"
-              ? currentState.selectedModel
-              : persisted.selectedModel || currentState.selectedModel;
+            return persisted.selectedModel && isLexModel(persisted.selectedModel)
+              ? persisted.selectedModel
+              : currentState.selectedModel;
           })(),
           userName:
             persisted.userName && persisted.userName !== legacyDefaultUserName
@@ -477,9 +486,7 @@ const useChatStore = create<State & Actions>()(
                 window.localStorage.getItem("vaultr-default-model")) ||
               persisted.defaultModelPreference ||
               currentState.defaultModelPreference;
-            return model === "qwen3:30b" || model === "magistral"
-              ? currentState.defaultModelPreference
-              : model;
+            return isLexModel(model) ? model : currentState.defaultModelPreference;
           })(),
           autoCleanupConversations:
             typeof window !== "undefined" &&
