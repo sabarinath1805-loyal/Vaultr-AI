@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
@@ -18,8 +19,28 @@ export default function ChatList({
   thinkingPhase,
   reload,
 }: ChatListProps) {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const [isNearBottom, setIsNearBottom] = useState(true);
+  const lastMessageContent = messages[messages.length - 1]?.content || "";
+
+  useEffect(() => {
+    if (!isNearBottom) return;
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [isNearBottom, messages.length, lastMessageContent, thinkingPhase]);
+
   return (
-    <div className="h-full min-h-0 overflow-y-auto px-6 pb-[120px] pt-20">
+    <div
+      ref={scrollContainerRef}
+      onScroll={() => {
+        const element = scrollContainerRef.current;
+        if (!element) return;
+        const distanceFromBottom =
+          element.scrollHeight - element.scrollTop - element.clientHeight;
+        setIsNearBottom(distanceFromBottom < 100);
+      }}
+      className="h-full min-h-0 overflow-y-auto px-6 pb-[120px] pt-20"
+    >
       <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
         <div className="flex flex-col">
           {messages.map((message, index) => (
@@ -36,6 +57,7 @@ export default function ChatList({
               <LexThinkingIndicator phase={thinkingPhase} />
             </div>
           )}
+          <div ref={bottomRef} />
         </div>
       </div>
     </div>
