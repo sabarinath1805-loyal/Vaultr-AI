@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Brain, Check, ChevronDown, Cloud, Lock, Play } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   GROQ_MODELS,
@@ -150,7 +150,6 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
               <>
                 {!cloudMode && availableModels.map((modelId) => {
                   const metadata = getModelDisplayMetadata(modelId);
-                  const showsReasons = modelId === "deepseek-r1:7b";
                   return (
                     <button
                       key={modelId}
@@ -162,29 +161,14 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                       className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-[var(--surface)]"
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            fontWeight: 600,
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            backgroundColor: `${metadata.color}20`,
-                            color: metadata.color,
-                            letterSpacing: "0.05em",
-                          }}
-                        >
-                          {metadata.badge.toUpperCase()}
-                        </span>
-                        <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
-                          {metadata.name}
-                        </span>
-                        {showsReasons && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-                            <Play className="h-2.5 w-2.5" />
-                            reasons
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
+                            {metadata.name}
                           </span>
-                        )}
-                        <Lock size={13} color="#8a8880" style={{ marginLeft: "auto" }} />
+                          <span className="truncate text-[11px] text-[var(--text-muted)]">
+                            {metadata.modelId} · {metadata.provider}
+                          </span>
+                        </span>
                         {modelId === selectedModel && <Check size={14} />}
                       </div>
                     </button>
@@ -196,8 +180,6 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                 {cloudMode && GROQ_MODELS.map((model) => {
                   const modelId = model.groqId;
                   const metadata = getModelDisplayMetadata(modelId);
-                  const showsReasons = model.name === "Lex Pro";
-                  const showsBrain = model.name === "Lex Max";
                   return (
                     <button
                       key={modelId}
@@ -209,34 +191,14 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                       className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-[var(--surface)]"
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
-                        <span
-                          style={{
-                            fontSize: "10px",
-                            fontWeight: 600,
-                            padding: "2px 6px",
-                            borderRadius: "4px",
-                            backgroundColor: `${metadata.color}20`,
-                            color: metadata.color,
-                            letterSpacing: "0.05em",
-                          }}
-                        >
-                          {metadata.badge.toUpperCase()}
-                        </span>
-                        <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
-                          {metadata.name}
-                        </span>
-                        {showsReasons && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-                            <Play className="h-2.5 w-2.5" />
-                            reasons
+                        <span className="flex min-w-0 flex-1 flex-col">
+                          <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
+                            {metadata.name}
                           </span>
-                        )}
-                        {showsBrain && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
-                            <Brain className="h-3 w-3" />
+                          <span className="truncate text-[11px] text-[var(--text-muted)]">
+                            {metadata.modelId} · {metadata.provider}
                           </span>
-                        )}
-                        <Cloud size={13} color="#378ADD" style={{ marginLeft: "auto" }} />
+                        </span>
                         {modelId === selectedModel && <Check size={14} />}
                       </div>
                     </button>
