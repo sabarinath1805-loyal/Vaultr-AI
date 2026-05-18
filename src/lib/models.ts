@@ -150,6 +150,7 @@ export function getModelDisplayMetadata(modelId: string) {
       color: groqModel.color,
       name: groqModel.name,
       modelId: groqModel.groqId,
+      provider: groqModel.provider === "gemini" ? "Google" : "Groq",
     };
   }
 
@@ -160,6 +161,7 @@ export function getModelDisplayMetadata(modelId: string) {
       color: tierModel.color,
       name: tierModel.name,
       modelId: tierModel.ollamaId,
+      provider: "Ollama",
     };
   }
 
@@ -168,6 +170,7 @@ export function getModelDisplayMetadata(modelId: string) {
     color: "#378ADD",
     name: "Lex Model",
     modelId,
+    provider: "Model",
   };
 }
 
