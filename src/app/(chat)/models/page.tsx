@@ -35,30 +35,30 @@ const MODEL_TIERS: {
   models: IndividualModel[];
 }[] = [
   {
-    badge: "SWIFT",
+    badge: "Flash",
     tierName: "Lex Flash",
     tierDescription: "Fastest local model for quick legal Q&A.",
     color: "#1D9E75",
     models: [
-      { id: "qwen3:4b", tierName: "Lex Flash", badge: "SWIFT", color: "#1D9E75", ram: "2.6GB", description: "Fastest local model. Strong reasoning for its size." },
+      { id: "qwen3:4b", tierName: "Lex Flash", badge: "Flash", color: "#1D9E75", ram: "2.6GB", description: "Fastest local model. Strong reasoning for its size." },
     ],
   },
   {
-    badge: "BALANCED",
+    badge: "Core",
     tierName: "Lex Core",
     tierDescription: "Balanced speed and legal reasoning for daily work.",
     color: "#378ADD",
     models: [
-      { id: "qwen3:8b", tierName: "Lex Core", badge: "BALANCED", color: "#378ADD", ram: "5GB", description: "Best all-round local model for 16GB Macs." },
+      { id: "qwen3:8b", tierName: "Lex Core", badge: "Core", color: "#378ADD", ram: "5GB", description: "Best all-round local model for 16GB Macs." },
     ],
   },
   {
-    badge: "POWERFUL",
+    badge: "Pro",
     tierName: "Lex Pro",
     tierDescription: "Stronger models for deep clause analysis.",
     color: "#7F77DD",
     models: [
-      { id: "deepseek-r1:7b", tierName: "Lex Pro", badge: "POWERFUL", color: "#7F77DD", ram: "5GB", description: "Chain-of-thought reasoning for complex contracts." },
+      { id: "deepseek-r1:7b", tierName: "Lex Pro", badge: "Pro", color: "#7F77DD", ram: "5GB", description: "Chain-of-thought reasoning for complex contracts." },
     ],
   },
 ];
