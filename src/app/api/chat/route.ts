@@ -5,7 +5,6 @@ import {
   isCloudModel,
   isGeminiModel,
   isLexModel,
-  isGroqModel,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
 
@@ -62,8 +61,9 @@ export async function POST(req: Request) {
   const geminiModel = GEMINI_MODELS.includes(activeModel || "") && isGeminiModel(activeModel)
     ? activeModel
     : null;
-  const initialMessages = messages.slice(0, -1).slice(-10);
-  const currentMessage = messages[messages.length - 1];
+  const conversationMessages = Array.isArray(messages) ? messages : [];
+  const initialMessages = conversationMessages.slice(0, -1).filter(isChatMessage);
+  const currentMessage = conversationMessages[conversationMessages.length - 1];
   const userMessage =
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
   const shouldSearch =
@@ -405,6 +405,17 @@ function flushSseToken(
   } catch {
     return;
   }
+}
+
+function isChatMessage(
+  message: unknown
+): message is { role: string; content: string } {
+  if (typeof message !== "object" || message === null) return false;
+  const candidate = message as { role?: unknown; content?: unknown };
+  return (
+    (candidate.role === "user" || candidate.role === "assistant") &&
+    typeof candidate.content === "string"
+  );
 }
 
 const tokenFlushState: WeakMap<
