@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createChat, deleteAllChats, listChatsWithMessages } from "@/lib/db/chats";
 import { toClientChat } from "@/lib/api/chats";
 import { CONTRACT_ANALYSIS_PROMPT } from "@/lib/contract-scanner";
-import { OLLAMA_DEFAULT_URL } from "@/lib/lex";
+import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
 import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel, lexNameToOllamaId } from "@/lib/models";
 import { extractPdfText } from "@/lib/file-extraction/pdf-extractor";
 import { extractDocxText } from "@/lib/file-extraction/docx-extractor";
@@ -155,6 +155,9 @@ export async function POST(req: Request) {
       const contractText = await extractText(file);
       const ollamaUrl = process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
       const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
+      const scanModel = cloudScan
+        ? process.env.GROQ_DEFAULT_MODEL || selectedModel || GROQ_DEFAULT_MODEL
+        : selectedModel;
       const response = await fetch(cloudScan ? "https://api.groq.com/openai/v1/chat/completions" : `${ollamaUrl}/api/chat`, {
         method: "POST",
         headers: {
@@ -164,14 +167,20 @@ export async function POST(req: Request) {
         body: JSON.stringify(
           cloudScan
             ? {
-                model: selectedModel,
+                model: scanModel,
                 stream: false,
-                messages: [{ role: "user", content: prompt }],
+                messages: [
+                  { role: "system", content: LEX_SYSTEM_PROMPT },
+                  { role: "user", content: prompt },
+                ],
               }
             : {
-                model: selectedModel,
+                model: scanModel,
                 stream: false,
-                messages: [{ role: "user", content: prompt }],
+                messages: [
+                  { role: "system", content: LEX_SYSTEM_PROMPT },
+                  { role: "user", content: prompt },
+                ],
               }
         ),
       });
@@ -180,6 +189,7 @@ export async function POST(req: Request) {
       if (!response.ok) {
         console.error("Contract scanner model error response", {
           model: selectedModel,
+          routedModel: scanModel,
           status: response.status,
           body: responseBody,
         });
