@@ -37,12 +37,10 @@ const MODEL_TIERS: {
   {
     badge: "SWIFT",
     tierName: "Lex Flash",
-    tierDescription: "Fastest local models for quick legal Q&A.",
+    tierDescription: "Fastest local model for quick legal Q&A.",
     color: "#1D9E75",
     models: [
-      { id: "llama3.2:3b", tierName: "Lex Flash", badge: "SWIFT", color: "#1D9E75", ram: "2GB", description: "Fastest overall, best for quick Q&A" },
-      { id: "gemma3:4b", tierName: "Lex Flash", badge: "SWIFT", color: "#1D9E75", ram: "3GB", description: "Strong reasoning at small size" },
-      { id: "phi4-mini:3.8b", tierName: "Lex Flash", badge: "SWIFT", color: "#1D9E75", ram: "2.5GB", description: "Best reasoning per GB" },
+      { id: "qwen3:4b", tierName: "Lex Flash", badge: "SWIFT", color: "#1D9E75", ram: "2.6GB", description: "Fastest local model. Strong reasoning for its size." },
     ],
   },
   {
@@ -51,9 +49,7 @@ const MODEL_TIERS: {
     tierDescription: "Balanced speed and legal reasoning for daily work.",
     color: "#378ADD",
     models: [
-      { id: "qwen3:8b", tierName: "Lex Core", badge: "BALANCED", color: "#378ADD", ram: "5GB", description: "Best legal reasoning at 8B" },
-      { id: "llama3.3:8b", tierName: "Lex Core", badge: "BALANCED", color: "#378ADD", ram: "6GB", description: "Best all-round balance" },
-      { id: "mistral:7b", tierName: "Lex Core", badge: "BALANCED", color: "#378ADD", ram: "4.5GB", description: "Fastest in tier" },
+      { id: "qwen3:8b", tierName: "Lex Core", badge: "BALANCED", color: "#378ADD", ram: "5GB", description: "Best all-round local model for 16GB Macs." },
     ],
   },
   {
@@ -62,40 +58,7 @@ const MODEL_TIERS: {
     tierDescription: "Stronger models for deep clause analysis.",
     color: "#7F77DD",
     models: [
-      { id: "qwen3:14b", tierName: "Lex Pro", badge: "POWERFUL", color: "#7F77DD", ram: "9GB", description: "Strong legal reasoning" },
-      { id: "mistral-nemo:12b", tierName: "Lex Pro", badge: "POWERFUL", color: "#7F77DD", ram: "7GB", description: "Long context 32K" },
-      { id: "deepseek-r1:7b", tierName: "Lex Pro", badge: "POWERFUL", color: "#7F77DD", ram: "5GB", description: "Chain-of-thought reasoning" },
-    ],
-  },
-  {
-    badge: "SHARP",
-    tierName: "Lex Advanced",
-    tierDescription: "Advanced local reasoning for complex matters.",
-    color: "#534AB7",
-    models: [
-      { id: "qwen3:30b", tierName: "Lex Advanced", badge: "SHARP", color: "#534AB7", ram: "18GB", description: "Best overall 2026" },
-      { id: "deepseek-r1:14b", tierName: "Lex Advanced", badge: "SHARP", color: "#534AB7", ram: "9GB", description: "Best reasoning at this size" },
-      { id: "gemma3:12b", tierName: "Lex Advanced", badge: "SHARP", color: "#534AB7", ram: "8GB", description: "Strong structured output" },
-    ],
-  },
-  {
-    badge: "DEEP",
-    tierName: "Lex Elite",
-    tierDescription: "Deep local analysis for litigation and diligence.",
-    color: "#BA7517",
-    models: [
-      { id: "deepseek-r1:32b", tierName: "Lex Elite", badge: "DEEP", color: "#BA7517", ram: "18GB", description: "Best local reasoning" },
-      { id: "qwen3:32b", tierName: "Lex Elite", badge: "DEEP", color: "#BA7517", ram: "18GB", description: "Deep legal analysis" },
-    ],
-  },
-  {
-    badge: "ELITE",
-    tierName: "Lex Max",
-    tierDescription: "Largest local models for near-frontier quality.",
-    color: "#A32D2D",
-    models: [
-      { id: "llama4:scout", tierName: "Lex Max", badge: "ELITE", color: "#A32D2D", ram: "10GB", description: "MoE, near-frontier quality" },
-      { id: "deepseek-r1:70b", tierName: "Lex Max", badge: "ELITE", color: "#A32D2D", ram: "40GB", description: "Best local reasoning available" },
+      { id: "deepseek-r1:7b", tierName: "Lex Pro", badge: "POWERFUL", color: "#7F77DD", ram: "5GB", description: "Chain-of-thought reasoning for complex contracts." },
     ],
   },
 ];
@@ -113,7 +76,6 @@ export default function ModelsPage() {
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const cloudMode = useChatStore((state) => state.cloudMode);
-  const modelIdsKey = installedModels.join("\u0000");
   const selectedLocalModel = useMemo(() => {
     const preferredLexModel = ALL_LOCAL_MODEL_IDS.find(
       (modelId) =>
@@ -146,13 +108,19 @@ export default function ModelsPage() {
           ? data.models.map(({ name }: { name: string }) => name)
           : [];
 
+        const orderedModels = ALL_LOCAL_MODEL_IDS.filter((modelId) => modelIds.includes(modelId));
+
         if (!cancelled) {
-          setInstalledModels(modelIds);
+          setInstalledModels((current) =>
+            current.join("\u0000") === orderedModels.join("\u0000")
+              ? current
+              : orderedModels
+          );
           setIsOllamaRunning(true);
         }
       } catch {
         if (!cancelled) {
-          setInstalledModels([]);
+          setInstalledModels((current) => (current.length === 0 ? current : []));
           setIsOllamaRunning(false);
         }
       }
@@ -174,7 +142,7 @@ export default function ModelsPage() {
     setSelectedModel(selectedLocalModel);
     // This effect only writes when the derived local model actually changes, so
     // selectedModel updates cannot recurse through the models inventory effect.
-  }, [cloudMode, modelIdsKey, selectedLocalModel, selectedModel, setSelectedModel]);
+  }, [cloudMode, selectedLocalModel, selectedModel, setSelectedModel]);
 
   const refreshModels = async () => {
     const response = await fetch("/api/tags");
@@ -183,7 +151,10 @@ export default function ModelsPage() {
     const modelIds = Array.isArray(data?.models)
       ? data.models.map(({ name }: { name: string }) => name)
       : [];
-    setInstalledModels(modelIds);
+    const orderedModels = ALL_LOCAL_MODEL_IDS.filter((modelId) => modelIds.includes(modelId));
+    setInstalledModels((current) =>
+      current.join("\u0000") === orderedModels.join("\u0000") ? current : orderedModels
+    );
     setIsOllamaRunning(true);
   };
 
@@ -242,7 +213,9 @@ export default function ModelsPage() {
 
           if (chunk.status === "success") {
             setInstalledModels((models) =>
-              models.includes(ollamaId) ? models : [...models, ollamaId]
+              models.includes(ollamaId)
+                ? models
+                : ALL_LOCAL_MODEL_IDS.filter((modelId) => [...models, ollamaId].includes(modelId))
             );
             setDownloads((state) => {
               const next = { ...state };
