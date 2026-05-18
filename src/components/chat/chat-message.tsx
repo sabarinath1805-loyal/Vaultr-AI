@@ -102,7 +102,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(message.content);
+    navigator.clipboard.writeText(cleanContent);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 1500);
   };
@@ -202,17 +202,17 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
                 <button
                   type="button"
                   onClick={() => setThinkingOpen((open) => !open)}
-                  className="flex items-center gap-1 text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+                  className="flex items-center gap-1 text-[12px] font-medium text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-muted)]"
                 >
                   <ChevronRight
                     className={`h-3.5 w-3.5 transition-transform ${
                       thinkingOpen ? "rotate-90" : ""
                     }`}
                   />
-                  Lex&apos;s reasoning
+                  Lex reasoned
                 </button>
                 {thinkingOpen && (
-                  <div className="mt-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px] italic leading-relaxed text-[var(--text-muted)]">
+                  <div className="mt-2 border-l-2 border-[var(--border-tertiary)] pl-3 text-[13px] italic leading-relaxed text-[var(--text-secondary)] transition-all duration-200">
                     <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{thinkContent}</Markdown>
                   </div>
                 )}

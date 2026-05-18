@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ChevronDown, Cloud, Lock } from "lucide-react";
+import { Brain, Check, ChevronDown, Cloud, Lock, Play } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   GROQ_MODELS,
@@ -150,6 +150,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
               <>
                 {!cloudMode && availableModels.map((modelId) => {
                   const metadata = getModelDisplayMetadata(modelId);
+                  const showsReasons = modelId === "deepseek-r1:7b";
                   return (
                     <button
                       key={modelId}
@@ -172,11 +173,17 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                             letterSpacing: "0.05em",
                           }}
                         >
-                          {metadata.badge}
+                          {metadata.badge.toUpperCase()}
                         </span>
                         <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
                           {metadata.name}
                         </span>
+                        {showsReasons && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                            <Play className="h-2.5 w-2.5" />
+                            reasons
+                          </span>
+                        )}
                         <Lock size={13} color="#8a8880" style={{ marginLeft: "auto" }} />
                         {modelId === selectedModel && <Check size={14} />}
                       </div>
@@ -189,6 +196,8 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                 {cloudMode && GROQ_MODELS.map((model) => {
                   const modelId = model.groqId;
                   const metadata = getModelDisplayMetadata(modelId);
+                  const showsReasons = model.name === "Lex Pro";
+                  const showsBrain = model.name === "Lex Max";
                   return (
                     <button
                       key={modelId}
@@ -211,11 +220,22 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                             letterSpacing: "0.05em",
                           }}
                         >
-                          CLOUD
+                          {metadata.badge.toUpperCase()}
                         </span>
                         <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
                           {metadata.name}
                         </span>
+                        {showsReasons && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                            <Play className="h-2.5 w-2.5" />
+                            reasons
+                          </span>
+                        )}
+                        {showsBrain && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface)] px-1.5 py-0.5 text-[10px] text-[var(--text-muted)]">
+                            <Brain className="h-3 w-3" />
+                          </span>
+                        )}
                         <Cloud size={13} color="#378ADD" style={{ marginLeft: "auto" }} />
                         {modelId === selectedModel && <Check size={14} />}
                       </div>
