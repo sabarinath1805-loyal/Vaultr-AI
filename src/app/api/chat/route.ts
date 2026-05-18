@@ -13,13 +13,8 @@ const SEARCH_TRIGGERS = [
   "lookup",
   "latest",
   "recent",
-  "current",
-  "today",
   "news",
-  "what happened",
-  "update me",
-  "developments",
-  "just happened",
+  "today",
 ];
 
 export async function POST(req: Request) {
@@ -61,10 +56,10 @@ export async function POST(req: Request) {
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
   const shouldSearch =
     !privacyMode &&
-    webSearch !== false &&
-    SEARCH_TRIGGERS.some((trigger) =>
-      userMessage.toLowerCase().includes(trigger)
-    );
+    (webSearch === true ||
+      SEARCH_TRIGGERS.some((trigger) =>
+        userMessage.toLowerCase().includes(trigger)
+      ));
   const searchContext = shouldSearch
     ? await getWebSearchContext(userMessage)
     : "";
@@ -94,15 +89,15 @@ export async function POST(req: Request) {
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
   const recentDataFallback =
     "\n\nIf asked about recent events or news and you don't have real-time data, respond in one sentence: \"I don't have real-time data on that — want me to search?\" Do not write a long explanation about your training cutoff.";
-  const systemPrompt =
+  const baseSystemPrompt =
     LEX_SYSTEM_PROMPT +
     (shouldSearch ? "" : recentDataFallback) +
     (thinkingEnabled ? "" : "\n\n/no_think");
   const finalSystemPrompt = workflowTemplatePrompt
-    ? `${workflowTemplatePrompt}\n\n${systemPrompt}`
-    : systemPrompt;
+    ? `${workflowTemplatePrompt}\n\n${baseSystemPrompt}`
+    : baseSystemPrompt;
   const systemMessage = `${finalSystemPrompt}${documentContext}${searchContext}`;
-  console.log("SYSTEM PROMPT APPLIED:", systemPrompt.substring(0, 100));
+  console.log("SYSTEM PROMPT APPLIED:", systemMessage.substring(0, 1200));
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },

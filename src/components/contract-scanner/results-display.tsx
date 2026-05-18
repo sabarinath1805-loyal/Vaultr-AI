@@ -13,6 +13,11 @@ interface ResultsDisplayProps {
 }
 
 const riskClasses: Record<ContractRisk, { badge: string; border: string; text: string }> = {
+  CRITICAL: {
+    badge: "border-[#7f1d1d] bg-[#fef2f2] text-[#7f1d1d]",
+    border: "border-l-[#7f1d1d]",
+    text: "text-[#7f1d1d]",
+  },
   HIGH: {
     badge: "border-[var(--danger)] bg-[var(--danger-bg)] text-[var(--danger-hover)]",
     border: "border-l-[var(--danger)]",
@@ -70,11 +75,12 @@ export function ResultsDisplay({
   const clauses = sortClausesByRisk(analysis.clauses);
   const filteredClauses = clauses.filter((clause) => {
     if (activeFilter === "all") return true;
-    if (activeFilter === "high") return clause.risk === "HIGH";
+    if (activeFilter === "high") return clause.risk === "CRITICAL" || clause.risk === "HIGH";
     if (activeFilter === "medium") return clause.risk === "MEDIUM";
     return clause.risk === "LOW";
   });
   const counts = getRiskCounts(clauses);
+  const criticalCount = clauses.filter((clause) => clause.risk === "CRITICAL").length;
   const reportText = [
     analysis.contract_title,
     `Parties: ${analysis.parties.join(", ")}`,
@@ -109,6 +115,8 @@ export function ResultsDisplay({
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-3 text-[13px]">
         <div>
+          <span className={riskClasses.CRITICAL.text}>{criticalCount} Critical</span>
+          <span className="px-2 text-[var(--border)]">·</span>
           <span className={riskClasses.HIGH.text}>{counts.high} High</span>
           <span className="px-2 text-[var(--border)]">·</span>
           <span className={riskClasses.MEDIUM.text}>{counts.medium} Medium</span>
