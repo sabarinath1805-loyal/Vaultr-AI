@@ -11,8 +11,8 @@ interface ContractScannerState {
 const useContractScannerStore = create<ContractScannerState>()((set) => ({
   file: null,
   error: null,
-  setFile: (file) => set({ file }),
-  setError: (error) => set({ error }),
+  setFile: (file) => set((state) => (state.file === file ? state : { file })),
+  setError: (error) => set((state) => (state.error === error ? state : { error })),
   reset: () => set({ file: null, error: null }),
 }));
 
