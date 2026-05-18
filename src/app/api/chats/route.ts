@@ -3,7 +3,7 @@ import { createChat, deleteAllChats, listChatsWithMessages } from "@/lib/db/chat
 import { toClientChat } from "@/lib/api/chats";
 import { CONTRACT_ANALYSIS_PROMPT } from "@/lib/contract-scanner";
 import { OLLAMA_DEFAULT_URL } from "@/lib/lex";
-import { GROQ_DEFAULT_MODEL, isGroqModel, isLexModel, lexNameToOllamaId } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel, lexNameToOllamaId } from "@/lib/models";
 import { extractPdfText } from "@/lib/file-extraction/pdf-extractor";
 import { extractDocxText } from "@/lib/file-extraction/docx-extractor";
 
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
     }
 
     const selectedModel = lexNameToOllamaId(selectedModelValue) || selectedModelValue;
-    const cloudScan = isGroqModel(selectedModel) || selectedModel === GROQ_DEFAULT_MODEL;
+    const cloudScan = isCloudModel(selectedModel) || selectedModel === GROQ_DEFAULT_MODEL;
 
     if (!cloudScan && !isLexModel(selectedModel)) {
       return NextResponse.json(

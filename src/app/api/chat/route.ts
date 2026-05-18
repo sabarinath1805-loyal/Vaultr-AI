@@ -1,5 +1,12 @@
 import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
-import { GROQ_DEFAULT_MODEL, isLexModel, isGroqModel } from "@/lib/models";
+import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
+import {
+  GROQ_DEFAULT_MODEL,
+  isCloudModel,
+  isGeminiModel,
+  isLexModel,
+  isGroqModel,
+} from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
 
 export const runtime = "nodejs";
@@ -16,6 +23,8 @@ const SEARCH_TRIGGERS = [
   "news",
   "today",
 ];
+
+const GEMINI_MODELS = ["gemini-2.5-flash"];
 
 export async function POST(req: Request) {
   const {
@@ -46,10 +55,13 @@ export async function POST(req: Request) {
     );
   }
   const ollamaUrl = requestedOllamaUrl || process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
-  const groqModel = isGroqModel(requestedModel)
+  const cloudModel = isCloudModel(requestedModel)
     ? requestedModel
     : process.env.GROQ_DEFAULT_MODEL || GROQ_DEFAULT_MODEL;
-  const activeModel = privacyMode ? requestedModel : groqModel;
+  const activeModel = privacyMode ? requestedModel : cloudModel;
+  const geminiModel = GEMINI_MODELS.includes(activeModel || "") && isGeminiModel(activeModel)
+    ? activeModel
+    : null;
   const initialMessages = messages.slice(0, -1).slice(-10);
   const currentMessage = messages[messages.length - 1];
   const userMessage =
@@ -87,12 +99,13 @@ export async function POST(req: Request) {
   const documentContext = documentContexts.filter(Boolean).join("");
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
+  const usesCloudReasoning = !privacyMode && activeModel === "qwen/qwen3-32b";
   const recentDataFallback =
     "\n\nIf asked about recent events or news and you don't have real-time data, respond in one sentence: \"I don't have real-time data on that — want me to search?\" Do not write a long explanation about your training cutoff.";
   const baseSystemPrompt =
     LEX_SYSTEM_PROMPT +
     (shouldSearch ? "" : recentDataFallback) +
-    (thinkingEnabled ? "" : "\n\n/no_think");
+    (thinkingEnabled || usesCloudReasoning ? "" : "\n\n/no_think");
   const finalSystemPrompt = workflowTemplatePrompt
     ? `${workflowTemplatePrompt}\n\n${baseSystemPrompt}`
     : baseSystemPrompt;
@@ -112,6 +125,20 @@ export async function POST(req: Request) {
   const timeout = setTimeout(() => abortController.abort(), 120_000);
 
   try {
+    if (!privacyMode && geminiModel) {
+      const response = await streamGeminiResponse({
+        model: geminiModel,
+        systemMessage,
+        initialMessages,
+        userMessage,
+        shouldSearch,
+        activeModel,
+        attachedDocuments,
+      });
+      clearTimeout(timeout);
+      return response;
+    }
+
     const response = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -122,6 +149,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: activeModel,
         stream: true,
+        ...(usesCloudReasoning ? { reasoning_format: "parsed" } : {}),
         ...(privacyMode && thinkingEnabled ? { think: true } : {}),
         ...(privacyMode ? {
           options: {
@@ -245,6 +273,91 @@ export async function POST(req: Request) {
   }
 }
 
+async function streamGeminiResponse({
+  model,
+  systemMessage,
+  initialMessages,
+  userMessage,
+  shouldSearch,
+  activeModel,
+  attachedDocuments,
+}: {
+  model: string;
+  systemMessage: string;
+  initialMessages: { role: string; content: string }[];
+  userMessage: string;
+  shouldSearch: boolean;
+  activeModel: string | null;
+  attachedDocuments: { filename?: string }[] | undefined;
+}) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const generativeModel = genAI.getGenerativeModel({
+    model,
+    systemInstruction: systemMessage,
+  });
+  const contents: Content[] = [
+    ...initialMessages
+      .filter((message) => message.role === "user" || message.role === "assistant")
+      .map((message) => ({
+        role: message.role === "assistant" ? "model" : "user",
+        parts: [{ text: message.content }],
+      })),
+    { role: "user", parts: [{ text: userMessage }] },
+  ];
+  const result = await generativeModel.generateContentStream({ contents });
+  const encoder = new TextEncoder();
+
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of result.stream) {
+            const token = chunk.text();
+            if (token) {
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
+            }
+          }
+          const markers = [
+            `<think>Gemini Max reasoned through the request using its long-context model before drafting the response.</think>`,
+            shouldSearch ? `<web-search-used model="${activeModel}" />` : "",
+            ...(Array.isArray(attachedDocuments)
+              ? attachedDocuments
+                  .filter((document) => document?.filename)
+                  .map(
+                    (document) =>
+                      `<document-analyzed filename="${document.filename}" />`
+                  )
+              : []),
+          ].filter(Boolean).join("\n\n");
+          if (markers) {
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(markers)}\n`));
+          }
+          controller.enqueue(
+            encoder.encode(
+              `d:${JSON.stringify({
+                finishReason: "stop",
+                usage: { promptTokens: 0, completionTokens: 0 },
+              })}\n`
+            )
+          );
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Vercel-AI-Data-Stream": "v1",
+      },
+    }
+  );
+}
+
 function flushSseToken(
   line: string | null,
   controller: ReadableStreamDefaultController<Uint8Array>,
@@ -267,7 +380,8 @@ function flushSseToken(
   try {
     const parsed = JSON.parse(payload);
     const delta = parsed.choices?.[0]?.delta;
-    const thinkingToken = delta?.thinking;
+    const thinkingToken =
+      delta?.reasoning || delta?.reasoning_content || delta?.thinking;
     const token = delta?.content;
     if (thinkingToken) {
       controller.enqueue(

@@ -1,11 +1,9 @@
 import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
-import { isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-const GROQ_CORE_MODEL_ID = "llama-3.3-70b-versatile";
 
 interface State {
   base64Images: string[] | null;
@@ -108,7 +106,7 @@ const useChatStore = create<State & Actions>()(
       pendingAttachedDocumentIds: [],
       pendingWorkflow: null,
       composerResetToken: 0,
-      selectedModel: GROQ_CORE_MODEL_ID,
+      selectedModel: GROQ_DEFAULT_MODEL,
       cloudMode: true,
       usePrivacyMode: false,
       userName: "Local User",
@@ -116,7 +114,7 @@ const useChatStore = create<State & Actions>()(
       ollamaUrl: "http://localhost:11434",
       thinkingModeDefault: false,
       themePreference: "light",
-      defaultModelPreference: GROQ_CORE_MODEL_ID,
+      defaultModelPreference: GROQ_DEFAULT_MODEL,
       autoCleanupConversations: false,
       isDownloading: false,
       downloadProgress: 0,
@@ -176,10 +174,10 @@ const useChatStore = create<State & Actions>()(
         window.localStorage.setItem("vaultr-privacy-mode", String(!enabled));
         set((state) => {
           const selectedModel = enabled
-            ? GROQ_CORE_MODEL_ID
+            ? GROQ_DEFAULT_MODEL
             : privateModel || state.selectedModel;
           const defaultModelPreference = enabled
-            ? GROQ_CORE_MODEL_ID
+            ? GROQ_DEFAULT_MODEL
             : state.defaultModelPreference;
 
           if (
@@ -203,10 +201,10 @@ const useChatStore = create<State & Actions>()(
         window.localStorage.setItem("vaultr-privacy-mode", String(enabled));
         window.localStorage.setItem("vaultr-cloud-mode", String(!enabled));
         set((state) => {
-          const selectedModel = enabled ? state.selectedModel : GROQ_CORE_MODEL_ID;
+          const selectedModel = enabled ? state.selectedModel : GROQ_DEFAULT_MODEL;
           const defaultModelPreference = enabled
             ? state.defaultModelPreference
-            : GROQ_CORE_MODEL_ID;
+            : GROQ_DEFAULT_MODEL;
 
           if (
             state.cloudMode === !enabled &&
@@ -444,7 +442,7 @@ const useChatStore = create<State & Actions>()(
               if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
               return currentState.cloudMode;
             })();
-            if (cloudMode) return GROQ_CORE_MODEL_ID;
+            if (cloudMode) return GROQ_DEFAULT_MODEL;
             return persisted.selectedModel && isLexModel(persisted.selectedModel)
               ? persisted.selectedModel
               : currentState.selectedModel;
@@ -480,7 +478,7 @@ const useChatStore = create<State & Actions>()(
               if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
               return currentState.cloudMode;
             })();
-            if (cloudMode) return GROQ_CORE_MODEL_ID;
+            if (cloudMode) return GROQ_DEFAULT_MODEL;
             const model =
               (typeof window !== "undefined" &&
                 window.localStorage.getItem("vaultr-default-model")) ||
