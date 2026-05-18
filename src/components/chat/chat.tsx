@@ -12,15 +12,7 @@ import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { X } from "lucide-react";
 
-declare global {
-  interface Window {
-    __vaultrPhase16Logs?: string[];
-    __vaultrPhase16FirstTokenLogged?: boolean;
-    __vaultrPhase16RenderFalseLogged?: boolean;
-    __vaultrPhase16RenderTrueLogged?: boolean;
-    __vaultrPhase16SeenThinkingTrue?: boolean;
-  }
-}
+type ThinkingPhase = "idle" | "thinking" | "streaming";
 
 export interface ChatProps {
   id: string;
@@ -30,31 +22,12 @@ export interface ChatProps {
 
 export default function Chat({ initialMessages, id }: ChatProps) {
   const firstTokenLoggedRef = React.useRef(false);
-  const hideThinkingTimer = React.useRef<NodeJS.Timeout | null>(null);
-
-  const logPhase16Debug = React.useCallback((message: string) => {
-    console.log(message);
-    if (typeof window !== "undefined") {
-      window.__vaultrPhase16Logs = [
-        ...(window.__vaultrPhase16Logs ?? []),
-        message,
-      ];
-    }
-  }, []);
+  const minThinkingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const markFirstTokenArrived = React.useCallback(() => {
     if (firstTokenLoggedRef.current) return;
     firstTokenLoggedRef.current = true;
-    if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
-    if (typeof window !== "undefined") {
-      window.__vaultrPhase16FirstTokenLogged = true;
-    }
-    logPhase16Debug('🟢 FIRST TOKEN ARRIVED - isThinking should become false NOW');
-    hideThinkingTimer.current = setTimeout(() => {
-      setShowThinking(false);
-      hideThinkingTimer.current = null;
-    }, 800);
-  }, [logPhase16Debug]);
+  }, []);
 
   const {
     messages,
@@ -87,12 +60,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         savedAssistantMessage || message,
       ]);
       setLoadingSubmit(false);
+      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
+      setThinkingPhase("idle");
       router.replace(`/c/${id}`);
     },
     onError: async (error) => {
       setLoadingSubmit(false);
-      if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
-      setShowThinking(false);
+      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
+      setThinkingPhase("idle");
       console.error(error.message);
       console.error(error.cause);
 
@@ -113,10 +88,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     },
   });
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
-  const [showThinking, setShowThinking] = React.useState(false);
+  const [thinkingPhase, setThinkingPhase] = React.useState<ThinkingPhase>("idle");
+  const [groqThinkingMinimumMet, setGroqThinkingMinimumMet] = React.useState(true);
   React.useEffect(() => {
     return () => {
-      if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
+      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
     };
   }, []);
 
@@ -151,6 +127,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     if (!pendingComposerText) return;
     setInput(typeof pendingComposerText === "string" ? pendingComposerText : "");
     setPendingComposerText(null);
+    // pendingComposerText is consumed once and immediately cleared from the store,
+    // so this effect cannot loop while route/chat state re-renders.
   }, [pendingComposerText, setInput, setPendingComposerText]);
 
   React.useEffect(() => {
@@ -163,18 +141,47 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
   React.useEffect(() => {
     setCloudWarningCount(readCloudWarningCount());
+    // Initial localStorage hydration only; banner dismissals update local state
+    // directly and are not fed back into this effect.
   }, []);
 
   const lastMessage = messages[messages.length - 1];
-  const assistantResponseStarted =
-    lastMessage?.role === "assistant" && lastMessage.content.trim().length > 0;
+  const lastAssistantContent =
+    lastMessage?.role === "assistant" ? lastMessage.content.trim() : "";
+  const assistantVisibleContentLength = lastAssistantContent
+    .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
+    .replace(/<web-search-used[^>]*\/>\s*/g, "")
+    .replace(/<document-analyzed[^>]*\/>/g, "")
+    .trim().length;
+  const assistantHasDisplayableContent = assistantVisibleContentLength > 30;
 
   React.useEffect(() => {
-    if (!showThinking || !assistantResponseStarted) return;
+    if (thinkingPhase === "idle" || !assistantHasDisplayableContent) return;
     markFirstTokenArrived();
-    // assistantResponseStarted is a boolean derived from the last streamed message,
-    // not the full messages array, so token streaming cannot retrigger this endlessly.
-  }, [showThinking, assistantResponseStarted, markFirstTokenArrived]);
+    const nextPhase = usePrivacyMode || groqThinkingMinimumMet ? "streaming" : "thinking";
+    setThinkingPhase((current) => (current === nextPhase ? current : nextPhase));
+    // This effect watches primitive readiness flags rather than the streaming
+    // messages array; the guarded setter only advances thinking -> streaming once.
+  }, [
+    assistantHasDisplayableContent,
+    groqThinkingMinimumMet,
+    markFirstTokenArrived,
+    thinkingPhase,
+    usePrivacyMode,
+  ]);
+
+  const beginThinking = React.useCallback(() => {
+    setGroqThinkingMinimumMet(usePrivacyMode);
+    firstTokenLoggedRef.current = false;
+    setThinkingPhase("thinking");
+    if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
+    if (!usePrivacyMode) {
+      minThinkingTimerRef.current = setTimeout(() => {
+        setGroqThinkingMinimumMet(true);
+        minThinkingTimerRef.current = null;
+      }, 1500);
+    }
+  }, [usePrivacyMode]);
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>,
@@ -182,29 +189,28 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   ) => {
     e.preventDefault();
     type ChatRequestBody = {
-          workflow?: AttachedWorkflow | null;
-          workflowPrompt?: string;
-          webSearch?: boolean;
-          thinking?: boolean;
-          thinkingMode?: boolean;
-          ollamaUrl?: string;
-          attachedDocuments?: {
-            id: string;
-            filename: string;
-            fileType?: string | null;
-            sizeBytes?: number;
-            extractedText?: string;
-            content?: string;
-            dataUrl?: string;
-          }[];
-        };
+      workflow?: AttachedWorkflow | null;
+      workflowPrompt?: string;
+      webSearch?: boolean;
+      thinking?: boolean;
+      thinkingMode?: boolean;
+      ollamaUrl?: string;
+      attachedDocuments?: {
+        id: string;
+        filename: string;
+        fileType?: string | null;
+        sizeBytes?: number;
+        extractedText?: string;
+        content?: string;
+        dataUrl?: string;
+      }[];
+    };
 
     const requestBody = options?.body as ChatRequestBody | undefined;
     const workflow = (requestBody?.workflow ||
       pendingWorkflow) as AttachedWorkflow | null;
     const webSearch = requestBody?.webSearch;
     const thinking = requestBody?.thinking === true;
-
 
     if (usePrivacyMode && !isLexModel(selectedModel)) {
       const userMessage: Message = {
@@ -244,16 +250,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     } as Message;
 
     setLoadingSubmit(true);
-    firstTokenLoggedRef.current = false;
-    if (typeof window !== "undefined") {
-      window.__vaultrPhase16FirstTokenLogged = false;
-      window.__vaultrPhase16RenderFalseLogged = false;
-      window.__vaultrPhase16RenderTrueLogged = false;
-      window.__vaultrPhase16SeenThinkingTrue = false;
-    }
-    logPhase16Debug('🔵 USER SENT MESSAGE - isThinking should become true NOW');
-    setShowThinking(true);
-    if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
+    beginThinking();
 
     const attachments: Attachment[] = base64Images
       ? base64Images.map((image) => ({
@@ -300,8 +297,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     stop();
     saveMessages(id, [...messages]);
     setLoadingSubmit(false);
-    if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
-    setShowThinking(false);
+    if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
+    setThinkingPhase("idle");
   };
 
   const dismissCloudBanner = () => {
@@ -374,7 +371,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           <ChatList
             messages={messages}
             isLoading={isLoading}
-            showThinking={showThinking}
+            thinkingPhase={thinkingPhase}
             reload={async () => {
               removeLatestMessage();
 
@@ -387,16 +384,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               };
 
               setLoadingSubmit(true);
-              firstTokenLoggedRef.current = false;
-              if (typeof window !== "undefined") {
-                window.__vaultrPhase16FirstTokenLogged = false;
-                window.__vaultrPhase16RenderFalseLogged = false;
-                window.__vaultrPhase16RenderTrueLogged = false;
-                window.__vaultrPhase16SeenThinkingTrue = false;
-              }
-              logPhase16Debug('🔵 USER SENT MESSAGE - isThinking should become true NOW');
-              setShowThinking(true);
-              if (hideThinkingTimer.current) clearTimeout(hideThinkingTimer.current);
+              beginThinking();
               return reload(requestOptions);
             }}
           />

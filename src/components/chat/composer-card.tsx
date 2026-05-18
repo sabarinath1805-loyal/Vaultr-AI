@@ -63,6 +63,7 @@ export function ComposerCard({
   const [selectedWorkflow, setSelectedWorkflow] = React.useState<AttachedWorkflow | null>(null);
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
+  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
   const pendingAttachedDocumentIds = useChatStore((state) => state.pendingAttachedDocumentIds);
@@ -209,6 +210,7 @@ export function ComposerCard({
         dataUrl: doc.dataUrl,
       })),
       thinking: usePrivacyMode && thinkingEnabled && isThinkingCapableModel(selectedModel),
+      webSearch: webSearchEnabled,
       usePrivacyMode,
     };
 
@@ -391,15 +393,27 @@ export function ComposerCard({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                title="Web search activates automatically for search intent"
-                className="flex h-8 w-8 cursor-default items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)]"
-                aria-label="Web search activates automatically for search intent"
+                title={webSearchEnabled ? "Web search on" : "Web search off"}
+                onClick={() => setWebSearchEnabled((enabled) => !enabled)}
+                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
+                  webSearchEnabled
+                    ? "bg-[color:var(--blue)]/10 text-[var(--blue)]"
+                    : "text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                }`}
+                aria-pressed={webSearchEnabled}
+                aria-label={webSearchEnabled ? "Disable web search" : "Enable web search"}
               >
                 <Globe className="h-4 w-4" />
               </button>
               <button
                 type="button"
-                title={thinkingSupported ? (thinkingEnabled ? "Thinking mode on" : "Thinking mode off") : "Thinking mode requires Lex Nano, Core, Pro, Elite or Max"}
+                title={
+                  cloudMode
+                    ? "Thinking mode is only available in Private Mode with qwen3"
+                    : thinkingSupported
+                    ? thinkingEnabled ? "Thinking mode on" : "Thinking mode off"
+                    : "Thinking mode requires qwen3 or DeepSeek local models"
+                }
                 onClick={() => {
                   if (thinkingSupported) {
                     setPersistentThinking();

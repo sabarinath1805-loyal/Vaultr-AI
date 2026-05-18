@@ -6,27 +6,13 @@ import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { ChevronRight, Edit3, File, FileText, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { LEX_MODELS } from "@/lib/models";
+import { groqIdToLexName, ollamaIdToLexName } from "@/lib/models";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
 
 function LexAvatar() {
   return (
-    <div
-      style={{
-        width: "32px",
-        height: "32px",
-        borderRadius: "50%",
-        backgroundColor: "#1a1916",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        animation: "lexAvatarPulse 2.5s ease-in-out infinite",
-        WebkitAnimation: "lexAvatarPulse 2.5s ease-in-out infinite",
-        transformOrigin: "center",
-      }}
-    >
+    <div className="lex-thinking-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1a1916]">
       <svg
         width="16"
         height="16"
@@ -42,37 +28,19 @@ function LexAvatar() {
   );
 }
 
-export function LexThinkingIndicator() {
+export function LexThinkingIndicator({ phase }: { phase: "thinking" | "streaming" }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 0" }}>
-      <LexAvatar />
-      <span
-        style={{
-          fontSize: "13px",
-          color: "#8a8880",
-          fontFamily: "'Sora', -apple-system, sans-serif",
-          display: "inline-flex",
-          alignItems: "center",
-        }}
+    <div className="relative min-h-[64px] w-full">
+      <div
+        className={`absolute inset-0 flex items-center gap-3 transition-opacity duration-300 ${
+          phase === "thinking" ? "opacity-100" : "opacity-0"
+        }`}
       >
-        Lex is thinking
-        <span style={{ display: "inline-flex", gap: "1px", marginLeft: "1px" }}>
-          {[0, 1, 2].map((i) => (
-            <span
-              key={i}
-              style={{
-                animation: "dotFade 1.4s ease-in-out infinite",
-                animationDelay: `${i * 0.2}s`,
-                opacity: 0,
-                fontSize: "13px",
-                color: "#8a8880",
-              }}
-            >
-              .
-            </span>
-          ))}
+        <LexAvatar />
+        <span className="text-[13px] text-[var(--text-muted)]">
+          Lex is thinking...
         </span>
-      </span>
+      </div>
     </div>
   );
 }
@@ -113,7 +81,9 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   }, [message.content, message.role]);
   const webSearchMatch = message.content.match(/<web-search-used(?:\s+model="([^"]+)")?\s*\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
-  const webSearchModel = LEX_MODELS.find((model) => model.ollamaId === webSearchMatch?.[1])?.name || "Lex";
+  const webSearchModel = webSearchMatch?.[1]
+    ? groqIdToLexName(webSearchMatch[1]) || ollamaIdToLexName(webSearchMatch[1])
+    : "Lex";
   const documentAnalyzed = Array.from(message.content.matchAll(/<document-analyzed\s+filename="([^"]+)"\s*\/>/g));
   const markdownComponents = {
     a: ({
@@ -147,7 +117,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
 
   if (message.role === "user") {
     return (
-      <div className="message animate-message-in ml-auto flex w-full flex-col items-end">
+      <div className="message animate-message-in mb-4 ml-auto flex w-full flex-col items-end">
         <div
           data-testid="user-message"
           style={{
@@ -223,27 +193,10 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   }
 
   return (
-    <div className="message animate-message-in w-full max-w-4xl text-left text-sm leading-[1.7] text-[var(--text-primary)]">
+    <div className="message animate-message-in mb-10 w-full max-w-4xl text-left text-sm leading-[1.75] text-[var(--text-primary)]">
       {message.role === "assistant" ? (
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "flex-start",
-            gap: "12px",
-            width: "100%",
-          }}
-        >
-          <LexAvatar />
-          <div
-            style={{
-              flex: 1,
-              minWidth: 0,
-              marginTop: "4px",
-              paddingTop: "0",
-              lineHeight: "1.6",
-            }}
-          >
+        <div className="w-full">
+          <div className="min-w-0 text-[15px] leading-[1.75]">
             {thinkContent && (
               <div className="mb-3">
                 <button
@@ -282,7 +235,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
                   ))}
               </div>
             )}
-            <div className="prose prose-sm max-w-none text-sm leading-[1.7] prose-p:my-2 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
+            <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
