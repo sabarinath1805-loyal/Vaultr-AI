@@ -197,8 +197,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     };
 
     const requestBody = options?.body as ChatRequestBody | undefined;
-    const workflow = (requestBody?.workflow ||
-      pendingWorkflow) as AttachedWorkflow | null;
+    const workflow = (requestBody?.workflow || pendingWorkflow) as AttachedWorkflow | null;
     const webSearch = requestBody?.webSearch;
     const thinking = requestBody?.thinking === true;
 
@@ -217,7 +216,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       };
       const nextMessages = [...messages, userMessage, errorMessage];
       setMessages(nextMessages);
-      saveMessages(id, nextMessages);
+      void saveMessages(id, nextMessages);
       router.replace(`/c/${id}`);
       return;
     }
@@ -238,6 +237,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       createdAt: new Date(),
       attachedDocuments: attachedDocumentMetadata,
     } as Message;
+    const nextMessages = [...messages, userMessage];
 
     setLoadingSubmit(true);
     beginThinking();
@@ -269,9 +269,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       }),
     };
 
-    void append(userMessage, requestOptions);
+    void append(userMessage, {
+      ...requestOptions,
+      body: { ...requestOptions.body, messages: nextMessages },
+    });
     setInput("");
-    saveMessages(id, [...messages, userMessage]);
+    void saveMessages(id, nextMessages);
     setBase64Images(null);
     router.replace(`/c/${id}`);
   };
@@ -279,7 +282,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const removeLatestMessage = () => {
     const updatedMessages = messages.slice(0, -1);
     setMessages(updatedMessages);
-    saveMessages(id, updatedMessages);
+    void saveMessages(id, updatedMessages);
     return updatedMessages;
   };
 
@@ -344,7 +347,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             isLoading={isLoading}
             thinkingPhase={thinkingPhase}
             reload={async () => {
-              removeLatestMessage();
+              const retryMessages = removeLatestMessage();
 
               const requestOptions: ChatRequestOptions = {
                 body: {
@@ -356,7 +359,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
               setLoadingSubmit(true);
               beginThinking();
-              return reload(requestOptions);
+              return reload({
+                ...requestOptions,
+                body: { ...requestOptions.body, messages: retryMessages },
+              });
             }}
           />
           <div

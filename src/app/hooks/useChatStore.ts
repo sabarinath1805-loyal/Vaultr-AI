@@ -155,7 +155,13 @@ const useChatStore = create<State & Actions>()(
             ? state
             : { pendingAttachedDocumentIds: documentIds }
         ),
-      setPendingWorkflow: (workflow) => set({ pendingWorkflow: workflow }),
+      setPendingWorkflow: (workflow) =>
+        set((state) =>
+          state.pendingWorkflow?.id === workflow?.id &&
+          state.pendingWorkflow?.prompt === workflow?.prompt
+            ? state
+            : { pendingWorkflow: workflow }
+        ),
       resetComposerState: () =>
         set((state) => ({
           base64Images: null,
