@@ -212,10 +212,6 @@ export default function ContractScannerPage() {
         </div>
       </div>
 
-      <div className="mx-6 mb-5 rounded-[var(--radius-md)] border border-[var(--warning-border)] bg-[var(--color-background-warning)] px-4 py-3 text-sm text-[var(--color-text-warning)]">
-        Contract Scanner uses Cloud Mode for faster, more accurate analysis. Switch to Private Mode after scanning if needed.
-      </div>
-
       {analysis ? (
         <ResultsDisplay
           analysis={analysis}

@@ -306,19 +306,8 @@ export default function ModelsPage() {
           </div>
         )}
 
-        <div className="space-y-8">
-          {MODEL_TIERS.map((tier) => (
-            <section key={tier.badge}>
-              <div style={{ marginBottom: "8px", marginTop: "24px" }}>
-                <span style={{ fontSize: "11px", fontWeight: 600, color: tier.color, letterSpacing: "0.08em" }}>
-                  {tier.badge}
-                </span>
-                <span style={{ fontSize: "13px", color: "#8a8880", marginLeft: "8px" }}>
-                  {tier.tierDescription}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-6 max-w-5xl mx-auto mt-6">
-                {tier.models.map((model) => {
+        <div className="grid grid-cols-3 gap-6 max-w-5xl">
+          {MODEL_TIERS.flatMap((tier) => tier.models).map((model) => {
                   const installed = installedModels.includes(model.id);
                   const download = downloads[model.id];
                   const removal = removals[model.id];
@@ -426,9 +415,6 @@ export default function ModelsPage() {
                     </article>
                   );
                 })}
-              </div>
-            </section>
-          ))}
         </div>
       </div>
     </main>

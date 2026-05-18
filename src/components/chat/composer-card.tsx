@@ -109,21 +109,23 @@ export function ComposerCard({
 
   React.useEffect(() => {
     if (!pendingWorkflow) return;
-    setSelectedWorkflow(pendingWorkflow);
-    setPendingWorkflow(null);
+    setSelectedWorkflow((current) =>
+      current?.id === pendingWorkflow.id ? current : pendingWorkflow
+    );
     requestAnimationFrame(() => textareaRef.current?.focus());
-    // pendingWorkflow is reset to null after one transfer from global state, which
-    // prevents this local selection write from looping during composer re-renders.
-  }, [pendingWorkflow, setPendingWorkflow]);
+    // The global workflow stays active so document-backed sessions keep sending
+    // the workflow prompt until the lawyer explicitly removes or resets it.
+  }, [pendingWorkflow]);
 
   React.useEffect(() => {
     setSelectedWorkflow((current) => (current === null ? current : null));
     setAttachedDocuments((current) => (current.length === 0 ? current : []));
+    setPendingWorkflow(null);
     if (setInput) setInput("");
     requestAnimationFrame(() => textareaRef.current?.focus());
     // composerResetToken is a monotonic reset signal; it is the only reset trigger
     // so streaming input changes cannot repeatedly clear composer state.
-  }, [composerResetToken, setInput]);
+  }, [composerResetToken, setInput, setPendingWorkflow]);
 
   const submitFromTextarea = () => {
     const form = textareaRef.current?.form;
@@ -198,8 +200,9 @@ export function ComposerCard({
         extractedText,
       };
     });
+    const activeWorkflow = selectedWorkflow || pendingWorkflow;
     const metadata = {
-      workflow: selectedWorkflow,
+      workflow: activeWorkflow,
       attachedDocuments: documentsWithExtractedText.map((doc) => ({
         id: doc.id,
         filename: doc.filename,
@@ -222,13 +225,11 @@ export function ComposerCard({
         ollamaUrl,
       },
     });
-    if (safeInput.trim() || attachedDocuments.length > 0) {
-      setSelectedWorkflow(null);
-    }
   };
 
   const useWorkflowPrompt = (workflow: AttachedWorkflow) => {
     setSelectedWorkflow(workflow);
+    setPendingWorkflow(workflow);
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
@@ -276,7 +277,10 @@ export function ComposerCard({
                   <span className="max-w-[140px] truncate">{selectedWorkflow.title}</span>
                   <button
                     type="button"
-                    onClick={() => setSelectedWorkflow(null)}
+                    onClick={() => {
+                      setSelectedWorkflow(null);
+                      setPendingWorkflow(null);
+                    }}
                     className="ml-0.5 rounded-full p-0.5 text-[var(--white)]/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-[var(--white)]"
                     aria-label="Remove workflow"
                   >
