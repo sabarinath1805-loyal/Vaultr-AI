@@ -110,7 +110,10 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
       <button
         type="button"
         disabled={disabled}
-        onClick={() => setOpen((value) => !value)}
+        onClick={(event) => {
+          event.stopPropagation();
+          setOpen((value) => !value);
+        }}
         className="flex h-8 items-center gap-1 rounded-lg border-0 bg-transparent px-2 text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)] disabled:cursor-not-allowed"
       >
         <span>{selectedLabel}</span>
