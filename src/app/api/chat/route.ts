@@ -1,10 +1,13 @@
 import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
 import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
+import { createOllama } from "ollama-ai-provider";
+import { streamText, type CoreMessage } from "ai";
 import {
   GROQ_DEFAULT_MODEL,
   isCloudModel,
   isGeminiModel,
   isLexModel,
+  isOllamaCloudModel,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
 
@@ -23,7 +26,7 @@ const SEARCH_TRIGGERS = [
   "today",
 ];
 
-const GEMINI_MODELS = ["gemini-2.5-flash"];
+const GEMINI_MODELS = ["gemini-3-flash-preview"];
 
 export async function POST(req: Request) {
   const {
@@ -59,6 +62,9 @@ export async function POST(req: Request) {
     : process.env.GROQ_DEFAULT_MODEL || GROQ_DEFAULT_MODEL;
   const activeModel = privacyMode ? requestedModel : cloudModel;
   const geminiModel = GEMINI_MODELS.includes(activeModel || "") && isGeminiModel(activeModel)
+    ? activeModel
+    : null;
+  const ollamaCloudModel = !privacyMode && isOllamaCloudModel(activeModel)
     ? activeModel
     : null;
   const conversationMessages = Array.isArray(messages) ? messages : [];
@@ -134,6 +140,21 @@ export async function POST(req: Request) {
         shouldSearch,
         activeModel,
         attachedDocuments,
+      });
+      clearTimeout(timeout);
+      return response;
+    }
+
+    if (ollamaCloudModel) {
+      const response = await streamOllamaCloudResponse({
+        model: ollamaCloudModel,
+        systemMessage,
+        initialMessages,
+        userMessage,
+        shouldSearch,
+        activeModel,
+        attachedDocuments,
+        abortSignal: abortController.signal,
       });
       clearTimeout(timeout);
       return response;
@@ -322,6 +343,95 @@ async function streamGeminiResponse({
           }
           const markers = [
             `<think>Gemini Max reasoned through the request using its long-context model before drafting the response.</think>`,
+            shouldSearch ? `<web-search-used model="${activeModel}" />` : "",
+            ...(Array.isArray(attachedDocuments)
+              ? attachedDocuments
+                  .filter((document) => document?.filename)
+                  .map(
+                    (document) =>
+                      `<document-analyzed filename="${document.filename}" />`
+                  )
+              : []),
+          ].filter(Boolean).join("\n\n");
+          if (markers) {
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(markers)}\n`));
+          }
+          controller.enqueue(
+            encoder.encode(
+              `d:${JSON.stringify({
+                finishReason: "stop",
+                usage: { promptTokens: 0, completionTokens: 0 },
+              })}\n`
+            )
+          );
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Vercel-AI-Data-Stream": "v1",
+      },
+    }
+  );
+}
+
+async function streamOllamaCloudResponse({
+  model,
+  systemMessage,
+  initialMessages,
+  userMessage,
+  shouldSearch,
+  activeModel,
+  attachedDocuments,
+  abortSignal,
+}: {
+  model: string;
+  systemMessage: string;
+  initialMessages: { role: string; content: string }[];
+  userMessage: string;
+  shouldSearch: boolean;
+  activeModel: string | null;
+  attachedDocuments: { filename?: string }[] | undefined;
+  abortSignal: AbortSignal;
+}) {
+  const apiKey = process.env.OLLAMA_API_KEY;
+  if (!apiKey) throw new Error("Missing OLLAMA_API_KEY");
+
+  const ollamaCloud = createOllama({
+    baseURL: "https://ollama.com/api",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+    },
+  });
+  const result = streamText({
+    model: ollamaCloud.chat(model),
+    system: systemMessage,
+    messages: [
+      ...initialMessages.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+      { role: "user", content: userMessage },
+    ] as CoreMessage[],
+    abortSignal,
+  });
+  const encoder = new TextEncoder();
+
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const token of result.textStream) {
+            if (token) {
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
+            }
+          }
+          const markers = [
+            `<think>Ollama Cloud Max reasoned through the request before drafting the response.</think>`,
             shouldSearch ? `<web-search-used model="${activeModel}" />` : "",
             ...(Array.isArray(attachedDocuments)
               ? attachedDocuments

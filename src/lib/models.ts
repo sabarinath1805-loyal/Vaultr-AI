@@ -17,14 +17,15 @@ export interface GroqModel {
   id: string;
   name: string;
   groqId: string;
-  provider: "groq" | "gemini";
+  provider: "groq" | "gemini" | "ollama-cloud";
   badge: string;
   color: string;
   description: string;
 }
 
 export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
-export const GEMINI_MAX_MODEL = "gemini-2.5-flash";
+export const GEMINI_MAX_MODEL = "gemini-3-flash-preview";
+export const OLLAMA_CLOUD_MAX_MODEL = "gpt-oss:120b";
 
 export const GROQ_MODELS: GroqModel[] = [
   {
@@ -62,6 +63,15 @@ export const GROQ_MODELS: GroqModel[] = [
     badge: "Max",
     color: "#9A6BFF",
     description: "Maximum quality. 1M context for very long contracts.",
+  },
+  {
+    id: "ollama-cloud-max",
+    name: "Lex Max",
+    groqId: OLLAMA_CLOUD_MAX_MODEL,
+    provider: "ollama-cloud",
+    badge: "Max",
+    color: "#1a1916",
+    description: "Ollama Cloud reasoning for very large legal analysis.",
   },
 ];
 
@@ -138,8 +148,20 @@ export function isGeminiModel(modelId: string | null | undefined): boolean {
   );
 }
 
+export function isOllamaCloudModel(modelId: string | null | undefined): boolean {
+  return !!modelId && GROQ_MODELS.some(
+    (model) => model.provider === "ollama-cloud" && model.groqId === modelId
+  );
+}
+
 export function groqIdToLexName(groqId: string): string {
   return GROQ_MODELS.find((model) => model.groqId === groqId)?.name || "Lex Core";
+}
+
+export function getCloudProviderLabel(provider: GroqModel["provider"]) {
+  if (provider === "gemini") return "Google";
+  if (provider === "ollama-cloud") return "Ollama Cloud";
+  return "Groq";
 }
 
 export function getModelDisplayMetadata(modelId: string) {
@@ -150,7 +172,7 @@ export function getModelDisplayMetadata(modelId: string) {
       color: groqModel.color,
       name: groqModel.name,
       modelId: groqModel.groqId,
-      provider: groqModel.provider === "gemini" ? "Google" : "Groq",
+      provider: getCloudProviderLabel(groqModel.provider),
     };
   }
 
