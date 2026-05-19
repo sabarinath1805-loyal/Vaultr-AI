@@ -195,3 +195,15 @@ html[data-theme="dark"] {
 ::-webkit-scrollbar-thumb:hover {
   background-color: var(--text-faint);
 }
+
+@keyframes reasoningSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reasoning-spinner {
+  border: 2px solid var(--border);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: reasoningSpin 0.8s linear infinite;
+}

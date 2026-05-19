@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { groqIdToLexName, ollamaIdToLexName } from "@/lib/models";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
+import { ReasoningTimeline, parseReasoningSteps } from "@/components/chat/reasoning-timeline";
 
 function LexAvatar() {
   return (
@@ -31,16 +32,24 @@ function LexAvatar() {
 
 export function LexThinkingIndicator({ phase }: { phase: "thinking" | "streaming" }) {
   return (
-    <div className="relative min-h-[64px] w-full">
-      <div
-        className={`absolute inset-0 flex items-center gap-3 transition-opacity duration-300 ${
-          phase === "thinking" ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <LexAvatar />
-        <span className="text-[13px] text-[var(--text-muted)]">
-          ✳ Lex is thinking...
-        </span>
+    <div
+      className={`w-full transition-opacity duration-300 ${
+        phase === "thinking" ? "opacity-100" : "opacity-0"
+      }`}
+      data-testid="thinking-timeline"
+    >
+      <div className="flex gap-2.5 pb-2.5">
+        <div className="flex flex-col items-center pt-[3px]">
+          <span className="reasoning-spinner inline-block h-[14px] w-[14px]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14px] font-normal leading-tight text-[var(--text-primary)]">
+            Assessing query
+          </div>
+          <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-muted)]">
+            Analyzing the legal question
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -84,12 +93,39 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
     };
   }, [message.content, message.role]);
   const shouldShowReasoning = Boolean(thinkContent && cleanContent.length >= 100);
+  const hasAttachedDocument = Boolean(
+    message.attachedDocuments && message.attachedDocuments.length > 0
+  );
   const webSearchMatch = message.content.match(/<web-search-used(?:\s+model="([^"]+)")?\s*\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchModel = webSearchMatch?.[1]
     ? groqIdToLexName(webSearchMatch[1]) || ollamaIdToLexName(webSearchMatch[1])
     : "Lex";
   const documentAnalyzed = Array.from(message.content.matchAll(/<document-analyzed\s+filename="([^"]+)"\s*\/>/g));
+  const searchDomains = useMemo(() => {
+    const domains: string[] = [];
+    const urlMatches = message.content.match(/(?:site:)([\w.]+)/g);
+    if (urlMatches) {
+      urlMatches.forEach((m) => domains.push(m.replace("site:", "")));
+    }
+    if (webSearchUsed && domains.length === 0) {
+      domains.push("Web search");
+    }
+    return domains;
+  }, [message.content, webSearchUsed]);
+  const reasoningSteps = useMemo(
+    () =>
+      shouldShowReasoning
+        ? parseReasoningSteps(
+            thinkContent,
+            hasAttachedDocument,
+            webSearchUsed,
+            searchDomains,
+            Boolean(isLoading && isLast)
+          )
+        : [],
+    [thinkContent, hasAttachedDocument, webSearchUsed, searchDomains, isLoading, isLast, shouldShowReasoning]
+  );
   const markdownComponents: Components = {
     h1: ({ children }) => (
       <h1 className="mb-3 mt-5 text-[22px] font-semibold leading-tight text-[var(--text-primary)]">
@@ -285,25 +321,10 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
         <div className="w-full">
           <div className="min-w-0 text-[15px] leading-[1.75]">
             {shouldShowReasoning && (
-              <div className="mb-3">
-                <button
-                  type="button"
-                  onClick={() => setThinkingOpen((open) => !open)}
-                  className="flex items-center gap-1 text-[12px] font-medium text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-muted)]"
-                >
-                  <ChevronRight
-                    className={`h-3.5 w-3.5 transition-transform ${
-                      thinkingOpen ? "rotate-90" : ""
-                    }`}
-                  />
-                  Lex reasoned
-                </button>
-                {thinkingOpen && (
-                  <div className="mt-2 border-l-2 border-[var(--border-tertiary)] pl-3 text-[13px] italic leading-relaxed text-[var(--text-secondary)] transition-all duration-200">
-                    <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{thinkContent}</Markdown>
-                  </div>
-                )}
-              </div>
+              <ReasoningTimeline
+                steps={reasoningSteps}
+                visible={true}
+              />
             )}
             {message.experimental_attachments?.some((attachment) =>
               attachment.contentType?.startsWith("image/")
