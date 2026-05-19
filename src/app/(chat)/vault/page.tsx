@@ -78,12 +78,21 @@ export default function VaultPage() {
   }, []);
 
   useEffect(() => {
-    fetch("/api/scan-reports")
-      .then((response) => (response.ok ? response.json() : { reports: [] }))
-      .then((data: { reports?: ScanReportEntry[] }) => {
-        setScanReports(Array.isArray(data.reports) ? data.reports : []);
-      })
-      .catch(() => setScanReports([]));
+    const loadScanReports = () => {
+      fetch("/api/scan-reports")
+        .then((response) => (response.ok ? response.json() : { reports: [] }))
+        .then((data: { reports?: ScanReportEntry[] }) => {
+          setScanReports(Array.isArray(data.reports) ? data.reports : []);
+        })
+        .catch(() => setScanReports([]));
+    };
+
+    loadScanReports();
+    window.addEventListener("vaultr-scan-reports-updated", loadScanReports);
+
+    return () => {
+      window.removeEventListener("vaultr-scan-reports-updated", loadScanReports);
+    };
   }, []);
 
   return (
