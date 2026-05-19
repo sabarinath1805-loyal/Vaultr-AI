@@ -52,10 +52,12 @@ export default function ContractScannerPage() {
   const scanningStep = useChatStore((state) => state.scanningStep);
   const analysis = useChatStore((state) => state.scanResult);
   const isScanning = useChatStore((state) => state.isScanning);
+  const scanStartedAt = useChatStore((state) => state.scanStartedAt);
   const setScanProgress = useChatStore((state) => state.setScanProgress);
   const setScanningStep = useChatStore((state) => state.setScanningStep);
   const setAnalysis = useChatStore((state) => state.setScanResult);
   const setIsScanning = useChatStore((state) => state.setIsScanning);
+  const setScanStartedAt = useChatStore((state) => state.setScanStartedAt);
 
   useEffect(() => {
     if (cloudMode || hasForcedCloudMode.current) return;
@@ -108,7 +110,8 @@ export default function ContractScannerPage() {
       return;
     }
 
-    const startedAt = Date.now();
+    const startedAt = scanStartedAt || Date.now();
+    if (!scanStartedAt) setScanStartedAt(startedAt);
     const stepInterval = window.setInterval(() => {
       const elapsed = Date.now() - startedAt;
       const stepIndex = Math.floor(elapsed / 6000) % scanningSteps.length;
@@ -126,7 +129,7 @@ export default function ContractScannerPage() {
     };
     // Progress writes are driven only by isScanning. The progress/scanning values
     // being updated are intentionally excluded so the interval cannot recreate itself.
-  }, [isScanning, setScanProgress, setScanningStep]);
+  }, [isScanning, scanStartedAt, setScanProgress, setScanStartedAt, setScanningStep]);
 
   const handleFileSelected = (selectedFile: File) => {
     setAnalysis(null);
@@ -145,6 +148,7 @@ export default function ContractScannerPage() {
     if (!file) return;
 
     setIsScanning(true);
+    setScanStartedAt(Date.now());
     setError(null);
     setScanningStep(scanningSteps[0]);
     setScanProgress(0);
@@ -175,8 +179,8 @@ export default function ContractScannerPage() {
       }
 
       setAnalysis(data.analysis);
-      const counts = getRiskCounts(data.analysis.clauses);
-      await fetch("/api/scan-reports", {
+      const counts = getRiskCounts(Array.isArray(data.analysis?.clauses) ? data.analysis.clauses : []);
+      const saveResponse = await fetch("/api/scan-reports", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -185,9 +189,11 @@ export default function ContractScannerPage() {
           high_count: counts.high,
           medium_count: counts.medium,
           standard_count: counts.standard,
-          report_json: JSON.stringify(data.analysis),
+          report: data.analysis,
         }),
       });
+      if (!saveResponse.ok) throw new Error("save scan report failed");
+      window.dispatchEvent(new Event("vaultr-scan-reports-updated"));
       toast.success("Report saved to Vault", {
         action: {
           label: "Open Vault",
@@ -197,10 +203,12 @@ export default function ContractScannerPage() {
         },
       });
       setScanProgress(100);
+      setScanStartedAt(null);
     } catch (error) {
       console.error("Contract scan failed", error);
       setError("Lex is unavailable. Check your internet connection and try again.");
       setScanProgress(0);
+      setScanStartedAt(null);
     } finally {
       setIsScanning(false);
     }
