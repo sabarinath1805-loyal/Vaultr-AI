@@ -81,7 +81,7 @@ export const LEX_MODELS: LexModel[] = [
     tierId: "flash",
     tierName: "Lex Flash",
     name: "Lex Flash",
-    ollamaId: "qwen3:4b",
+    ollamaId: "gemma4:e4b",
     badge: "Flash",
     color: "#1D9E75",
     ramRequired: "16GB RAM · 2.6GB",
@@ -95,11 +95,11 @@ export const LEX_MODELS: LexModel[] = [
     tierId: "core",
     tierName: "Lex Core",
     name: "Lex Core",
-    ollamaId: "qwen3:8b",
+    ollamaId: "phi4-mini",
     badge: "Core",
     color: "#378ADD",
-    ramRequired: "16GB RAM · 5GB",
-    description: "Best all-round local model for 16GB Macs.",
+    ramRequired: "16GB RAM · 3.8GB",
+    description: "Best reasoning per GB. Ideal for most legal queries.",
     speed: 85,
     reasoning: 72,
     legalDepth: 68,
@@ -113,7 +113,7 @@ export const LEX_MODELS: LexModel[] = [
     badge: "Pro",
     color: "#7F77DD",
     ramRequired: "16GB RAM · 5GB",
-    description: "Chain-of-thought reasoning for complex contracts.",
+    description: "Chain-of-thought reasoning. Shows full thinking process for complex contracts.",
     speed: 70,
     reasoning: 80,
     legalDepth: 78,
@@ -223,8 +223,8 @@ export function sortModelsByLexOrder(modelIds: string[]): string[] {
 }
 
 export const THINKING_CAPABLE_MODEL_IDS = [
-  "qwen3:4b",
-  "qwen3:8b",
+  "gemma4:e4b",
+  "phi4-mini",
   "deepseek-r1:7b",
 ];
 
