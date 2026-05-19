@@ -335,14 +335,18 @@ async function streamGeminiResponse({
     new ReadableStream({
       async start(controller) {
         try {
+          let reasoningContent = "";
           for await (const chunk of result.stream) {
-            const token = chunk.text();
-            if (token) {
-              controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
-            }
+            const { text, reasoning } = parseGeminiChunk(chunk);
+            if (reasoning) reasoningContent += reasoning;
+            if (text) controller.enqueue(encoder.encode(`0:${JSON.stringify(text)}\n`));
+          }
+          if (!reasoningContent.trim()) {
+            const finalResponse = await result.response;
+            reasoningContent = extractGeminiReasoning(finalResponse);
           }
           const markers = [
-            `<think>Gemini Max reasoned through the request using its long-context model before drafting the response.</think>`,
+            formatThinkBlock(reasoningContent),
             shouldSearch ? `<web-search-used model="${activeModel}" />` : "",
             ...(Array.isArray(attachedDocuments)
               ? attachedDocuments
@@ -425,13 +429,17 @@ async function streamOllamaCloudResponse({
     new ReadableStream({
       async start(controller) {
         try {
-          for await (const token of result.textStream) {
-            if (token) {
-              controller.enqueue(encoder.encode(`0:${JSON.stringify(token)}\n`));
+          for await (const part of result.fullStream) {
+            if (part.type === "reasoning" && part.textDelta) {
+              controller.enqueue(
+                encoder.encode(`0:${JSON.stringify(`<think>${part.textDelta}</think>`)}\n`)
+              );
+            }
+            if (part.type === "text-delta" && part.textDelta) {
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(part.textDelta)}\n`));
             }
           }
           const markers = [
-            `<think>Ollama Cloud Max reasoned through the request before drafting the response.</think>`,
             shouldSearch ? `<web-search-used model="${activeModel}" />` : "",
             ...(Array.isArray(attachedDocuments)
               ? attachedDocuments
@@ -466,6 +474,58 @@ async function streamOllamaCloudResponse({
       },
     }
   );
+}
+
+function parseGeminiChunk(chunk: unknown) {
+  const reasoning = extractGeminiReasoning(chunk);
+  const text = getGeminiVisibleText(chunk);
+  return { text, reasoning };
+}
+
+function getGeminiVisibleText(chunk: unknown) {
+  const structuredText = extractGeminiText(chunk, false);
+  if (structuredText) return structuredText;
+  if (isGeminiResponseWithText(chunk)) return chunk.text();
+  return "";
+}
+
+function extractGeminiReasoning(response: unknown) {
+  return extractGeminiText(response, true).trim();
+}
+
+function extractGeminiText(response: unknown, thought: boolean) {
+  if (!isRecord(response)) return "";
+  const candidates = response.candidates;
+  if (!Array.isArray(candidates)) return "";
+
+  return candidates
+    .flatMap((candidate) => {
+      if (!isRecord(candidate)) return [];
+      const content = candidate.content;
+      if (!isRecord(content)) return [];
+      const parts = content.parts;
+      if (!Array.isArray(parts)) return [];
+      return parts
+        .filter((part) => isRecord(part) && typeof part.text === "string")
+        .filter((part) => Boolean(part.thought) === thought)
+        .map((part) => String(part.text));
+    })
+    .join("");
+}
+
+function formatThinkBlock(content: string) {
+  const trimmed = content.trim();
+  return trimmed ? `<think>${trimmed}</think>` : "";
+}
+
+function isGeminiResponseWithText(
+  value: unknown
+): value is { text: () => string } {
+  return isRecord(value) && typeof value.text === "function";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function flushSseToken(

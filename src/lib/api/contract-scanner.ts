@@ -7,12 +7,23 @@ import {
   patchPredatoryClauseFindings,
 } from "@/lib/contract-scanner";
 import { LEX_SYSTEM_PROMPT } from "@/lib/lex";
-import { GROQ_DEFAULT_MODEL } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, getDefaultModel, isLexModel } from "@/lib/models";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 export async function scanContractFormData(formData: FormData) {
   const file = formData.get("file");
+  const mode = formData.get("mode") === "private" ? "private" : "cloud";
+  const requestedModel = formData.get("model");
+  const selectedModel =
+    typeof requestedModel === "string" && isLexModel(requestedModel)
+      ? requestedModel
+      : getDefaultModel().ollamaId;
+  const requestedOllamaUrl = formData.get("ollamaUrl");
+  const ollamaUrl =
+    typeof requestedOllamaUrl === "string" && requestedOllamaUrl.trim()
+      ? requestedOllamaUrl.trim()
+      : process.env.OLLAMA_URL || "http://localhost:11434";
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -28,16 +39,17 @@ export async function scanContractFormData(formData: FormData) {
   try {
     const contractText = await extractText(file);
     const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await fetch(mode === "private" ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        ...(mode === "private" ? {} : { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }),
       },
       body: JSON.stringify({
-        model: GROQ_DEFAULT_MODEL,
+        model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
         stream: false,
-        response_format: { type: "json_object" },
+        ...(mode === "cloud" ? { response_format: { type: "json_object" } } : {}),
+        ...(mode === "private" ? { format: "json" } : {}),
         messages: [
           { role: "system", content: LEX_SYSTEM_PROMPT },
           { role: "user", content: prompt },
@@ -47,13 +59,19 @@ export async function scanContractFormData(formData: FormData) {
     const responseBody = await response.text();
 
     if (!response.ok) {
-      console.error("Contract scanner Groq error response", {
-        model: GROQ_DEFAULT_MODEL,
+      console.error("Contract scanner model error response", {
+        mode,
+        model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
         status: response.status,
         body: responseBody,
       });
       return NextResponse.json(
-        { error: "Lex is unavailable. Check your internet connection and try again." },
+        {
+          error:
+            mode === "private"
+              ? "Lex is unavailable. Make sure Ollama is running and try again."
+              : "Lex is unavailable. Check your internet connection and try again.",
+        },
         { status: 503 }
       );
     }
@@ -62,8 +80,9 @@ export async function scanContractFormData(formData: FormData) {
     const responseText = getOpenAiResponseText(payload);
 
     if (!responseText) {
-      console.error("Contract scanner empty Groq response", {
-        model: GROQ_DEFAULT_MODEL,
+      console.error("Contract scanner empty model response", {
+        mode,
+        model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
         body: responseBody,
       });
       return NextResponse.json(
@@ -80,7 +99,8 @@ export async function scanContractFormData(formData: FormData) {
     });
   } catch (error) {
     console.error("Contract scanner API error", {
-      model: GROQ_DEFAULT_MODEL,
+      mode,
+      model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
       error,
     });
     if (error instanceof SyntaxError) {
@@ -91,7 +111,12 @@ export async function scanContractFormData(formData: FormData) {
     }
 
     return NextResponse.json(
-      { error: "Lex is unavailable. Check your internet connection and try again." },
+      {
+        error:
+          mode === "private"
+            ? "Lex is unavailable. Make sure Ollama is running and try again."
+            : "Lex is unavailable. Check your internet connection and try again.",
+      },
       { status: 503 }
     );
   }
