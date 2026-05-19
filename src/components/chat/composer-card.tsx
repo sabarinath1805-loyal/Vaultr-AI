@@ -242,7 +242,7 @@ export function ComposerCard({
 
   const switchMode = async () => {
     if (!cloudMode) {
-      setCloudMode(true, GROQ_DEFAULT_MODEL);
+      setCloudMode(true, selectedModel || GROQ_DEFAULT_MODEL);
       return;
     }
 

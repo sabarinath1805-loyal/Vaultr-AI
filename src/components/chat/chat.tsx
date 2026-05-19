@@ -144,17 +144,20 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     .replace(/<document-analyzed[^>]*\/>/g, "")
     .trim().length;
   const assistantHasDisplayableContent = assistantVisibleContentLength > 30;
+  const localThinkingComplete = usePrivacyMode
+    ? assistantVisibleContentLength > 30
+    : assistantHasDisplayableContent;
 
   React.useEffect(() => {
-    if (thinkingPhase === "idle" || !assistantHasDisplayableContent) return;
+    if (thinkingPhase === "idle" || !localThinkingComplete) return;
     markFirstTokenArrived();
     const nextPhase = usePrivacyMode || groqThinkingMinimumMet ? "streaming" : "thinking";
     setThinkingPhase((current) => (current === nextPhase ? current : nextPhase));
     // This effect watches primitive readiness flags rather than the streaming
     // messages array; the guarded setter only advances thinking -> streaming once.
   }, [
-    assistantHasDisplayableContent,
     groqThinkingMinimumMet,
+    localThinkingComplete,
     markFirstTokenArrived,
     thinkingPhase,
     usePrivacyMode,
