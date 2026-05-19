@@ -13,6 +13,7 @@ import { GROQ_DEFAULT_MODEL } from "@/lib/models";
 import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+type ScannerMode = "cloud" | "private";
 const scanningSteps = [
   "Reading document...",
   "Extracting key clauses...",
@@ -33,6 +34,7 @@ const scanningSteps = [
 ];
 
 export default function ContractScannerPage() {
+  const [scannerMode, setScannerMode] = useState<ScannerMode>("cloud");
   const [slowScan, setSlowScan] = useState(false);
   const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
   const hasForcedCloudMode = useRef(false);
@@ -43,6 +45,9 @@ export default function ContractScannerPage() {
   const reset = useContractScannerStore((state) => state.reset);
   const cloudMode = useChatStore((state) => state.cloudMode);
   const setCloudMode = useChatStore((state) => state.setCloudMode);
+  const selectedModel = useChatStore((state) => state.selectedModel);
+  const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
+  const ollamaUrl = useChatStore((state) => state.ollamaUrl);
   const scanProgress = useChatStore((state) => state.scanProgress);
   const scanningStep = useChatStore((state) => state.scanningStep);
   const analysis = useChatStore((state) => state.scanResult);
@@ -148,6 +153,11 @@ export default function ContractScannerPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("mode", scannerMode);
+      if (scannerMode === "private") {
+        formData.append("model", selectedModel || defaultModelPreference);
+        formData.append("ollamaUrl", ollamaUrl);
+      }
 
       const response = await fetch("/api/contract-scanner", {
         method: "POST",
@@ -205,7 +215,7 @@ export default function ContractScannerPage() {
           </h1>
           <p className="mt-2 max-w-[600px] text-sm leading-[1.6] text-[var(--text-muted)]">
             Upload any contract and Lex will identify risks, flag problem clauses, and give you
-            negotiation recommendations using Cloud Mode for faster, more accurate analysis.
+            negotiation recommendations using Cloud Mode or fully private local analysis.
           </p>
         </div>
       </div>
@@ -222,20 +232,70 @@ export default function ContractScannerPage() {
           }}
         />
       ) : (
-        <UploadZone
-          file={file}
-          error={error}
-          isScanning={isScanning}
-          scanningMessage={
-            slowScan
-              ? "Still scanning... large documents can take a few minutes."
-              : scanningStep
-          }
-          scanProgress={scanProgress}
-          onFileSelected={handleFileSelected}
-          onRemoveFile={() => setFile(null)}
-          onScan={scanContract}
-        />
+        <>
+          <div className="px-6 pb-4">
+            <div className="grid gap-3 rounded-[var(--radius-lg)] border border-[var(--border)] bg-[var(--sidebar-bg)] p-3 md:grid-cols-2">
+              {[
+                {
+                  id: "cloud" as ScannerMode,
+                  title: "☁️ Cloud Mode",
+                  description: "Uses Groq llama-3.3-70b-versatile for fast analysis.",
+                  time: "~15 seconds",
+                  note: "Processed by Groq. Zero data retention.",
+                },
+                {
+                  id: "private" as ScannerMode,
+                  title: "🔒 Private Mode",
+                  description: "Uses your currently installed local Ollama model.",
+                  time: "~2-5 minutes depending on your model",
+                  note: "Your document never leaves your device.",
+                },
+              ].map((option) => {
+                const active = scannerMode === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => setScannerMode(option.id)}
+                    className={`rounded-[var(--radius-md)] border p-4 text-left transition-colors ${
+                      active
+                        ? "border-[#1a1916] bg-[var(--bg)]"
+                        : "border-[var(--border)] bg-transparent hover:bg-[var(--surface)]"
+                    }`}
+                    aria-pressed={active}
+                  >
+                    <div className="text-sm font-medium text-[var(--text)]">{option.title}</div>
+                    <div className="mt-1 text-[13px] leading-[1.5] text-[var(--text-muted)]">
+                      {option.description}
+                    </div>
+                    <div className="mt-2 text-[12px] font-medium text-[var(--text)]">
+                      {option.time}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[13px] text-[var(--text-muted)]">
+              {scannerMode === "private"
+                ? "Your document never leaves your device."
+                : "Processed by Groq. Zero data retention."}
+            </div>
+          </div>
+          <UploadZone
+            file={file}
+            error={error}
+            isScanning={isScanning}
+            scanningMessage={
+              slowScan
+                ? "Still scanning... large documents can take a few minutes."
+                : scanningStep
+            }
+            scanProgress={scanProgress}
+            onFileSelected={handleFileSelected}
+            onRemoveFile={() => setFile(null)}
+            onScan={scanContract}
+          />
+        </>
       )}
       {analysis && (
         <div className="px-6 pb-8">
