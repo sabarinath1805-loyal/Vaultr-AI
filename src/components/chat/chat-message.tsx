@@ -55,11 +55,14 @@ export type ChatMessageProps = {
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
+  onEditMessage: (messageId: string, content: string) => void;
 };
 
-function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
+function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draftContent, setDraftContent] = useState(message.content);
   const router = useRouter();
 
   const { thinkContent, cleanContent } = useMemo(() => {
@@ -152,23 +155,65 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
   if (message.role === "user") {
     return (
       <div className="message animate-message-in mb-4 ml-auto flex w-full flex-col items-end">
-        <div
-          data-testid="user-message"
-          style={{
-            borderRadius: "20px",
-            backgroundColor: "#3d3b38",
-            color: "#ffffff",
-            padding: "12px 16px",
-            maxWidth: "70%",
-            alignSelf: "flex-end",
-            fontFamily: "'Sora', -apple-system, sans-serif",
-            fontSize: "14px",
-            lineHeight: "1.6",
-            wordBreak: "break-word",
-          }}
-        >
-          {message.content}
-        </div>
+        {editing ? (
+          <form
+            className="w-full max-w-[70%]"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const nextContent = draftContent.trim();
+              if (!nextContent || nextContent === message.content) {
+                setEditing(false);
+                setDraftContent(message.content);
+                return;
+              }
+              setEditing(false);
+              onEditMessage(message.id, nextContent);
+            }}
+          >
+            <textarea
+              value={draftContent}
+              onChange={(event) => setDraftContent(event.target.value)}
+              className="min-h-[96px] w-full resize-y rounded-[20px] bg-[#3d3b38] px-4 py-3 text-sm leading-[1.6] text-white outline-none ring-1 ring-white/20 focus:ring-white/40"
+              autoFocus
+            />
+            <div className="mt-1 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(false);
+                  setDraftContent(message.content);
+                }}
+                className="rounded-[var(--radius-sm)] px-3 py-1 text-[11px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-1 text-[11px] font-medium text-[var(--bg-primary)] hover:opacity-90"
+              >
+                Save & regenerate
+              </button>
+            </div>
+          </form>
+        ) : (
+          <div
+            data-testid="user-message"
+            style={{
+              borderRadius: "20px",
+              backgroundColor: "#3d3b38",
+              color: "#ffffff",
+              padding: "12px 16px",
+              maxWidth: "70%",
+              alignSelf: "flex-end",
+              fontFamily: "'Sora', -apple-system, sans-serif",
+              fontSize: "14px",
+              lineHeight: "1.6",
+              wordBreak: "break-word",
+            }}
+          >
+            {message.content}
+          </div>
+        )}
         {message.attachedDocuments && message.attachedDocuments.length > 0 && (
           <div className="mt-1 flex max-w-[70%] flex-wrap justify-end gap-1.5">
             {message.attachedDocuments.map((document) => (
@@ -198,7 +243,15 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
               <RefreshCcw className="h-3.5 w-3.5" />
             </button>
           )}
-          <button type="button" className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]" aria-label="Edit message">
+          <button
+            type="button"
+            onClick={() => {
+              setDraftContent(message.content);
+              setEditing(true);
+            }}
+            className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+            aria-label="Edit message"
+          >
             <Edit3 className="h-3.5 w-3.5" />
           </button>
           <button type="button" onClick={handleCopy} className="text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]" aria-label="Copy message">

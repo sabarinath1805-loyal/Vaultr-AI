@@ -5,6 +5,7 @@ import { persist } from "zustand/middleware";
 import { generateUUID } from "@/lib/utils";
 import type { LocalDocument, LocalProject } from "@/lib/local-documents";
 import { getFileType } from "@/lib/local-documents";
+import { toast } from "sonner";
 
 interface LocalVaultState {
   documents: LocalDocument[];
@@ -24,7 +25,20 @@ const useLocalVaultStore = create<LocalVaultState>()(
       documents: [],
       projects: [],
       addDocuments: (files, projectId = null) => {
-        const docs = files.map((file) => ({
+        const existingFilenames = new Set(
+          get().documents.map((doc) => doc.filename.toLowerCase())
+        );
+        const uniqueFiles = files.filter((file) => {
+          const filename = file.name.toLowerCase();
+          if (existingFilenames.has(filename)) {
+            toast.info("This document is already in your Vault.");
+            return false;
+          }
+          existingFilenames.add(filename);
+          return true;
+        });
+
+        const docs = uniqueFiles.map((file) => ({
           id: generateUUID(),
           filename: file.name,
           fileType: getFileType(file.name),
@@ -33,7 +47,7 @@ const useLocalVaultStore = create<LocalVaultState>()(
           createdAt: new Date().toISOString(),
         }));
 
-        files.forEach((file, index) => {
+        uniqueFiles.forEach((file, index) => {
           const reader = new FileReader();
           reader.onload = () => {
             const result = typeof reader.result === "string" ? reader.result : "";
@@ -48,21 +62,23 @@ const useLocalVaultStore = create<LocalVaultState>()(
           reader.readAsDataURL(file);
         });
 
-        set((state) => ({
-          documents: [...docs, ...state.documents],
-          projects: projectId
-            ? state.projects.map((project) =>
-                project.id === projectId
-                  ? {
-                      ...project,
-                      documentIds: Array.from(
-                        new Set([...project.documentIds, ...docs.map((doc) => doc.id)])
-                      ),
-                    }
-                  : project
-              )
-            : state.projects,
-        }));
+        if (docs.length > 0) {
+          set((state) => ({
+            documents: [...docs, ...state.documents],
+            projects: projectId
+              ? state.projects.map((project) =>
+                  project.id === projectId
+                    ? {
+                        ...project,
+                        documentIds: Array.from(
+                          new Set([...project.documentIds, ...docs.map((doc) => doc.id)])
+                        ),
+                      }
+                    : project
+                )
+              : state.projects,
+          }));
+        }
 
         return docs;
       },

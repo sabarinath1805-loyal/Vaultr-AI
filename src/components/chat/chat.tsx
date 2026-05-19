@@ -144,9 +144,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     .replace(/<document-analyzed[^>]*\/>/g, "")
     .trim().length;
   const assistantHasDisplayableContent = assistantVisibleContentLength > 30;
-  const localThinkingComplete = usePrivacyMode
-    ? assistantVisibleContentLength > 30
-    : assistantHasDisplayableContent;
+  const localThinkingComplete = assistantVisibleContentLength > 30;
   const thinkingVisible = thinkingPhase !== "idle" && assistantVisibleContentLength <= 30;
 
   React.useEffect(() => {
@@ -185,7 +183,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     type ChatRequestBody = {
       workflow?: AttachedWorkflow | null;
       workflowPrompt?: string;
-      webSearch?: boolean;
       thinking?: boolean;
       thinkingMode?: boolean;
       ollamaUrl?: string;
@@ -202,7 +199,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
     const requestBody = options?.body as ChatRequestBody | undefined;
     const workflow = (requestBody?.workflow || pendingWorkflow) as AttachedWorkflow | null;
-    const webSearch = requestBody?.webSearch;
     const thinking = requestBody?.thinking === true;
 
     if (usePrivacyMode && !isLexModel(selectedModel)) {
@@ -259,7 +255,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         workflow,
         workflowPrompt: workflow?.prompt,
         attachedDocuments: requestBody?.attachedDocuments || [],
-        ...(typeof webSearch === "boolean" ? { webSearch } : {}),
         thinking,
         thinkingMode: thinking,
         usePrivacyMode,
@@ -288,6 +283,34 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setMessages(updatedMessages);
     void saveMessages(id, updatedMessages);
     return updatedMessages;
+  };
+
+  const handleEditMessage = async (messageId: string, content: string) => {
+    const messageIndex = messages.findIndex((message) => message.id === messageId);
+    if (messageIndex < 0) return;
+
+    const updatedUserMessage: Message = {
+      ...messages[messageIndex],
+      content,
+      createdAt: new Date(),
+    };
+    const retryMessages = [
+      ...messages.slice(0, messageIndex),
+      updatedUserMessage,
+    ];
+
+    setMessages(retryMessages);
+    await saveMessages(id, retryMessages);
+    setLoadingSubmit(true);
+    beginThinking();
+    await append(updatedUserMessage, {
+      body: {
+        selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+        workflowPrompt: pendingWorkflow?.prompt,
+        usePrivacyMode,
+        messages: retryMessages,
+      },
+    });
   };
 
   const handleStop = () => {
@@ -350,6 +373,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             messages={messages}
             isLoading={isLoading}
             thinkingPhase={thinkingVisible ? "thinking" : "idle"}
+            onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();
 
