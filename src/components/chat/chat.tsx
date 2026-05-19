@@ -147,6 +147,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const localThinkingComplete = usePrivacyMode
     ? assistantVisibleContentLength > 30
     : assistantHasDisplayableContent;
+  const thinkingVisible = thinkingPhase !== "idle" && assistantVisibleContentLength <= 30;
 
   React.useEffect(() => {
     if (thinkingPhase === "idle" || !localThinkingComplete) return;
@@ -348,7 +349,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           <ChatList
             messages={messages}
             isLoading={isLoading}
-            thinkingPhase={thinkingPhase}
+            thinkingPhase={thinkingVisible ? "thinking" : "idle"}
             reload={async () => {
               const retryMessages = removeLatestMessage();
 
