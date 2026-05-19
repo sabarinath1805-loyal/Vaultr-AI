@@ -38,7 +38,7 @@ export function LexThinkingIndicator({ phase }: { phase: "thinking" | "streaming
       >
         <LexAvatar />
         <span className="text-[13px] text-[var(--text-muted)]">
-          Lex is thinking...
+          ✳ Lex is thinking...
         </span>
       </div>
     </div>

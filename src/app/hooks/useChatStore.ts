@@ -1,7 +1,7 @@
 import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
-import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel } from "@/lib/models";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
@@ -448,7 +448,11 @@ const useChatStore = create<State & Actions>()(
               if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
               return currentState.cloudMode;
             })();
-            if (cloudMode) return GROQ_DEFAULT_MODEL;
+            if (cloudMode) {
+              return persisted.selectedModel && isCloudModel(persisted.selectedModel)
+                ? persisted.selectedModel
+                : GROQ_DEFAULT_MODEL;
+            }
             return persisted.selectedModel && isLexModel(persisted.selectedModel)
               ? persisted.selectedModel
               : currentState.selectedModel;
