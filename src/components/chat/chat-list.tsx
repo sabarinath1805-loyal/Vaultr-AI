@@ -8,6 +8,7 @@ interface ChatListProps {
   messages: Message[];
   isLoading: boolean;
   thinkingPhase: "idle" | "thinking" | "streaming";
+  onEditMessage: (messageId: string, content: string) => void;
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
@@ -17,6 +18,7 @@ export default function ChatList({
   messages,
   isLoading,
   thinkingPhase,
+  onEditMessage,
   reload,
 }: ChatListProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -49,6 +51,7 @@ export default function ChatList({
               message={message}
               isLast={index === messages.length - 1}
               isLoading={isLoading}
+              onEditMessage={onEditMessage}
               reload={reload}
             />
           ))}

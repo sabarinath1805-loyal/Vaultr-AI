@@ -24,6 +24,30 @@ const SEARCH_TRIGGERS = [
   "recent",
   "news",
   "today",
+  "current",
+  "regulation",
+  "regulations",
+  "notice",
+  "notices",
+  "case",
+  "cases",
+  "filing",
+  "procedure",
+  "procedures",
+  "form",
+  "forms",
+  "deadline",
+  "deadlines",
+];
+
+const NO_SEARCH_TRIGGERS = [
+  "definition",
+  "define",
+  "what is",
+  "explain",
+  "general principle",
+  "common law",
+  "settled law",
 ];
 
 const GEMINI_MODELS = ["gemini-3-flash-preview"];
@@ -35,7 +59,6 @@ export async function POST(req: Request) {
     data,
     workflow,
     attachedDocuments,
-    webSearch,
     thinkingMode,
     thinking,
     workflowPrompt,
@@ -72,12 +95,7 @@ export async function POST(req: Request) {
   const currentMessage = conversationMessages[conversationMessages.length - 1];
   const userMessage =
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
-  const shouldSearch =
-    !privacyMode &&
-    (webSearch === true ||
-      SEARCH_TRIGGERS.some((trigger) =>
-        userMessage.toLowerCase().includes(trigger)
-      ));
+  const shouldSearch = !privacyMode && shouldUseWebSearch(userMessage);
   const searchContext = shouldSearch
     ? await getWebSearchContext(userMessage)
     : "";
@@ -586,6 +604,18 @@ function isChatMessage(
     (candidate.role === "user" || candidate.role === "assistant") &&
     typeof candidate.content === "string"
   );
+}
+
+function shouldUseWebSearch(message: string) {
+  const normalized = message.toLowerCase();
+  if (
+    NO_SEARCH_TRIGGERS.some((trigger) => normalized.includes(trigger)) &&
+    !SEARCH_TRIGGERS.some((trigger) => normalized.includes(trigger))
+  ) {
+    return false;
+  }
+
+  return SEARCH_TRIGGERS.some((trigger) => normalized.includes(trigger));
 }
 
 const tokenFlushState: WeakMap<

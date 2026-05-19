@@ -193,15 +193,20 @@ export default function ContractScannerPage() {
         }),
       });
       if (!saveResponse.ok) throw new Error("save scan report failed");
+      const savedReport = await saveResponse.json();
       window.dispatchEvent(new Event("vaultr-scan-reports-updated"));
-      toast.success("Report saved to Vault", {
-        action: {
-          label: "Open Vault",
-          onClick: () => {
-            window.location.href = "/vault";
+      if (savedReport?.duplicate) {
+        toast.info("This document is already in your Vault.");
+      } else {
+        toast.success("Report saved to Vault", {
+          action: {
+            label: "Open Vault",
+            onClick: () => {
+              window.location.href = "/vault";
+            },
           },
-        },
-      });
+        });
+      }
       setScanProgress(100);
       setScanStartedAt(null);
     } catch (error) {

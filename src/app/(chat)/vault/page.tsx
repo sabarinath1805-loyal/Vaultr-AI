@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, FileText, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
+import { FileText, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { HeaderSearchBtn } from "@/components/shared/header-search-btn";
-import { ToolbarTabs } from "@/components/shared/toolbar-tabs";
 import { NewVaultModal } from "@/components/vault/new-vault-modal";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { useReturnDocumentsToComposer } from "@/components/vault/vault-route-bridge";
@@ -19,16 +18,7 @@ import {
 const CHECK_W = "w-8 shrink-0";
 const NAME_COL_W = "w-[300px] shrink-0";
 
-type Tab = "all" | "mine" | "shared-with-me";
-
-const tabs: { id: Tab; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "mine", label: "Mine" },
-  { id: "shared-with-me", label: "Shared with me" },
-];
-
 export default function VaultPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
   const [newVaultOpen, setNewVaultOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -38,6 +28,7 @@ export default function VaultPage() {
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
   const [scanReports, setScanReports] = useState<ScanReportEntry[]>([]);
+  const [openReportMenuId, setOpenReportMenuId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const documents = useLocalVaultStore((state) => state.documents);
@@ -65,6 +56,7 @@ export default function VaultPage() {
         return;
       }
       setOpenMenuId(null);
+      setOpenReportMenuId(null);
     };
     document.addEventListener("click", closeMenus);
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -94,6 +86,33 @@ export default function VaultPage() {
       window.removeEventListener("vaultr-scan-reports-updated", loadScanReports);
     };
   }, []);
+
+  const deleteScanReport = async (id: string) => {
+    await fetch(`/api/scan-reports?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    setScanReports((reports) => reports.filter((report) => report.id !== id));
+    setOpenReportMenuId(null);
+  };
+
+  const exportScanReportPdf = (report: ScanReportEntry) => {
+    const analysis = parseScanReportContent(report);
+    const printable = window.open("", "_blank");
+    if (!printable) return;
+    const clauses = analysis?.clauses || [];
+    printable.document.write(`
+      <html>
+        <head><title>${report.title}</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 32px;">
+          <h1>${report.title}</h1>
+          <p>${formatReportDate(report.date)} · ${getReportRiskSummary(report)}</p>
+          ${clauses.map((clause) => `<h2>${clause.title || "Clause"}</h2><p><strong>${clause.risk || "Risk"}</strong></p><p>${clause.issue || ""}</p>`).join("")}
+        </body>
+      </html>
+    `);
+    printable.document.close();
+    printable.focus();
+    printable.print();
+    setOpenReportMenuId(null);
+  };
 
   return (
     <main className="h-screen flex-1 overflow-y-auto bg-[var(--bg)]">
@@ -149,21 +168,6 @@ export default function VaultPage() {
         />
       ) : (
         <>
-          <ToolbarTabs
-            tabs={tabs}
-            active={activeTab}
-            onChange={setActiveTab}
-            actions={
-              <button
-                type="button"
-                className="flex items-center gap-1 text-xs font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
-              >
-                Actions
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
-            }
-          />
-
           <div className="w-full overflow-visible">
             <div className="min-w-max">
               <div className="flex h-8 items-center border-b border-[var(--border)] pr-8 text-xs font-medium text-[var(--text-muted)] select-none">
@@ -270,6 +274,10 @@ export default function VaultPage() {
           <ScanReportsSection
             reports={scanReports}
             onViewReport={(id) => router.push(`/contract-scanner?report=${id}`)}
+            openMenuId={openReportMenuId}
+            onToggleMenu={setOpenReportMenuId}
+            onDelete={deleteScanReport}
+            onExportPdf={exportScanReportPdf}
           />
         </>
       )}
@@ -336,9 +344,17 @@ function getReportRiskSummary(report: ScanReportEntry) {
 function ScanReportsSection({
   reports,
   onViewReport,
+  openMenuId,
+  onToggleMenu,
+  onDelete,
+  onExportPdf,
 }: {
   reports: ScanReportEntry[];
   onViewReport: (id: string) => void;
+  openMenuId: string | null;
+  onToggleMenu: (id: string | null) => void;
+  onDelete: (id: string) => void;
+  onExportPdf: (report: ScanReportEntry) => void;
 }) {
   if (reports.length === 0) return null;
 
@@ -371,13 +387,28 @@ function ScanReportsSection({
                 {formatReportDate(report.date)} · {getReportRiskSummary(report)}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => onViewReport(report.id)}
-              className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
-            >
-              View Report
-            </button>
+            <div className="relative" data-vault-actions>
+              <button
+                type="button"
+                onClick={() => onToggleMenu(openMenuId === report.id ? null : report.id)}
+                className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+              >
+                Actions
+              </button>
+              {openMenuId === report.id && (
+                <div className="absolute right-0 top-10 z-10 min-w-[160px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]">
+                  <button type="button" onClick={() => onViewReport(report.id)} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+                    View Report
+                  </button>
+                  <button type="button" onClick={() => onExportPdf(report)} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+                    Export as PDF
+                  </button>
+                  <button type="button" onClick={() => onDelete(report.id)} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--danger)] hover:bg-[var(--surface)]">
+                    Delete
+                  </button>
+                </div>
+              )}
+            </div>
           </article>
         ))}
       </div>
