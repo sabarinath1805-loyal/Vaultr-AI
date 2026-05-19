@@ -29,15 +29,6 @@ export const OLLAMA_CLOUD_MAX_MODEL = "gpt-oss:120b";
 
 export const GROQ_MODELS: GroqModel[] = [
   {
-    id: "groq-flash",
-    name: "Lex Flash",
-    groqId: "llama-3.1-8b-instant",
-    provider: "groq",
-    badge: "Flash",
-    color: "#1D9E75",
-    description: "Fastest. Instant responses for quick queries.",
-  },
-  {
     id: "groq-core",
     name: "Lex Core",
     groqId: GROQ_DEFAULT_MODEL,
@@ -57,12 +48,12 @@ export const GROQ_MODELS: GroqModel[] = [
   },
   {
     id: "gemini-max",
-    name: "Lex Max",
+    name: "Lex Ultra",
     groqId: GEMINI_MAX_MODEL,
     provider: "gemini",
-    badge: "Max",
+    badge: "Ultra",
     color: "#9A6BFF",
-    description: "Maximum quality. 1M context for very long contracts.",
+    description: "Google Gemini reasoning for long contract analysis.",
   },
   {
     id: "ollama-cloud-max",

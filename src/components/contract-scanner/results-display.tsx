@@ -54,6 +54,10 @@ const filterClasses: Record<RiskFilter, { active: string; inactive: string }> = 
   },
 };
 
+function normalizeRisk(risk: ContractRisk | undefined): ContractRisk {
+  return risk && riskClasses[risk] ? risk : "LOW";
+}
+
 function RiskBadge({ risk, large = false }: { risk: ContractRisk; large?: boolean }) {
   return (
     <span
@@ -72,23 +76,37 @@ export function ResultsDisplay({
   activeFilter,
   onFilterChange,
 }: ResultsDisplayProps) {
-  const clauses = sortClausesByRisk(analysis.clauses);
+  const clauses = sortClausesByRisk(
+    (Array.isArray(analysis.clauses) ? analysis.clauses : []).map((clause) => ({
+      ...clause,
+      risk: normalizeRisk(clause.risk),
+      title: clause.title || "Clause",
+      excerpt: clause.excerpt || "No excerpt returned.",
+      issue: clause.issue || "No issue returned.",
+      recommendation: clause.recommendation || "No recommendation returned.",
+    }))
+  );
+  const parties = Array.isArray(analysis.parties) ? analysis.parties : [];
+  const overallRisk = normalizeRisk(analysis.overall_risk);
+  const title = analysis.contract_title || "Contract Analysis";
+  const summary = analysis.summary || "No summary returned.";
   const filteredClauses = clauses.filter((clause) => {
+    const risk = normalizeRisk(clause.risk);
     if (activeFilter === "all") return true;
-    if (activeFilter === "high") return clause.risk === "CRITICAL" || clause.risk === "HIGH";
-    if (activeFilter === "medium") return clause.risk === "MEDIUM";
-    return clause.risk === "LOW";
+    if (activeFilter === "high") return risk === "CRITICAL" || risk === "HIGH";
+    if (activeFilter === "medium") return risk === "MEDIUM";
+    return risk === "LOW";
   });
   const counts = getRiskCounts(clauses);
-  const criticalCount = clauses.filter((clause) => clause.risk === "CRITICAL").length;
+  const criticalCount = clauses.filter((clause) => normalizeRisk(clause.risk) === "CRITICAL").length;
   const reportText = [
-    analysis.contract_title,
-    `Parties: ${analysis.parties.join(", ")}`,
-    `Overall risk: ${analysis.overall_risk}`,
-    analysis.summary,
+    title,
+    `Parties: ${parties.join(", ")}`,
+    `Overall risk: ${overallRisk}`,
+    summary,
     ...clauses.map(
       (clause) =>
-        `${clause.risk}: ${clause.title}\nIssue: ${clause.issue}\nRecommendation: ${clause.recommendation}`
+        `${normalizeRisk(clause.risk)}: ${clause.title}\nIssue: ${clause.issue}\nRecommendation: ${clause.recommendation}`
     ),
   ].join("\n\n");
 
@@ -98,18 +116,18 @@ export function ResultsDisplay({
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-[28px] font-normal text-[var(--text)]">
-              {analysis.contract_title}
+              {title}
             </h2>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
-              Between {analysis.parties.join(" and ")}
+              Between {parties.length > 0 ? parties.join(" and ") : "parties not identified"}
             </p>
           </div>
           <div className="shrink-0">
-            <RiskBadge risk={analysis.overall_risk} large />
+            <RiskBadge risk={overallRisk} large />
           </div>
         </div>
         <p className="mt-4 text-sm leading-[1.6] text-[var(--text)]">
-          {analysis.summary}
+          {summary}
         </p>
       </article>
 
@@ -166,16 +184,18 @@ export function ResultsDisplay({
       </div>
 
       <div className="space-y-4">
-        {filteredClauses.map((clause) => (
+        {filteredClauses.map((clause) => {
+          const risk = normalizeRisk(clause.risk);
+          return (
           <article
             key={`${clause.title}-${clause.excerpt}`}
-            className={`rounded-[var(--radius-md)] border border-l-4 border-[var(--border)] bg-[var(--bg)] px-6 py-5 ${riskClasses[clause.risk].border}`}
+            className={`rounded-[var(--radius-md)] border border-l-4 border-[var(--border)] bg-[var(--bg)] px-6 py-5 ${riskClasses[risk].border}`}
           >
             <div className="flex items-start justify-between gap-4">
               <h3 className="text-[28px] font-normal text-[var(--text)]">
                 {clause.title}
               </h3>
-              <RiskBadge risk={clause.risk} />
+              <RiskBadge risk={risk} />
             </div>
             <p className="mt-2 text-[13px] italic text-[var(--text-muted)]">
               “{clause.excerpt}”
@@ -191,7 +211,8 @@ export function ResultsDisplay({
               {clause.recommendation}
             </p>
           </article>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
