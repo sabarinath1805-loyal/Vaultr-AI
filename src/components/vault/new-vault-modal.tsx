@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Upload, Users, X } from "lucide-react";
+import { Upload, X } from "lucide-react";
 import { FileDirectory } from "@/components/shared/file-directory";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 
@@ -20,7 +20,6 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
   const [cmNumber, setCmNumber] = useState("");
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
-  const [showMembers, setShowMembers] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -29,7 +28,6 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
     setCmNumber("");
     setSelectedDocIds(new Set());
     setPendingFiles([]);
-    setShowMembers(false);
   }, [open]);
 
   if (!open) return null;
@@ -78,26 +76,9 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
               type="text"
               value={cmNumber}
               onChange={(event) => setCmNumber(event.target.value)}
-              placeholder="Add a CM number..."
+              placeholder="Matter reference (optional)"
               className="mt-1.5 w-full bg-transparent text-sm text-[var(--text-muted)] outline-none placeholder:text-[var(--text-faint)]"
             />
-
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowMembers((value) => !value)}
-                className="flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--sidebar-bg)]"
-              >
-                <Users className="h-3 w-3 text-[var(--text-faint)]" />
-                Members
-              </button>
-            </div>
-
-            {showMembers && (
-              <div className="mt-3 rounded-lg border border-[var(--border)] bg-[var(--sidebar-bg)] px-3 py-2 text-xs text-[var(--text-faint)]">
-                Local-only Vaultr workspaces stay on this device.
-              </div>
-            )}
 
             <div className="mt-4 space-y-2">
               <p className="text-xs font-medium text-[var(--text)]">Select documents</p>
