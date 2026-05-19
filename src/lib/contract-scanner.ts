@@ -60,6 +60,74 @@ export const RISK_ORDER: Record<ContractRisk, number> = {
   LOW: 3,
 };
 
+export function patchPredatoryClauseFindings(text: string, analysis: unknown) {
+  if (!isRecord(analysis)) return analysis;
+  const lowerText = text.toLowerCase();
+  const clauses = Array.isArray(analysis.clauses) ? [...analysis.clauses] : [];
+
+  const ensureClause = (
+    pattern: RegExp,
+    marker: string,
+    clause: Record<string, string>
+  ) => {
+    if (!pattern.test(lowerText)) return;
+    const alreadyFlagged = clauses.some((item) => {
+      if (!isRecord(item)) return false;
+      const title = typeof item.title === "string" ? item.title : "";
+      const excerpt = typeof item.excerpt === "string" ? item.excerpt : "";
+      const issue = typeof item.issue === "string" ? item.issue : "";
+      const haystack = `${title} ${excerpt} ${issue}`.toLowerCase();
+      return haystack.includes(marker) || haystack.includes(clause.title.toLowerCase());
+    });
+    if (!alreadyFlagged) clauses.unshift(clause);
+  };
+
+  ensureClause(
+    /(independent legal advice|legal advice|seek counsel|consult counsel|solicitor|attorney)/,
+    "independent legal advice",
+    {
+      title: "Restriction on independent legal advice",
+      excerpt: "Clause restricts a party from seeking independent legal advice.",
+      risk: "CRITICAL",
+      issue: "A clause preventing independent legal advice interferes with informed consent and should be treated as the highest priority risk.",
+      recommendation: "Delete the restriction entirely and preserve an express right for each party to seek independent legal advice.",
+    }
+  );
+  ensureClause(
+    /(unilateral(ly)? amend|amend.*notice alone|modify.*sole discretion|change any term|change.*terms.*notice)/,
+    "unilateral amendment",
+    {
+      title: "Unilateral amendment rights",
+      excerpt: "One party can change terms without negotiated consent.",
+      risk: "HIGH",
+      issue: "One party can amend terms by notice alone, leaving the other side bound without negotiated consent.",
+      recommendation: "Require written mutual agreement for any amendment.",
+    }
+  );
+  ensureClause(
+    /(arbitration.*costs?.*(regardless of outcome|all costs|solely responsible)|all arbitration costs|bears.*arbitration)/,
+    "arbitration costs",
+    {
+      title: "One-sided arbitration costs",
+      excerpt: "One party bears arbitration costs regardless of outcome.",
+      risk: "HIGH",
+      issue: "One party bears arbitration costs regardless of outcome, creating one-sided dispute economics.",
+      recommendation: "Use tribunal discretion or loser-pays allocation instead of a fixed one-sided cost burden.",
+    }
+  );
+
+  return { ...analysis, clauses };
+}
+
+export function parseContractAnalysisJson(text: string) {
+  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  return JSON.parse(trimmed);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 export function sortClausesByRisk(clauses: ContractClause[]) {
   return [...clauses].sort((a, b) => RISK_ORDER[a.risk] - RISK_ORDER[b.risk]);
 }
