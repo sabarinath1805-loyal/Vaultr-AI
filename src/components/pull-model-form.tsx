@@ -111,7 +111,9 @@ export default function PullModelForm() {
             throw new Error(responseJson.error);
           }
 
-          if (
+          if (typeof responseJson.progress === "number") {
+            throttledSetProgress(responseJson.progress);
+          } else if (
             responseJson.completed !== undefined &&
             responseJson.total !== undefined
           ) {

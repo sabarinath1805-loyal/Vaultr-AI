@@ -31,6 +31,15 @@ interface State {
   scanningStep: string;
   scanResult: ContractAnalysis | null;
   isScanning: boolean;
+  scanStartedAt: number | null;
+  modelDownloads: Record<string, ModelDownloadState>;
+}
+
+export interface ModelDownloadState {
+  progress: number;
+  remainingMb: number | null;
+  status: string;
+  error: string | null;
 }
 
 export interface AttachedWorkflow {
@@ -71,6 +80,9 @@ interface Actions {
   setScanningStep: (step: string) => void;
   setScanResult: (result: ContractAnalysis | null) => void;
   setIsScanning: (scanning: boolean) => void;
+  setScanStartedAt: (startedAt: number | null) => void;
+  setModelDownload: (modelId: string, download: ModelDownloadState) => void;
+  clearModelDownload: (modelId: string) => void;
 }
 
 const syncChatMessages = async (chatId: string, messages: Message[]) => {
@@ -124,6 +136,8 @@ const useChatStore = create<State & Actions>()(
       scanningStep: "Reading document...",
       scanResult: null,
       isScanning: false,
+      scanStartedAt: null,
+      modelDownloads: {},
 
       setBase64Images: (base64Images) => set({ base64Images }),
       setUserName: (userName) => set({ userName }),
@@ -394,6 +408,21 @@ const useChatStore = create<State & Actions>()(
         set((state) => (state.scanResult === result ? state : { scanResult: result })),
       setIsScanning: (scanning) =>
         set((state) => (state.isScanning === scanning ? state : { isScanning: scanning })),
+      setScanStartedAt: (startedAt) =>
+        set((state) => (state.scanStartedAt === startedAt ? state : { scanStartedAt: startedAt })),
+      setModelDownload: (modelId, download) =>
+        set((state) => ({
+          modelDownloads: {
+            ...state.modelDownloads,
+            [modelId]: download,
+          },
+        })),
+      clearModelDownload: (modelId) =>
+        set((state) => {
+          const next = { ...state.modelDownloads };
+          delete next[modelId];
+          return { modelDownloads: next };
+        }),
     }),
     {
       name: "nextjs-ollama-ui-state",
@@ -408,6 +437,12 @@ const useChatStore = create<State & Actions>()(
         themePreference: state.themePreference,
         defaultModelPreference: state.defaultModelPreference,
         autoCleanupConversations: state.autoCleanupConversations,
+        scanProgress: state.scanProgress,
+        scanningStep: state.scanningStep,
+        scanResult: state.scanResult,
+        isScanning: state.isScanning,
+        scanStartedAt: state.scanStartedAt,
+        modelDownloads: state.modelDownloads,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<State>;
@@ -463,6 +498,21 @@ const useChatStore = create<State & Actions>()(
               : currentState.userName,
           organisation: persisted.organisation || currentState.organisation,
           ollamaUrl: persisted.ollamaUrl || currentState.ollamaUrl,
+          scanProgress:
+            typeof persisted.scanProgress === "number"
+              ? persisted.scanProgress
+              : currentState.scanProgress,
+          scanningStep: persisted.scanningStep || currentState.scanningStep,
+          scanResult: persisted.scanResult || currentState.scanResult,
+          isScanning:
+            typeof persisted.isScanning === "boolean"
+              ? persisted.isScanning
+              : currentState.isScanning,
+          scanStartedAt:
+            typeof persisted.scanStartedAt === "number"
+              ? persisted.scanStartedAt
+              : currentState.scanStartedAt,
+          modelDownloads: persisted.modelDownloads || currentState.modelDownloads,
           thinkingModeDefault:
             typeof persisted.thinkingModeDefault === "boolean"
               ? persisted.thinkingModeDefault

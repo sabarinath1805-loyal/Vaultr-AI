@@ -5,18 +5,12 @@ import { toast } from "sonner";
 import { isLexModel } from "@/lib/models";
 import useChatStore from "@/app/hooks/useChatStore";
 
-interface DownloadState {
-  progress: number;
-  remainingMb: number | null;
-  status: string;
-  error: string | null;
-  controller: AbortController;
-}
-
 interface RemoveState {
   removing: boolean;
   error: string | null;
 }
+
+const activeModelPulls = new Map<string, AbortController>();
 
 interface IndividualModel {
   id: string;
@@ -70,12 +64,14 @@ const ALL_LOCAL_MODEL_IDS = MODEL_TIERS.flatMap((tier) =>
 export default function ModelsPage() {
   const [installedModels, setInstalledModels] = useState<string[]>([]);
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
-  const [downloads, setDownloads] = useState<Record<string, DownloadState>>({});
   const [removals, setRemovals] = useState<Record<string, RemoveState>>({});
   const selectedModel = useChatStore((state) => state.selectedModel);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const cloudMode = useChatStore((state) => state.cloudMode);
+  const downloads = useChatStore((state) => state.modelDownloads);
+  const setModelDownload = useChatStore((state) => state.setModelDownload);
+  const clearModelDownload = useChatStore((state) => state.clearModelDownload);
   const selectedLocalModel = useMemo(() => {
     const preferredLexModel = ALL_LOCAL_MODEL_IDS.find(
       (modelId) =>
@@ -160,16 +156,15 @@ export default function ModelsPage() {
 
   const downloadModel = async (ollamaId: string, label: string) => {
     const controller = new AbortController();
-    setDownloads((state) => ({
-      ...state,
-      [ollamaId]: { progress: 0, remainingMb: null, status: "Starting", error: null, controller },
-    }));
+    if (activeModelPulls.has(ollamaId)) return;
+    activeModelPulls.set(ollamaId, controller);
+    setModelDownload(ollamaId, { progress: 0, remainingMb: null, status: "Starting", error: null });
 
     try {
-      const response = await fetch("http://localhost:11434/api/pull", {
+      const response = await fetch("/api/model", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: ollamaId, stream: true }),
+        body: JSON.stringify({ name: ollamaId }),
         signal: controller.signal,
       });
 
@@ -199,17 +194,12 @@ export default function ModelsPage() {
           const remainingMb =
             total > completed ? Math.max((total - completed) / 1024 / 1024, 0) : null;
 
-          setDownloads((state) => ({
-            ...state,
-            [ollamaId]: {
-              ...(state[ollamaId] || { controller }),
-              controller,
-              progress: chunk.status === "success" ? 100 : progress,
-              remainingMb,
-              status: chunk.status || "Downloading",
-              error: null,
-            },
-          }));
+          useChatStore.getState().setModelDownload(ollamaId, {
+            progress: chunk.status === "success" ? 100 : progress,
+            remainingMb,
+            status: chunk.status || "Downloading",
+            error: null,
+          });
 
           if (chunk.status === "success") {
             setInstalledModels((models) =>
@@ -217,12 +207,10 @@ export default function ModelsPage() {
                 ? models
                 : ALL_LOCAL_MODEL_IDS.filter((modelId) => [...models, ollamaId].includes(modelId))
             );
-            setDownloads((state) => {
-              const next = { ...state };
-              delete next[ollamaId];
-              return next;
-            });
+            useChatStore.getState().clearModelDownload(ollamaId);
+            activeModelPulls.delete(ollamaId);
             setSelectedModel(ollamaId);
+            window.dispatchEvent(new Event("vaultr-models-updated"));
             toast.success(`${label} installed successfully`);
             await refreshModels().catch(() => undefined);
             return;
@@ -231,27 +219,27 @@ export default function ModelsPage() {
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
-        setDownloads((state) => {
-          const next = { ...state };
-          delete next[ollamaId];
-          return next;
-        });
+        useChatStore.getState().clearModelDownload(ollamaId);
+        activeModelPulls.delete(ollamaId);
         return;
       }
 
-      setDownloads((state) => ({
-        ...state,
-        [ollamaId]: {
-          ...(state[ollamaId] || { controller, progress: 0, remainingMb: null, status: "" }),
-          controller,
-          error: "Download failed. Make sure Ollama is running and try again.",
-        },
-      }));
+      useChatStore.getState().setModelDownload(ollamaId, {
+        ...(useChatStore.getState().modelDownloads[ollamaId] || {
+          progress: 0,
+          remainingMb: null,
+          status: "",
+        }),
+        error: "Download failed. Make sure Ollama is running and try again.",
+      });
+      activeModelPulls.delete(ollamaId);
     }
   };
 
   const cancelDownload = (ollamaId: string) => {
-    downloads[ollamaId]?.controller.abort();
+    activeModelPulls.get(ollamaId)?.abort();
+    clearModelDownload(ollamaId);
+    activeModelPulls.delete(ollamaId);
   };
 
   const removeModel = async (ollamaId: string) => {

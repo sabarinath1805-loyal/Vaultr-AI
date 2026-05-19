@@ -1,5 +1,6 @@
 import React, { memo, useMemo, useState } from "react";
 import Markdown from "react-markdown";
+import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
@@ -79,13 +80,46 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
         .trim(),
     };
   }, [message.content, message.role]);
+  const shouldShowReasoning = Boolean(thinkContent && cleanContent.length >= 100);
   const webSearchMatch = message.content.match(/<web-search-used(?:\s+model="([^"]+)")?\s*\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchModel = webSearchMatch?.[1]
     ? groqIdToLexName(webSearchMatch[1]) || ollamaIdToLexName(webSearchMatch[1])
     : "Lex";
   const documentAnalyzed = Array.from(message.content.matchAll(/<document-analyzed\s+filename="([^"]+)"\s*\/>/g));
-  const markdownComponents = {
+  const markdownComponents: Components = {
+    h1: ({ children }) => (
+      <h1 className="mb-3 mt-5 text-[22px] font-semibold leading-tight text-[var(--text-primary)]">
+        {children}
+      </h1>
+    ),
+    h2: ({ children }) => (
+      <h2 className="mb-2 mt-5 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">
+        {children}
+      </h2>
+    ),
+    h3: ({ children }) => (
+      <h3 className="mb-2 mt-4 text-[15px] font-semibold leading-tight text-[var(--text-primary)]">
+        {children}
+      </h3>
+    ),
+    p: ({ children }) => (
+      <p className="my-3 leading-[1.75] text-[var(--text-primary)]">{children}</p>
+    ),
+    ul: ({ children }) => (
+      <ul className="my-3 ml-5 list-disc space-y-1 text-[var(--text-primary)]">
+        {children}
+      </ul>
+    ),
+    ol: ({ children }) => (
+      <ol className="my-3 ml-5 list-decimal space-y-1 text-[var(--text-primary)]">
+        {children}
+      </ol>
+    ),
+    li: ({ children }) => <li className="pl-1 leading-[1.7]">{children}</li>,
+    strong: ({ children }) => (
+      <strong className="font-semibold text-[var(--text-primary)]">{children}</strong>
+    ),
     a: ({
       href,
       children,
@@ -197,7 +231,7 @@ function ChatMessage({ message, isLast, isLoading, reload }: ChatMessageProps) {
       {message.role === "assistant" ? (
         <div className="w-full">
           <div className="min-w-0 text-[15px] leading-[1.75]">
-            {thinkContent && (
+            {shouldShowReasoning && (
               <div className="mb-3">
                 <button
                   type="button"
