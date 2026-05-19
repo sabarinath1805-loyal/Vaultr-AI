@@ -138,7 +138,6 @@ export default function ContractScannerPage() {
 
   const scanContract = async () => {
     if (!file) return;
-    const modelToUse = GROQ_DEFAULT_MODEL;
 
     setIsScanning(true);
     setError(null);
@@ -149,9 +148,8 @@ export default function ContractScannerPage() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("selectedModel", modelToUse);
 
-      const response = await fetch("/api/chats", {
+      const response = await fetch("/api/contract-scanner", {
         method: "POST",
         body: formData,
       });
