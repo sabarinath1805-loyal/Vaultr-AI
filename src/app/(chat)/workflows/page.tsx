@@ -7,7 +7,8 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import useChatStore from "@/app/hooks/useChatStore";
-import { BUILT_IN_WORKFLOWS, type BuiltInWorkflow } from "@/components/workflows/builtin-workflows";
+import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
+import { BUILT_IN_WORKFLOWS } from "@/components/workflows/builtin-workflows";
 
 type Tab = "all" | "builtin" | "custom";
 
@@ -17,35 +18,54 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "custom", label: "Custom" },
 ];
 
-function workflowPrompt(workflow: BuiltInWorkflow) {
-  return workflow.prompt || "";
-}
+type WorkflowRow = AttachedWorkflow & { practice: string; source: string };
 
 export default function WorkflowsPage() {
   const [activeTab, setActiveTab] = useState<Tab>("all");
   const [search, setSearch] = useState("");
   const [practiceFilter, setPracticeFilter] = useState("");
-  const [selected, setSelected] = useState<BuiltInWorkflow | null>(BUILT_IN_WORKFLOWS[0]);
+  const builtInRows: WorkflowRow[] = BUILT_IN_WORKFLOWS.map((workflow) => ({
+    id: workflow.id,
+    title: workflow.title,
+    prompt: workflow.prompt || "",
+    practice: workflow.practice,
+    source: "Vaultr",
+  }));
+  const [selected, setSelected] = useState<WorkflowRow | null>(builtInRows[0]);
+  const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
   const router = useRouter();
   const setPendingWorkflow = useChatStore((state) => state.setPendingWorkflow);
+  const customWorkflows = useChatStore((state) => state.customWorkflows);
+  const addCustomWorkflow = useChatStore((state) => state.addCustomWorkflow);
 
   const practices = useMemo(
     () => Array.from(new Set(BUILT_IN_WORKFLOWS.map((workflow) => workflow.practice))).sort(),
     []
   );
 
-  const filtered = BUILT_IN_WORKFLOWS.filter((workflow) => {
-    if (activeTab === "custom") return false;
+  const allWorkflows: WorkflowRow[] = [
+    ...builtInRows,
+    ...customWorkflows.map((workflow) => ({
+      ...workflow,
+      practice: "Custom",
+      source: "Custom",
+    })),
+  ];
+
+  const filtered = allWorkflows.filter((workflow) => {
+    if (activeTab === "builtin" && workflow.source === "Custom") return false;
+    if (activeTab === "custom" && workflow.source !== "Custom") return false;
     if (practiceFilter && workflow.practice !== practiceFilter) return false;
     if (search && !workflow.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 
-  const applyWorkflow = (workflow: BuiltInWorkflow) => {
+  const applyWorkflow = (workflow: AttachedWorkflow) => {
     setPendingWorkflow({
       id: workflow.id,
       title: workflow.title,
-      prompt: workflowPrompt(workflow),
+      prompt: workflow.prompt,
+      requireDocumentUpload: workflow.requireDocumentUpload,
     });
     router.push("/");
   };
@@ -75,7 +95,11 @@ export default function WorkflowsPage() {
                 className="w-24 bg-transparent text-xs outline-none placeholder:text-[var(--text-faint)]"
               />
             </div>
-            <button type="button" className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-xs font-medium text-[var(--bg-primary)] hover:opacity-80">
+            <button
+              type="button"
+              onClick={() => setNewWorkflowOpen(true)}
+              className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-xs font-medium text-[var(--bg-primary)] hover:opacity-80"
+            >
               + New workflow
             </button>
           </div>
@@ -123,7 +147,7 @@ export default function WorkflowsPage() {
                 <div className="text-[13px] text-[var(--text-muted)]">{workflow.practice}</div>
                 <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
                   <SnowflakeIcon size={12} />
-                  Vaultr
+                  {workflow.source}
                 </div>
                 <div className="text-[var(--text-faint)]"><MoreHorizontal className="h-4 w-4" /></div>
               </button>
@@ -140,7 +164,7 @@ export default function WorkflowsPage() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-5">
             <div className="prose prose-sm max-w-none rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-6 py-5 text-sm leading-[1.7] text-[var(--text)] prose-headings:mb-2 prose-headings:text-[15px] prose-headings:font-normal prose-p:mb-3 prose-p:leading-[1.7] prose-li:mb-2">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{workflowPrompt(selected)}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{selected.prompt}</ReactMarkdown>
             </div>
           </div>
           <div className="flex justify-end gap-2 border-t border-[var(--border)] p-4">
@@ -162,6 +186,83 @@ export default function WorkflowsPage() {
           </div>
         </aside>
       )}
+      {newWorkflowOpen && (
+        <NewWorkflowModal
+          onClose={() => setNewWorkflowOpen(false)}
+          onSave={(workflow) => {
+            const saved = addCustomWorkflow(workflow);
+            setSelected({ ...saved, practice: "Custom", source: "Custom" });
+            setActiveTab("custom");
+            setNewWorkflowOpen(false);
+          }}
+        />
+      )}
     </main>
+  );
+}
+
+function NewWorkflowModal({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (workflow: Omit<AttachedWorkflow, "id">) => void;
+}) {
+  const [name, setName] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [requireDocumentUpload, setRequireDocumentUpload] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
+      <form
+        className="w-[520px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const title = name.trim();
+          const prompt = instructions.trim();
+          if (!title || !prompt) return;
+          onSave({ title, prompt, requireDocumentUpload });
+        }}
+      >
+        <h2 className="text-[28px] font-normal">New Workflow</h2>
+        <label className="mt-5 block text-xs font-medium text-[var(--text-muted)]">
+          Workflow name
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            autoFocus
+            className="mt-2 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-transparent px-3 py-2 text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--text-secondary)]"
+          />
+        </label>
+        <label className="mt-4 block text-xs font-medium text-[var(--text-muted)]">
+          Instructions (what Lex should do)
+          <textarea
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+            className="mt-2 min-h-[160px] w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-transparent px-3 py-2 text-[13px] leading-relaxed text-[var(--text-primary)] outline-none focus:border-[var(--text-secondary)]"
+          />
+        </label>
+        <label className="mt-4 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text-primary)]">
+          <span>Require document upload</span>
+          <button
+            type="button"
+            onClick={() => setRequireDocumentUpload((enabled) => !enabled)}
+            className={`h-6 w-11 rounded-full p-0.5 transition-colors ${requireDocumentUpload ? "bg-[var(--accent)]" : "bg-[var(--surface-muted)]"}`}
+            aria-pressed={requireDocumentUpload}
+          >
+            <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${requireDocumentUpload ? "translate-x-5" : ""}`} />
+          </button>
+        </label>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
+            Cancel
+          </button>
+          <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-[var(--bg-primary)] hover:opacity-90">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
