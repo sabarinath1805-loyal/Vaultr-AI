@@ -3,7 +3,7 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Brain, Check, Cloud, File, FileText, FolderOpen, Globe, Library, Lock, Square, X } from "lucide-react";
+import { ArrowRight, Brain, Check, Cloud, File, FileText, FolderOpen, Library, Lock, Square, X } from "lucide-react";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { WorkflowsModal } from "@/components/workflows/workflows-modal";
 import { AddDocButton } from "@/components/chat/add-doc-button";
@@ -63,7 +63,6 @@ export function ComposerCard({
   const [selectedWorkflow, setSelectedWorkflow] = React.useState<AttachedWorkflow | null>(null);
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
-  const [webSearchEnabled, setWebSearchEnabled] = React.useState(false);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
   const pendingAttachedDocumentIds = useChatStore((state) => state.pendingAttachedDocumentIds);
@@ -213,7 +212,6 @@ export function ComposerCard({
         dataUrl: doc.dataUrl,
       })),
       thinking: usePrivacyMode && thinkingEnabled && isThinkingCapableModel(selectedModel),
-      webSearch: webSearchEnabled,
       usePrivacyMode,
     };
 
@@ -395,20 +393,6 @@ export function ComposerCard({
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                title={webSearchEnabled ? "Web search on" : "Web search off"}
-                onClick={() => setWebSearchEnabled((enabled) => !enabled)}
-                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
-                  webSearchEnabled
-                    ? "bg-[color:var(--blue)]/10 text-[var(--blue)]"
-                    : "text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)]"
-                }`}
-                aria-pressed={webSearchEnabled}
-                aria-label={webSearchEnabled ? "Disable web search" : "Enable web search"}
-              >
-                <Globe className="h-4 w-4" />
-              </button>
               <button
                 type="button"
                 title={

@@ -12,6 +12,7 @@ interface State {
   pendingComposerText: string | null;
   pendingAttachedDocumentIds: string[];
   pendingWorkflow: AttachedWorkflow | null;
+  customWorkflows: CustomWorkflow[];
   composerResetToken: number;
   selectedModel: string | null;
   cloudMode: boolean;
@@ -46,6 +47,11 @@ export interface AttachedWorkflow {
   id: string;
   title: string;
   prompt: string;
+  requireDocumentUpload?: boolean;
+}
+
+export interface CustomWorkflow extends AttachedWorkflow {
+  source: "custom";
 }
 
 interface Actions {
@@ -54,6 +60,7 @@ interface Actions {
   setPendingComposerText: (text: string | null) => void;
   setPendingAttachedDocumentIds: (documentIds: string[]) => void;
   setPendingWorkflow: (workflow: AttachedWorkflow | null) => void;
+  addCustomWorkflow: (workflow: Omit<CustomWorkflow, "id" | "source">) => CustomWorkflow;
   resetComposerState: () => void;
   setSelectedModel: (selectedModel: string | null) => void;
   setCloudMode: (enabled: boolean, privateModel?: string | null) => void;
@@ -117,6 +124,7 @@ const useChatStore = create<State & Actions>()(
       pendingComposerText: null,
       pendingAttachedDocumentIds: [],
       pendingWorkflow: null,
+      customWorkflows: [],
       composerResetToken: 0,
       selectedModel: GROQ_DEFAULT_MODEL,
       cloudMode: true,
@@ -176,6 +184,17 @@ const useChatStore = create<State & Actions>()(
             ? state
             : { pendingWorkflow: workflow }
         ),
+      addCustomWorkflow: (workflow) => {
+        const customWorkflow: CustomWorkflow = {
+          id: `custom-${Date.now()}`,
+          source: "custom",
+          ...workflow,
+        };
+        set((state) => ({
+          customWorkflows: [customWorkflow, ...state.customWorkflows],
+        }));
+        return customWorkflow;
+      },
       resetComposerState: () =>
         set((state) => ({
           base64Images: null,
@@ -443,6 +462,7 @@ const useChatStore = create<State & Actions>()(
         isScanning: state.isScanning,
         scanStartedAt: state.scanStartedAt,
         modelDownloads: state.modelDownloads,
+        customWorkflows: state.customWorkflows,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<State>;
@@ -513,6 +533,9 @@ const useChatStore = create<State & Actions>()(
               ? persisted.scanStartedAt
               : currentState.scanStartedAt,
           modelDownloads: persisted.modelDownloads || currentState.modelDownloads,
+          customWorkflows: Array.isArray(persisted.customWorkflows)
+            ? persisted.customWorkflows
+            : currentState.customWorkflows,
           thinkingModeDefault:
             typeof persisted.thinkingModeDefault === "boolean"
               ? persisted.thinkingModeDefault

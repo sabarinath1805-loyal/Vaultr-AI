@@ -26,6 +26,8 @@ function openScanReportsDb() {
       standard_count INTEGER,
       report_json TEXT NOT NULL
     );
+    CREATE UNIQUE INDEX IF NOT EXISTS scan_reports_filename_unique
+      ON scan_reports(filename);
   `);
   return sqlite;
 }
@@ -111,7 +113,7 @@ export async function POST(req: Request) {
   try {
     sqlite
       .prepare(
-        `INSERT OR REPLACE INTO scan_reports
+        `INSERT INTO scan_reports
           (id, filename, created_at, high_count, medium_count, standard_count, report_json)
          VALUES
           (@id, @filename, @createdAt, @highCount, @mediumCount, @standardCount, @reportJson)`
@@ -139,6 +141,41 @@ export async function POST(req: Request) {
         standardCount,
       } satisfies ScanReportEntry,
     });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.toLowerCase().includes("unique")
+    ) {
+      const existing = sqlite
+        .prepare(
+          `SELECT id, filename, created_at, high_count, medium_count, standard_count, report_json
+           FROM scan_reports
+           WHERE filename = ?`
+        )
+        .get(filename) as ScanReportRow | undefined;
+
+      return NextResponse.json({
+        duplicate: true,
+        message: "This document is already in your Vault.",
+        report: existing ? toClientReport(existing) : null,
+      });
+    }
+    throw error;
+  } finally {
+    sqlite.close();
+  }
+}
+
+export async function DELETE(req: Request) {
+  const id = new URL(req.url).searchParams.get("id")?.trim();
+  if (!id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
+  }
+
+  const sqlite = openScanReportsDb();
+  try {
+    sqlite.prepare("DELETE FROM scan_reports WHERE id = ?").run(id);
+    return NextResponse.json({ ok: true });
   } finally {
     sqlite.close();
   }
