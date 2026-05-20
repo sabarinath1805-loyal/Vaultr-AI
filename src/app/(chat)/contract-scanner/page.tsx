@@ -190,10 +190,14 @@ export default function ContractScannerPage() {
           high_count: counts.high,
           medium_count: counts.medium,
           standard_count: counts.standard,
+          report_json: JSON.stringify(data.analysis),
           report: data.analysis,
         }),
       });
-      if (!saveResponse.ok) throw new Error("save scan report failed");
+      if (!saveResponse.ok) {
+        const saveError = await saveResponse.json().catch(() => null);
+        throw new Error(saveError?.error || "save scan report failed");
+      }
       const savedReport = await saveResponse.json();
       window.dispatchEvent(new Event("vaultr-scan-reports-updated"));
       if (savedReport?.duplicate) {

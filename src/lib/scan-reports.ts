@@ -7,6 +7,7 @@ export interface ScanReportEntry {
   date: string;
   content: string;
   filename: string;
+  overallRisk?: string;
   highCount?: number;
   mediumCount?: number;
   standardCount?: number;
