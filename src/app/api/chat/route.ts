@@ -64,6 +64,7 @@ export async function POST(req: Request) {
     workflowPrompt,
     usePrivacyMode,
     ollamaUrl: requestedOllamaUrl,
+    jurisdictionPrompt,
   } = await req.json();
   const privacyMode = usePrivacyMode === true;
   const requestedModel = typeof selectedModel === "string" ? selectedModel : null;
@@ -133,7 +134,10 @@ export async function POST(req: Request) {
   const finalSystemPrompt = workflowTemplatePrompt
     ? `${workflowTemplatePrompt}\n\n${baseSystemPrompt}`
     : baseSystemPrompt;
-  const systemMessage = `${finalSystemPrompt}${documentContext}${searchContext}`;
+  const jurisdictionContext = typeof jurisdictionPrompt === "string" && jurisdictionPrompt.trim()
+    ? jurisdictionPrompt.trim()
+    : "";
+  const systemMessage = `${finalSystemPrompt}${documentContext}${searchContext}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}`;
   console.log("SYSTEM PROMPT APPLIED:", systemMessage.substring(0, 1200));
   const userContent = data?.images?.length
     ? [
