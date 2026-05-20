@@ -151,16 +151,16 @@ export function SourcePills({
         return (
           <div
             key={sourceId}
-            className="inline-flex items-center gap-1 rounded-full border border-[color:var(--white)]/20 bg-[var(--blue)] py-0.5 pl-2 pr-1 text-xs text-[var(--white)] shadow backdrop-blur-sm"
+            className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-[var(--color-border-primary)] bg-[var(--color-background-primary)] py-0.5 pl-2 pr-1 text-xs text-[var(--color-text-primary)]"
           >
-            <span className="text-[10px] leading-none">
+            <span className="text-[10px] leading-none text-[var(--text-muted)]">
               <FlagIcon source={source} />
             </span>
             <span className="max-w-[100px] truncate">{source.name}</span>
             <button
               type="button"
               onClick={() => onRemove(sourceId)}
-              className="ml-0.5 rounded-full p-0.5 text-[var(--white)]/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-[var(--white)]"
+              className="ml-0.5 rounded-full p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-primary)]"
               aria-label={`Remove ${source.name}`}
             >
               <X className="h-2.5 w-2.5" />
