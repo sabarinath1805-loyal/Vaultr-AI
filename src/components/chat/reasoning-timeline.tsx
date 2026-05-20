@@ -13,29 +13,58 @@ export interface ReasoningStep {
 interface ReasoningTimelineProps {
   steps: ReasoningStep[];
   visible: boolean;
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-export function ReasoningTimeline({ steps, visible }: ReasoningTimelineProps) {
-  if (steps.length === 0 || !visible) return null;
+export function ReasoningTimeline({
+  steps,
+  visible,
+  collapsed,
+  onToggleCollapse,
+}: ReasoningTimelineProps) {
+  if (steps.length === 0) return null;
+
+  if (collapsed) {
+    return (
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className="mb-2 flex items-center gap-1 text-[12px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+        data-testid="reasoning-collapsed-toggle"
+      >
+        <span className="reasoning-gear-icon">⚙</span> Lex reasoned{" "}
+        <span className="text-[10px]">▾</span>
+      </button>
+    );
+  }
 
   return (
     <div
-      className={`mb-4 transition-opacity duration-500 ${
-        visible ? "opacity-100" : "pointer-events-none opacity-0"
+      className={`reasoning-timeline-container mb-4 pl-4 ${
+        visible
+          ? "reasoning-timeline-visible"
+          : "reasoning-timeline-hidden"
       }`}
       data-testid="reasoning-timeline"
     >
-      {steps.map((step, index) => {
-        const isLast = index === steps.length - 1;
-        const isActive = isLast && !step.completed;
-
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className="mb-3 flex items-center gap-1 text-[13px] text-[var(--text-muted)]"
+      >
+        Working...{" "}
+        <span className="text-[10px]">▾</span>
+      </button>
+      {steps.map((step) => {
+        const isActive = !step.completed;
         return (
-          <div key={step.id} className="flex gap-2.5 pb-2.5">
+          <div key={step.id} className="flex gap-2.5 pb-4">
             <div className="flex flex-col items-center pt-[3px]">
               {isActive ? (
-                <span className="reasoning-spinner inline-block h-[14px] w-[14px]" />
+                <span className="reasoning-spinner inline-block h-[12px] w-[12px]" />
               ) : (
-                <span className="mt-[1px] inline-block h-[10px] w-[10px] rounded-full bg-[var(--text-primary)]" />
+                <span className="mt-[1px] inline-block h-[8px] w-[8px] rounded-full border border-[var(--text-muted)]" />
               )}
             </div>
             <div className="min-w-0 flex-1">
@@ -52,7 +81,7 @@ export function ReasoningTimeline({ steps, visible }: ReasoningTimelineProps) {
                   {step.pills.map((pill) => (
                     <span
                       key={pill}
-                      className="inline-block rounded-full bg-[var(--surface)] px-2 py-0.5 text-[12px] text-[var(--text-secondary)]"
+                      className="inline-block rounded bg-[var(--bg-secondary)] px-2 py-[3px] text-[12px] text-[var(--text-secondary)]"
                     >
                       {pill}
                     </span>
@@ -67,9 +96,36 @@ export function ReasoningTimeline({ steps, visible }: ReasoningTimelineProps) {
   );
 }
 
+export function SourcesFooter({ domains, urls }: { domains: string[]; urls?: Record<string, string> }) {
+  if (domains.length === 0) return null;
+  const safeUrls = urls || {};
+  return (
+    <div className="mt-4 border-t border-[var(--border)] pt-3">
+      <div className="text-[12px] font-medium text-[var(--text-muted)]">Sources</div>
+      <div className="mt-1 flex flex-wrap gap-1.5">
+        {domains.map((domain, index) => {
+          const href = safeUrls[domain] || `https://${domain}`;
+          return (
+            <a
+              key={domain}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 rounded border border-[var(--border)] px-2 py-0.5 text-[12px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+            >
+              [{index + 1}] {domain}
+            </a>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function parseReasoningSteps(
   thinkContent: string | null,
   hasDocument: boolean,
+  documentFilenames: string[],
   webSearchUsed: boolean,
   searchDomains: string[],
   isStreaming: boolean
@@ -111,17 +167,30 @@ export function parseReasoningSteps(
   if (hasDocument) {
     steps.push({
       id: "document",
-      label: "Reviewing document",
+      label: "Reviewing attached file",
       detail: "",
-      pills: ["Attached document"],
+      pills: documentFilenames.length > 0 ? documentFilenames : ["Attached document"],
       completed: true,
     });
+  }
+
+  if (hasDocument && thinkContent) {
+    const legalTerms = extractLegalTerms(thinkContent);
+    if (legalTerms.length > 0) {
+      steps.push({
+        id: "terms",
+        label: "Checking for terms in attached file",
+        detail: "",
+        pills: legalTerms,
+        completed: true,
+      });
+    }
   }
 
   if (webSearchUsed) {
     steps.push({
       id: "search",
-      label: "Searching sources",
+      label: "Searching the web for relevant information",
       detail: "",
       pills: searchDomains.length > 0 ? searchDomains : ["Web search"],
       completed: true,
@@ -135,23 +204,37 @@ export function parseReasoningSteps(
       "found",
       "conclusion",
       "result",
+      "synthesiz",
     ]);
     steps.push({
       id: "evaluate",
-      label: "Evaluating response",
-      detail: evalDetail || "Reviewing findings",
+      label: "Evaluating findings",
+      detail: evalDetail || "Synthesizing case law and statutory provisions",
       completed: true,
     });
   }
 
   steps.push({
     id: "prepare",
-    label: "Preparing answer",
+    label: "Preparing response",
     detail: "",
     completed: !isStreaming,
   });
 
   return steps;
+}
+
+function extractLegalTerms(text: string): string[] {
+  const legalKeywords = [
+    "breach", "liability", "damages", "termination", "notice",
+    "indemnity", "warranty", "negligence", "jurisdiction", "arbitration",
+    "confidentiality", "force majeure", "obligation", "compliance",
+    "fiduciary", "misrepresentation", "injunction", "tort", "statute",
+    "consideration", "contract", "duty of care", "estoppel",
+  ];
+  const lower = text.toLowerCase();
+  const found = legalKeywords.filter((kw) => lower.includes(kw));
+  return found.slice(0, 8);
 }
 
 function extractFirstSentence(
