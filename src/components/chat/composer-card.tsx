@@ -3,7 +3,8 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Check, Cloud, File, FileText, FolderOpen, Library, Lock, Square, X } from "lucide-react";
+import { ArrowRight, Check, File, FileText, FolderOpen, Library, Square, X } from "lucide-react";
+import { IconCloud, IconLock } from "@tabler/icons-react";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { WorkflowsModal } from "@/components/workflows/workflows-modal";
 import { AddDocButton } from "@/components/chat/add-doc-button";
@@ -316,36 +317,22 @@ export function ComposerCard({
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-y-1 p-2 md:p-2.5">
-            <div className="flex flex-wrap items-center gap-1">
+          <div className="flex flex-nowrap items-center gap-1 p-2 md:p-2.5">
+            <div className="flex min-w-0 flex-nowrap items-center gap-1">
               <button
                 type="button"
                 onClick={switchMode}
                 aria-pressed={cloudMode}
-                title={cloudMode ? "Switch to Private Mode" : "Switch to Cloud Mode"}
-                className="mr-1 flex h-8 items-center gap-2 rounded-lg px-[6px] py-[6px] text-[12px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                title={cloudMode ? "Cloud Mode" : "Private Mode"}
+                className="flex h-8 shrink-0 items-center justify-center rounded-lg px-[10px] py-[6px] text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
               >
-                <span className={`hidden items-center gap-1 sm:flex ${cloudMode ? "text-[var(--text-faint)]" : "text-[var(--text)]"}`}>
-                  <Lock className="h-3.5 w-3.5" />
-                  Private
-                </span>
-                <span
-                  className={`flex h-5 w-10 items-center rounded-full p-0.5 transition-colors ${
-                    cloudMode ? "bg-[#378ADD]" : "bg-[#3B6D11]"
-                  }`}
-                >
-                  <span
-                    className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
-                      cloudMode ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </span>
-                <span className={`hidden items-center gap-1 sm:flex ${cloudMode ? "text-[var(--text)]" : "text-[var(--text-faint)]"}`}>
-                  <Cloud className="h-3.5 w-3.5" />
-                  Cloud
-                </span>
+                {cloudMode ? (
+                  <IconCloud className="h-4 w-4" stroke={1.8} />
+                ) : (
+                  <IconLock className="h-4 w-4" stroke={1.8} />
+                )}
               </button>
-              <div className="mx-1 hidden h-5 w-px bg-[var(--border)] sm:block" />
+              <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border)]" />
               <AddDocButton
                 onSelectDoc={handleAddDocument}
                 onBrowseAll={() => setDocSelectorOpen(true)}
@@ -357,7 +344,7 @@ export function ComposerCard({
               />
               <button
                 type="button"
-                className="flex h-8 items-center gap-1.5 rounded-lg px-[6px] py-[6px] text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
+                className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-[10px] py-[6px] text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
                 onClick={() => setDocSelectorOpen(true)}
                 aria-label="Open vault"
               >
@@ -366,7 +353,7 @@ export function ComposerCard({
               </button>
               <button
                 type="button"
-                className={`flex h-8 items-center gap-1.5 rounded-lg px-[6px] py-[6px] text-sm transition-colors ${
+                className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-[10px] py-[6px] text-sm transition-colors ${
                   selectedWorkflow
                     ? "text-[var(--blue)] hover:bg-[var(--bg-tertiary)]"
                     : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
@@ -383,7 +370,7 @@ export function ComposerCard({
               </button>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="ml-auto flex shrink-0 items-center gap-1">
               <ModelSelector disabled={isLoading} direction={modelSelectorDirection} />
               <button
                 type={isLoading ? "button" : "submit"}

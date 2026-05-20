@@ -38,6 +38,17 @@ export async function scanContractFormData(formData: FormData) {
 
   try {
     const contractText = await extractText(file);
+    if (mode === "private") {
+      try {
+        const health = await fetch(`${ollamaUrl}/api/tags`, { cache: "no-store" });
+        if (health.status !== 200) {
+          return NextResponse.json({ error: "Start Ollama first" }, { status: 503 });
+        }
+      } catch {
+        return NextResponse.json({ error: "Start Ollama first" }, { status: 503 });
+      }
+    }
+
     const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
     const response = await fetch(mode === "private" ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

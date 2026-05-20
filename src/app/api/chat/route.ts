@@ -52,6 +52,32 @@ const NO_SEARCH_TRIGGERS = [
 
 const GEMINI_MODELS = ["gemini-3-flash-preview"];
 
+const WEB_SEARCH_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Search the web for current information, case law, regulations, and legal news",
+      parameters: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The search query",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+];
+
+interface WebSearchSource {
+  title: string;
+  url: string;
+  domain: string;
+}
+
 export async function POST(req: Request) {
   const {
     messages,
@@ -97,9 +123,9 @@ export async function POST(req: Request) {
   const userMessage =
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
   const shouldSearch = !privacyMode && shouldUseWebSearch(userMessage);
-  const searchContext = shouldSearch
+  const webSearch = shouldSearch
     ? await getWebSearchContext(userMessage)
-    : "";
+    : { context: "", sources: [] };
   const workflowTemplatePrompt =
     typeof workflowPrompt === "string" && workflowPrompt.trim()
       ? workflowPrompt.trim()
@@ -137,7 +163,7 @@ export async function POST(req: Request) {
   const jurisdictionContext = typeof jurisdictionPrompt === "string" && jurisdictionPrompt.trim()
     ? jurisdictionPrompt.trim()
     : "";
-  const systemMessage = `${finalSystemPrompt}${documentContext}${searchContext}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}`;
+  const systemMessage = `${finalSystemPrompt}${documentContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}`;
   console.log("SYSTEM PROMPT APPLIED:", systemMessage.substring(0, 1200));
   const userContent = data?.images?.length
     ? [
@@ -160,6 +186,7 @@ export async function POST(req: Request) {
         initialMessages,
         userMessage,
         shouldSearch,
+        searchSources: webSearch.sources,
         activeModel,
         attachedDocuments,
       });
@@ -174,6 +201,7 @@ export async function POST(req: Request) {
         initialMessages,
         userMessage,
         shouldSearch,
+        searchSources: webSearch.sources,
         activeModel,
         attachedDocuments,
         abortSignal: abortController.signal,
@@ -194,6 +222,10 @@ export async function POST(req: Request) {
         stream: true,
         ...(usesCloudReasoning ? { reasoning_format: "parsed" } : {}),
         ...(privacyMode && thinkingEnabled ? { think: true } : {}),
+        ...(!privacyMode ? {
+          tools: WEB_SEARCH_TOOLS,
+          tool_choice: "auto",
+        } : {}),
         ...(privacyMode ? {
           options: {
             num_ctx: documentContext ? 4096 : 2048,
@@ -241,7 +273,7 @@ export async function POST(req: Request) {
           }
           if (shouldSearch) {
             const state = tokenFlushState.get(controller);
-            const marker = `<web-search-used model="${activeModel}" />`;
+            const marker = formatWebSearchMarker(activeModel, webSearch.sources);
             if (state) {
               state.buffer += `\n\n${marker}`;
               tokenFlushState.set(controller, state);
@@ -322,6 +354,7 @@ async function streamGeminiResponse({
   initialMessages,
   userMessage,
   shouldSearch,
+  searchSources,
   activeModel,
   attachedDocuments,
 }: {
@@ -330,6 +363,7 @@ async function streamGeminiResponse({
   initialMessages: { role: string; content: string }[];
   userMessage: string;
   shouldSearch: boolean;
+  searchSources: WebSearchSource[];
   activeModel: string | null;
   attachedDocuments: { filename?: string }[] | undefined;
 }) {
@@ -369,7 +403,7 @@ async function streamGeminiResponse({
           }
           const markers = [
             formatThinkBlock(reasoningContent),
-            shouldSearch ? `<web-search-used model="${activeModel}" />` : "",
+            shouldSearch ? formatWebSearchMarker(activeModel, searchSources) : "",
             ...(Array.isArray(attachedDocuments)
               ? attachedDocuments
                   .filter((document) => document?.filename)
@@ -411,6 +445,7 @@ async function streamOllamaCloudResponse({
   initialMessages,
   userMessage,
   shouldSearch,
+  searchSources,
   activeModel,
   attachedDocuments,
   abortSignal,
@@ -420,6 +455,7 @@ async function streamOllamaCloudResponse({
   initialMessages: { role: string; content: string }[];
   userMessage: string;
   shouldSearch: boolean;
+  searchSources: WebSearchSource[];
   activeModel: string | null;
   attachedDocuments: { filename?: string }[] | undefined;
   abortSignal: AbortSignal;
@@ -462,7 +498,7 @@ async function streamOllamaCloudResponse({
             }
           }
           const markers = [
-            shouldSearch ? `<web-search-used model="${activeModel}" />` : "",
+            shouldSearch ? formatWebSearchMarker(activeModel, searchSources) : "",
             ...(Array.isArray(attachedDocuments)
               ? attachedDocuments
                   .filter((document) => document?.filename)
@@ -627,11 +663,14 @@ const tokenFlushState: WeakMap<
   { buffer: string; lastFlush: number }
 > = new WeakMap();
 
-async function getWebSearchContext(query: string) {
+async function getWebSearchContext(query: string): Promise<{ context: string; sources: WebSearchSource[] }> {
   const apiKey = process.env.SERPER_API_KEY;
 
   if (!apiKey?.trim()) {
-    return "\n\nWeb search is unavailable because SERPER_API_KEY is not configured.";
+    return {
+      context: "\n\nWeb search is unavailable because SERPER_API_KEY is not configured.",
+      sources: [],
+    };
   }
 
   try {
@@ -645,21 +684,47 @@ async function getWebSearchContext(query: string) {
     });
 
     if (!response.ok) {
-      return "\n\nWeb search is unavailable right now.";
+      return { context: "\n\nWeb search is unavailable right now.", sources: [] };
     }
 
     const data = await response.json();
     const results = Array.isArray(data?.organic) ? data.organic.slice(0, 5) : [];
 
-    if (results.length === 0) return "";
+    if (results.length === 0) return { context: "", sources: [] };
 
-    return `\n\nWeb search results for '${query}':\n${results
-      .map(
-        (result: { title?: string; snippet?: string; link?: string }, index: number) =>
-          `${index + 1}. ${result.title || "Untitled"}\n${result.snippet || ""}\n${result.link || ""}`
-      )
-      .join("\n\n")}\n\nUse these results to inform your response if relevant.`;
+    const sources = results
+      .map((result: { title?: string; link?: string }) => {
+        if (!result.link) return null;
+        try {
+          const domain = new URL(result.link).hostname.replace(/^www\./, "");
+          return {
+            title: result.title || domain,
+            url: result.link,
+            domain,
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter((source: WebSearchSource | null): source is WebSearchSource => Boolean(source));
+
+    return {
+      context: `\n\nWeb search results for '${query}':\n${results
+        .map(
+          (result: { title?: string; snippet?: string; link?: string }, index: number) =>
+            `${index + 1}. ${result.title || "Untitled"}\n${result.snippet || ""}\n${result.link || ""}`
+        )
+        .join("\n\n")}\n\nUse these results to inform your response if relevant.`,
+      sources,
+    };
   } catch {
-    return "\n\nWeb search is unavailable right now.";
+    return { context: "\n\nWeb search is unavailable right now.", sources: [] };
   }
+}
+
+function formatWebSearchMarker(model: string | null, sources: WebSearchSource[]) {
+  const sourceAttribute = sources.length > 0
+    ? ` sources="${encodeURIComponent(JSON.stringify(sources))}"`
+    : "";
+  return `<web-search-used model="${model || ""}"${sourceAttribute} />`;
 }

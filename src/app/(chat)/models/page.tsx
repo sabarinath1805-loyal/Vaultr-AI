@@ -61,6 +61,11 @@ const ALL_LOCAL_MODEL_IDS = MODEL_TIERS.flatMap((tier) =>
   tier.models.map((model) => model.id)
 );
 
+function formatModelSize(valueMb: number) {
+  if (valueMb >= 1024) return `${(valueMb / 1024).toFixed(1)} GB`;
+  return `${Math.round(valueMb)} MB`;
+}
+
 export default function ModelsPage() {
   const [installedModels, setInstalledModels] = useState<string[]>([]);
   const [isOllamaRunning, setIsOllamaRunning] = useState(true);
@@ -158,7 +163,14 @@ export default function ModelsPage() {
     const controller = new AbortController();
     if (activeModelPulls.has(ollamaId)) return;
     activeModelPulls.set(ollamaId, controller);
-    setModelDownload(ollamaId, { progress: 0, remainingMb: null, status: "Starting", error: null });
+    setModelDownload(ollamaId, {
+      progress: 0,
+      remainingMb: null,
+      completedMb: null,
+      totalMb: null,
+      status: "Starting",
+      error: null,
+    });
 
     try {
       const response = await fetch("/api/model", {
@@ -193,10 +205,14 @@ export default function ModelsPage() {
           const progress = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
           const remainingMb =
             total > completed ? Math.max((total - completed) / 1024 / 1024, 0) : null;
+          const completedMb = total > 0 ? completed / 1024 / 1024 : null;
+          const totalMb = total > 0 ? total / 1024 / 1024 : null;
 
           useChatStore.getState().setModelDownload(ollamaId, {
             progress: chunk.status === "success" ? 100 : progress,
             remainingMb,
+            completedMb,
+            totalMb,
             status: chunk.status || "Downloading",
             error: null,
           });
@@ -228,6 +244,8 @@ export default function ModelsPage() {
         ...(useChatStore.getState().modelDownloads[ollamaId] || {
           progress: 0,
           remainingMb: null,
+          completedMb: null,
+          totalMb: null,
           status: "",
         }),
         error: "Download failed. Make sure Ollama is running and try again.",
@@ -345,7 +363,7 @@ export default function ModelsPage() {
                               onClick={() => setSelectedModel(model.id)}
                               className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-[13px] text-[var(--text)] transition-[color,background-color] duration-150 hover:bg-[var(--surface)] disabled:cursor-default disabled:bg-[var(--surface)]"
                             >
-                              {selectedModel === model.id ? "Using Model" : "Use Model"}
+                              {selectedModel === model.id ? "✓ Installed" : "Use Model"}
                             </button>
                             <button
                               type="button"
@@ -365,10 +383,9 @@ export default function ModelsPage() {
                                 background: `linear-gradient(90deg, ${model.color} ${download.progress}%, var(--text-secondary) ${download.progress}%)`,
                               }}
                             >
-                              Downloading... {download.progress}%
-                              {download.remainingMb !== null
-                                ? ` · ${download.remainingMb.toFixed(0)} MB left`
-                                : ""}
+                              {download.completedMb != null && download.totalMb != null
+                                ? `${formatModelSize(download.completedMb)} / ${formatModelSize(download.totalMb)} — ${download.progress}%`
+                                : `Downloading... ${download.progress}%`}
                             </button>
                             <button
                               type="button"
@@ -386,7 +403,7 @@ export default function ModelsPage() {
                             className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-[color,background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                             style={{ backgroundColor: model.color }}
                           >
-                            Download
+                            {isOllamaRunning ? "Install" : "Start Ollama first"}
                           </button>
                         )}
                       </div>
