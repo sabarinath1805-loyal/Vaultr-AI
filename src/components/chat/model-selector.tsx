@@ -114,7 +114,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
           event.stopPropagation();
           setOpen((value) => !value);
         }}
-        className="flex h-8 min-w-[100px] items-center gap-1 whitespace-nowrap rounded-lg border-0 bg-transparent px-2 text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)] disabled:cursor-not-allowed"
+        className="flex h-8 min-w-[90px] items-center gap-1 whitespace-nowrap rounded-lg border-0 bg-transparent px-[10px] py-[6px] text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)] disabled:cursor-not-allowed"
       >
         <span>{selectedLabel}</span>
         <ChevronDown size={13} />

@@ -28,6 +28,7 @@ export default function VaultPage() {
   const [deleteProjectId, setDeleteProjectId] = useState<string | null>(null);
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
   const [scanReports, setScanReports] = useState<ScanReportEntry[]>([]);
+  const [scanReportCount, setScanReportCount] = useState(0);
   const [openReportMenuId, setOpenReportMenuId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -73,10 +74,14 @@ export default function VaultPage() {
     const loadScanReports = () => {
       fetch("/api/scan-reports")
         .then((response) => (response.ok ? response.json() : { reports: [] }))
-        .then((data: { reports?: ScanReportEntry[] }) => {
+        .then((data: { reports?: ScanReportEntry[]; count?: number }) => {
           setScanReports(Array.isArray(data.reports) ? data.reports : []);
+          setScanReportCount(typeof data.count === "number" ? data.count : data.reports?.length || 0);
         })
-        .catch(() => setScanReports([]));
+        .catch(() => {
+          setScanReports([]);
+          setScanReportCount(0);
+        });
     };
 
     loadScanReports();
@@ -116,11 +121,16 @@ export default function VaultPage() {
 
   return (
     <main className="h-screen flex-1 overflow-y-auto bg-[var(--bg)]">
-      <div className="flex items-center justify-between px-8 py-4">
+      <div className="flex items-start justify-between px-6 pb-6 pt-8">
         <div>
           <h1 className="text-[28px] font-normal text-[var(--text)]">
             {selectedProject ? selectedProject.name : "Vault"}
           </h1>
+          {!selectedProject && (
+            <p className="mt-2 max-w-[620px] text-sm leading-[1.6] text-[var(--text-muted)]">
+              Store and organise your contracts, scan reports, and legal documents. Everything saved here is private to your device.
+            </p>
+          )}
           {selectedProject && (
             <button
               type="button"
@@ -206,7 +216,7 @@ export default function VaultPage() {
                         <div className="ml-auto w-32 shrink-0 text-left">{project.cmNumber || "—"}</div>
                         <div className="w-24 shrink-0 text-left">{files.length}</div>
                         <div className="w-24 shrink-0 text-left">0</div>
-                        <div className="w-36 shrink-0 text-left">0</div>
+                        <div className="w-36 shrink-0 text-left">{scanReportCount}</div>
                         <div className="w-32 shrink-0 text-left">
                           {new Date(project.createdAt).toLocaleDateString()}
                         </div>
@@ -258,7 +268,7 @@ export default function VaultPage() {
                     Vault
                   </p>
                   <p className="mt-1 max-w-xs text-xs text-[var(--text-faint)]">
-                    Store and organize your legal documents. Upload files and attach them to Lex chats for document-aware legal analysis.
+                    Store and organise your contracts, scan reports, and legal documents. Everything saved here is private to your device.
                   </p>
                   <button
                     type="button"
@@ -341,6 +351,17 @@ function getReportRiskSummary(report: ScanReportEntry) {
   return `${counts.high} High · ${counts.medium} Medium · ${counts.standard} Standard`;
 }
 
+function getReportClauseCount(report: ScanReportEntry) {
+  const analysis = parseScanReportContent(report);
+  return Array.isArray(analysis?.clauses) ? analysis.clauses.length : 0;
+}
+
+function getOverallRiskLevel(report: ScanReportEntry) {
+  if ((report.highCount || 0) > 0) return "High risk";
+  if ((report.mediumCount || 0) > 0) return "Medium risk";
+  return "Standard risk";
+}
+
 function ScanReportsSection({
   reports,
   onViewReport,
@@ -374,7 +395,13 @@ function ScanReportsSection({
         {reports.map((report) => (
           <article
             key={report.id}
-            className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4"
+            className="flex cursor-pointer items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4 transition-colors hover:bg-[var(--sidebar-bg)]"
+            role="button"
+            tabIndex={0}
+            onClick={() => onViewReport(report.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") onViewReport(report.id);
+            }}
           >
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[var(--surface)] text-[var(--text-muted)]">
               <FileText className="h-4 w-4" />
@@ -384,26 +411,29 @@ function ScanReportsSection({
                 {report.title}
               </h3>
               <div className="mt-1 text-xs text-[var(--text-muted)]">
-                {formatReportDate(report.date)} · {getReportRiskSummary(report)}
+                {report.filename || report.title} · {formatReportDate(report.date)} · {getOverallRiskLevel(report)} · {getReportClauseCount(report)} clauses · {getReportRiskSummary(report)}
               </div>
             </div>
             <div className="relative" data-vault-actions>
               <button
                 type="button"
-                onClick={() => onToggleMenu(openMenuId === report.id ? null : report.id)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggleMenu(openMenuId === report.id ? null : report.id);
+                }}
                 className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
               >
                 Actions
               </button>
               {openMenuId === report.id && (
                 <div className="absolute right-0 top-10 z-10 min-w-[160px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]">
-                  <button type="button" onClick={() => onViewReport(report.id)} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+                  <button type="button" onClick={(event) => { event.stopPropagation(); onViewReport(report.id); }} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
                     View Report
                   </button>
-                  <button type="button" onClick={() => onExportPdf(report)} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+                  <button type="button" onClick={(event) => { event.stopPropagation(); onExportPdf(report); }} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
                     Export as PDF
                   </button>
-                  <button type="button" onClick={() => onDelete(report.id)} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--danger)] hover:bg-[var(--surface)]">
+                  <button type="button" onClick={(event) => { event.stopPropagation(); onDelete(report.id); }} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--danger)] hover:bg-[var(--surface)]">
                     Delete
                   </button>
                 </div>
