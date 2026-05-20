@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import { groqIdToLexName, ollamaIdToLexName } from "@/lib/models";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
-import { ReasoningTimeline, parseReasoningSteps } from "@/components/chat/reasoning-timeline";
+import { ReasoningTimeline, SourcesFooter, parseReasoningSteps } from "@/components/chat/reasoning-timeline";
 
 function LexAvatar() {
   return (
@@ -33,14 +33,17 @@ function LexAvatar() {
 export function LexThinkingIndicator({ phase }: { phase: "thinking" | "streaming" }) {
   return (
     <div
-      className={`w-full transition-opacity duration-300 ${
+      className={`w-full pl-4 transition-opacity duration-300 ${
         phase === "thinking" ? "opacity-100" : "opacity-0"
       }`}
       data-testid="thinking-timeline"
     >
-      <div className="flex gap-2.5 pb-2.5">
+      <div className="mb-3 flex items-center gap-1 text-[13px] text-[var(--text-muted)]">
+        Working... <span className="text-[10px]">▾</span>
+      </div>
+      <div className="flex gap-2.5 pb-4">
         <div className="flex flex-col items-center pt-[3px]">
-          <span className="reasoning-spinner inline-block h-[14px] w-[14px]" />
+          <span className="reasoning-spinner inline-block h-[12px] w-[12px]" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[14px] font-normal leading-tight text-[var(--text-primary)]">
@@ -69,7 +72,7 @@ export type ChatMessageProps = {
 
 function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [thinkingOpen, setThinkingOpen] = useState(false);
+  const [reasoningCollapsed, setReasoningCollapsed] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draftContent, setDraftContent] = useState(message.content);
   const router = useRouter();
@@ -96,6 +99,11 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
   const hasAttachedDocument = Boolean(
     message.attachedDocuments && message.attachedDocuments.length > 0
   );
+  const documentFilenames = useMemo(
+    () =>
+      (message.attachedDocuments || []).map((doc) => doc.filename),
+    [message.attachedDocuments]
+  );
   const webSearchMatch = message.content.match(/<web-search-used(?:\s+model="([^"]+)")?\s*\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchModel = webSearchMatch?.[1]
@@ -108,24 +116,49 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
     if (urlMatches) {
       urlMatches.forEach((m) => domains.push(m.replace("site:", "")));
     }
+    const linkMatches = message.content.match(/https?:\/\/([\w.-]+)/g);
+    if (linkMatches) {
+      linkMatches.forEach((m) => {
+        try {
+          const hostname = new URL(m).hostname;
+          if (!domains.includes(hostname) && !hostname.includes("localhost")) {
+            domains.push(hostname);
+          }
+        } catch {
+          // ignore
+        }
+      });
+    }
     if (webSearchUsed && domains.length === 0) {
       domains.push("Web search");
     }
-    return domains;
+    return Array.from(new Set(domains));
   }, [message.content, webSearchUsed]);
+
+  const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const reasoningSteps = useMemo(
     () =>
       shouldShowReasoning
         ? parseReasoningSteps(
             thinkContent,
             hasAttachedDocument,
+            documentFilenames,
             webSearchUsed,
             searchDomains,
-            Boolean(isLoading && isLast)
+            isCurrentlyStreaming
           )
         : [],
-    [thinkContent, hasAttachedDocument, webSearchUsed, searchDomains, isLoading, isLast, shouldShowReasoning]
+    [thinkContent, hasAttachedDocument, documentFilenames, webSearchUsed, searchDomains, isCurrentlyStreaming, shouldShowReasoning]
   );
+
+  const timelineVisible = shouldShowReasoning && isCurrentlyStreaming && !reasoningCollapsed;
+
+  React.useEffect(() => {
+    if (!isCurrentlyStreaming && shouldShowReasoning && cleanContent.length > 30) {
+      setReasoningCollapsed(true);
+    }
+  }, [isCurrentlyStreaming, shouldShowReasoning, cleanContent.length]);
+
   const markdownComponents: Components = {
     h1: ({ children }) => (
       <h1 className="mb-3 mt-5 text-[22px] font-semibold leading-tight text-[var(--text-primary)]">
@@ -323,7 +356,9 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
             {shouldShowReasoning && (
               <ReasoningTimeline
                 steps={reasoningSteps}
-                visible={true}
+                visible={timelineVisible}
+                collapsed={reasoningCollapsed && !isCurrentlyStreaming}
+                onToggleCollapse={() => setReasoningCollapsed((v) => !v)}
               />
             )}
             {message.experimental_attachments?.some((attachment) =>
@@ -346,13 +381,11 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
             <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
+            {!isCurrentlyStreaming && webSearchUsed && searchDomains.length > 0 && (
+              <SourcesFooter domains={searchDomains} />
+            )}
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
               {timestamp && <div>{timestamp}</div>}
-              {webSearchUsed && (
-                <div>
-                  <span className="text-[11px]">🔍</span> Web search used · Prepared using {webSearchModel}
-                </div>
-              )}
               {documentAnalyzed.map((match) => (
                 <div key={match[1]}>
                   <span className="text-[11px]">📄</span> {match[1]} analyzed
@@ -392,4 +425,9 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
   );
 }
 
-export default memo(ChatMessage);
+export default memo(ChatMessage, (prevProps, nextProps) =>
+  prevProps.isLast === nextProps.isLast &&
+  prevProps.isLoading === nextProps.isLoading &&
+  prevProps.message.content === nextProps.message.content &&
+  prevProps.message.id === nextProps.message.id
+);
