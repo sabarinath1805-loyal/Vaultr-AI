@@ -66,8 +66,11 @@ export async function GET() {
          ORDER BY created_at DESC`
       )
       .all() as ScanReportRow[];
+    const countRow = sqlite
+      .prepare(`SELECT COUNT(*) AS count FROM scan_reports`)
+      .get() as { count: number };
 
-    return NextResponse.json({ reports: rows.map(toClientReport) });
+    return NextResponse.json({ reports: rows.map(toClientReport), count: countRow.count });
   } finally {
     sqlite.close();
   }
