@@ -72,7 +72,7 @@ export const LEX_MODELS: LexModel[] = [
     tierId: "flash",
     tierName: "Lex Flash",
     name: "Lex Flash",
-    ollamaId: "gemma4:e4b",
+    ollamaId: "gemma4:e2b",
     badge: "Flash",
     color: "#1D9E75",
     ramRequired: "16GB RAM · 2.6GB",
@@ -214,7 +214,7 @@ export function sortModelsByLexOrder(modelIds: string[]): string[] {
 }
 
 export const THINKING_CAPABLE_MODEL_IDS = [
-  "gemma4:e4b",
+  "gemma4:e2b",
   "phi4-mini",
   "deepseek-r1:7b",
 ];
