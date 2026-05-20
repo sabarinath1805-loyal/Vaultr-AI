@@ -358,9 +358,19 @@ function getReportClauseCount(report: ScanReportEntry) {
 }
 
 function getOverallRiskLevel(report: ScanReportEntry) {
+  if (report.overallRisk) return formatRiskLabel(report.overallRisk);
+
+  const analysis = parseScanReportContent(report);
+  if (analysis?.overall_risk) return formatRiskLabel(analysis.overall_risk);
+
   if ((report.highCount || 0) > 0) return "High risk";
   if ((report.mediumCount || 0) > 0) return "Medium risk";
   return "Standard risk";
+}
+
+function formatRiskLabel(risk: string) {
+  const normalized = risk.toLowerCase();
+  return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)} risk`;
 }
 
 function getReportCreatedAt(report: ScanReportEntry) {
