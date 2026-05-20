@@ -14,6 +14,7 @@ interface ReasoningTimelineProps {
   steps: ReasoningStep[];
   visible: boolean;
   collapsed: boolean;
+  showCollapsedIndicator?: boolean;
   onToggleCollapse: () => void;
 }
 
@@ -21,78 +22,101 @@ export function ReasoningTimeline({
   steps,
   visible,
   collapsed,
+  showCollapsedIndicator = false,
   onToggleCollapse,
 }: ReasoningTimelineProps) {
+  const [visibleCount, setVisibleCount] = React.useState(1);
+  const stepKey = steps.map((step) => step.id).join("|");
+
+  React.useEffect(() => {
+    setVisibleCount(1);
+  }, [stepKey]);
+
+  React.useEffect(() => {
+    if (!visible || collapsed || visibleCount >= steps.length) return;
+    const timeout = window.setTimeout(() => {
+      setVisibleCount((count) => Math.min(count + 1, steps.length));
+    }, 1500);
+    return () => window.clearTimeout(timeout);
+  }, [collapsed, steps.length, visible, visibleCount]);
+
   if (steps.length === 0) return null;
 
+  const collapsedButton = (
+    <button
+      type="button"
+      onClick={onToggleCollapse}
+      className="mb-2 flex items-center gap-1 text-[12px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
+      data-testid="reasoning-collapsed-toggle"
+    >
+      <span className="reasoning-gear-icon">⚙</span> Lex reasoned{" "}
+      <span className="text-[10px]">▾</span>
+    </button>
+  );
+
   if (collapsed) {
-    return (
-      <button
-        type="button"
-        onClick={onToggleCollapse}
-        className="mb-2 flex items-center gap-1 text-[12px] text-[var(--text-muted)] transition-colors hover:text-[var(--text-primary)]"
-        data-testid="reasoning-collapsed-toggle"
-      >
-        <span className="reasoning-gear-icon">⚙</span> Lex reasoned{" "}
-        <span className="text-[10px]">▾</span>
-      </button>
-    );
+    return collapsedButton;
   }
 
+  const renderedSteps = steps.slice(0, visible ? visibleCount : steps.length);
+
   return (
-    <div
-      className={`reasoning-timeline-container mb-4 pl-4 ${
-        visible
-          ? "reasoning-timeline-visible"
-          : "reasoning-timeline-hidden"
-      }`}
-      data-testid="reasoning-timeline"
-    >
-      <button
-        type="button"
-        onClick={onToggleCollapse}
-        className="mb-3 flex items-center gap-1 text-[13px] text-[var(--text-muted)]"
+    <>
+      {showCollapsedIndicator && collapsedButton}
+      <div
+        className={`reasoning-timeline-container mb-4 pl-4 ${
+          visible
+            ? "reasoning-timeline-visible"
+            : "reasoning-timeline-hidden"
+        }`}
+        data-testid="reasoning-timeline"
       >
-        Working...{" "}
-        <span className="text-[10px]">▾</span>
-      </button>
-      {steps.map((step) => {
-        const isActive = !step.completed;
-        return (
-          <div key={step.id} className="flex gap-2.5 pb-4">
-            <div className="flex flex-col items-center pt-[3px]">
-              {isActive ? (
-                <span className="reasoning-spinner inline-block h-[12px] w-[12px]" />
-              ) : (
-                <span className="mt-[1px] inline-block h-[8px] w-[8px] rounded-full border border-[var(--text-muted)]" />
-              )}
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="text-[14px] font-normal leading-tight text-[var(--text-primary)]">
-                {step.label}
+        <button
+          type="button"
+          onClick={onToggleCollapse}
+          className="mb-3 flex items-center gap-1 text-[13px] text-[var(--text-muted)]"
+        >
+          Working...{" "}
+          <span className="text-[10px]">▾</span>
+        </button>
+        {renderedSteps.map((step) => {
+          const isActive = !step.completed;
+          return (
+            <div key={step.id} className="flex gap-2.5 pb-4">
+              <div className="flex flex-col items-center pt-[3px]">
+                {isActive ? (
+                  <span className="reasoning-spinner inline-block h-[12px] w-[12px]" />
+                ) : (
+                  <span className="mt-[1px] inline-block h-[8px] w-[8px] rounded-full border border-[var(--text-muted)]" />
+                )}
               </div>
-              {step.detail && (
-                <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-muted)]">
-                  {step.detail}
+              <div className="min-w-0 flex-1">
+                <div className="text-[14px] font-normal leading-tight text-[var(--text-primary)]">
+                  {step.label}
                 </div>
-              )}
-              {step.pills && step.pills.length > 0 && (
-                <div className="mt-1 flex flex-wrap gap-1">
-                  {step.pills.map((pill) => (
-                    <span
-                      key={pill}
-                      className="inline-block rounded bg-[var(--bg-secondary)] px-2 py-[3px] text-[12px] text-[var(--text-secondary)]"
-                    >
-                      {pill}
-                    </span>
-                  ))}
-                </div>
-              )}
+                {step.detail && (
+                  <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-muted)]">
+                    {step.detail}
+                  </div>
+                )}
+                {step.pills && step.pills.length > 0 && (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {step.pills.map((pill) => (
+                      <span
+                        key={pill}
+                        className="inline-block rounded bg-[var(--bg-secondary)] px-2 py-[3px] text-[12px] text-[var(--text-secondary)]"
+                      >
+                        {pill}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

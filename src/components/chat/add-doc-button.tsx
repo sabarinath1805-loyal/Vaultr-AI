@@ -50,7 +50,7 @@ export function AddDocButton({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className={`flex h-8 items-center gap-1 rounded-lg px-2 text-sm transition-colors ${
+            className={`flex h-8 shrink-0 items-center gap-1 rounded-lg px-[10px] py-[6px] text-sm transition-colors ${
               selectedDocIds.length > 0
                 ? "text-[var(--text)] hover:bg-[var(--surface)]"
                 : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"

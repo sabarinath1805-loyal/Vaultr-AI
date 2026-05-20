@@ -6,14 +6,19 @@ export async function POST(req: Request) {
 
   const ollamaUrl = process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
 
-  const response = await fetch(ollamaUrl + "/api/pull", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: name, name, stream: true }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(ollamaUrl + "/api/pull", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: name, name, stream: true }),
+    });
+  } catch {
+    return Response.json({ error: "Start Ollama first" }, { status: 503 });
+  }
 
   if (!response.ok) {
-    throw new Error("Failed to pull model");
+    return Response.json({ error: "Start Ollama first" }, { status: response.status });
   }
 
   const headers = new Headers(response.headers);
