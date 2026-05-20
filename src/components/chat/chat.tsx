@@ -186,6 +186,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       thinking?: boolean;
       thinkingMode?: boolean;
       ollamaUrl?: string;
+      jurisdictionPrompt?: string;
+      selectedSources?: string[];
       attachedDocuments?: {
         id: string;
         filename: string;
@@ -259,6 +261,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         thinkingMode: thinking,
         usePrivacyMode,
         ollamaUrl: requestBody?.ollamaUrl,
+        jurisdictionPrompt: requestBody?.jurisdictionPrompt,
+        selectedSources: requestBody?.selectedSources,
       },
       ...(base64Images && {
         data: {
