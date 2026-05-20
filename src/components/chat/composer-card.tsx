@@ -61,7 +61,9 @@ export function ComposerCard({
   const [docSelectorOpen, setDocSelectorOpen] = React.useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = React.useState<AttachedWorkflow | null>(null);
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
+  const [modePopoverOpen, setModePopoverOpen] = React.useState(false);
   const [selectedSources, setSelectedSources] = React.useState<string[]>([]);
+  const modePopoverRef = React.useRef<HTMLDivElement>(null);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
   const pendingAttachedDocumentIds = useChatStore((state) => state.pendingAttachedDocumentIds);
@@ -107,6 +109,20 @@ export function ComposerCard({
     if (setInput) setInput("");
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, [composerResetToken, setInput, setPendingWorkflow]);
+
+  React.useEffect(() => {
+    if (!modePopoverOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        modePopoverRef.current &&
+        !modePopoverRef.current.contains(event.target as Node)
+      ) {
+        setModePopoverOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [modePopoverOpen]);
 
   const submitFromTextarea = () => {
     const form = textareaRef.current?.form;
@@ -238,6 +254,16 @@ export function ComposerCard({
     setCloudMode(false, privateModel);
   };
 
+  const selectCloudMode = () => {
+    if (!cloudMode) setCloudMode(true, selectedModel || GROQ_DEFAULT_MODEL);
+    setModePopoverOpen(false);
+  };
+
+  const selectPrivateMode = async () => {
+    if (cloudMode) await switchMode();
+    setModePopoverOpen(false);
+  };
+
   const toggleSource = (sourceId: string) => {
     setSelectedSources((prev) =>
       prev.includes(sourceId)
@@ -319,19 +345,85 @@ export function ComposerCard({
 
           <div className="flex flex-nowrap items-center gap-1 p-2 md:p-2.5">
             <div className="flex min-w-0 flex-nowrap items-center gap-1">
-              <button
-                type="button"
-                onClick={switchMode}
-                aria-pressed={cloudMode}
-                title={cloudMode ? "Cloud Mode" : "Private Mode"}
-                className="flex h-8 shrink-0 items-center justify-center rounded-lg px-[10px] py-[6px] text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
-              >
-                {cloudMode ? (
-                  <IconCloud className="h-4 w-4" stroke={1.8} />
-                ) : (
-                  <IconLock className="h-4 w-4" stroke={1.8} />
+              <div className="relative shrink-0" ref={modePopoverRef}>
+                <button
+                  type="button"
+                  onClick={() => setModePopoverOpen((open) => !open)}
+                  aria-pressed={cloudMode}
+                  title={cloudMode ? "Cloud Mode" : "Private Mode"}
+                  className="flex h-8 items-center justify-center rounded-lg px-[10px] py-[6px] text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
+                >
+                  {cloudMode ? (
+                    <IconCloud className="h-4 w-4" stroke={1.8} />
+                  ) : (
+                    <IconLock className="h-4 w-4" stroke={1.8} />
+                  )}
+                </button>
+                {modePopoverOpen && (
+                  <div className="absolute bottom-full left-0 z-50 mb-2 w-[360px] rounded-xl border border-[var(--border)] bg-[var(--bg)] p-3 shadow-lg">
+                    <div className="mb-3 flex rounded-full bg-[var(--surface)] p-1">
+                      <button
+                        type="button"
+                        onClick={selectCloudMode}
+                        className={`flex-1 rounded-full px-3 py-1.5 text-[12px] transition-colors ${
+                          cloudMode
+                            ? "bg-[var(--bg)] text-[var(--text-primary)] shadow-sm"
+                            : "text-[var(--text-muted)]"
+                        }`}
+                      >
+                        Cloud Mode
+                      </button>
+                      <button
+                        type="button"
+                        onClick={selectPrivateMode}
+                        className={`flex-1 rounded-full px-3 py-1.5 text-[12px] transition-colors ${
+                          !cloudMode
+                            ? "bg-[var(--bg)] text-[var(--text-primary)] shadow-sm"
+                            : "text-[var(--text-muted)]"
+                        }`}
+                      >
+                        Private Mode
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={selectCloudMode}
+                        className={`rounded-lg border p-3 text-left transition-colors ${
+                          cloudMode
+                            ? "border-[var(--text-primary)] bg-[var(--surface)]"
+                            : "border-[var(--border)] hover:bg-[var(--surface)]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 text-[13px] text-[var(--text-primary)]">
+                          <IconCloud className="h-4 w-4" stroke={1.8} />
+                          Cloud Mode
+                        </div>
+                        <p className="mt-1 text-[11px] leading-[1.4] text-[var(--text-muted)]">
+                          Groq + Ollama Cloud. Fast. Zero data retention.
+                        </p>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={selectPrivateMode}
+                        className={`rounded-lg border p-3 text-left transition-colors ${
+                          !cloudMode
+                            ? "border-[var(--text-primary)] bg-[var(--surface)]"
+                            : "border-[var(--border)] hover:bg-[var(--surface)]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 text-[13px] text-[var(--text-primary)]">
+                          <IconLock className="h-4 w-4" stroke={1.8} />
+                          Private Mode
+                        </div>
+                        <p className="mt-1 text-[11px] leading-[1.4] text-[var(--text-muted)]">
+                          Local Ollama only. Nothing leaves your device.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
                 )}
-              </button>
+              </div>
               <div className="mx-1 h-5 w-px shrink-0 bg-[var(--border)]" />
               <AddDocButton
                 onSelectDoc={handleAddDocument}

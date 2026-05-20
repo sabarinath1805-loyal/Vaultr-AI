@@ -25,6 +25,17 @@ export default function ChatList({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const lastMessageContent = messages[messages.length - 1]?.content || "";
+  const showStandaloneThinking =
+    thinkingPhase !== "idle" &&
+    !messages.some(
+      (message) =>
+        message.role === "assistant" &&
+        message.content
+          .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
+          .replace(/<web-search-used[^>]*\/>\s*/g, "")
+          .replace(/<document-analyzed[^>]*\/>/g, "")
+          .trim().length > 0
+    );
 
   useEffect(() => {
     if (!isNearBottom) return;
@@ -55,9 +66,9 @@ export default function ChatList({
               reload={reload}
             />
           ))}
-          {thinkingPhase !== "idle" && (
+          {showStandaloneThinking && (
             <div className="message animate-message-in mb-10 w-full max-w-4xl text-left">
-              <LexThinkingIndicator phase={thinkingPhase} />
+              <LexThinkingIndicator />
             </div>
           )}
           <div ref={bottomRef} />
