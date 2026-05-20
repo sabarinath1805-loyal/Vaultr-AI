@@ -46,6 +46,7 @@ h1, h2, h3, .font-display, .greeting-heading {
   --color-background-secondary: var(--bg-secondary);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
+  --color-border-primary: var(--border);
   --color-border-tertiary: var(--border);
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -211,17 +212,25 @@ html[data-theme="dark"] {
 .reasoning-timeline-container {
   max-height: 520px;
   overflow: hidden;
-  transition: opacity 0.4s ease, max-height 0.5s ease, transform 0.5s ease;
+  transition: opacity 0.3s ease, max-height 0.4s ease;
 }
 
 .reasoning-timeline-visible {
   opacity: 1;
-  transform: translateY(0);
 }
 
 .reasoning-timeline-hidden {
   opacity: 0;
   max-height: 0;
-  transform: translateY(-10px);
   pointer-events: none;
+}
+
+.reasoning-step {
+  opacity: 0;
+  animation: reasoningStepFade 0.2s ease forwards;
+}
+
+@keyframes reasoningStepFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }

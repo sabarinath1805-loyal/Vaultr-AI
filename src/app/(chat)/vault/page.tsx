@@ -72,11 +72,12 @@ export default function VaultPage() {
 
   useEffect(() => {
     const loadScanReports = () => {
-      fetch("/api/scan-reports")
-        .then((response) => (response.ok ? response.json() : { reports: [] }))
+      fetch("/api/scan-reports", { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : { reports: [], count: 0 }))
         .then((data: { reports?: ScanReportEntry[]; count?: number }) => {
-          setScanReports(Array.isArray(data.reports) ? data.reports : []);
-          setScanReportCount(typeof data.count === "number" ? data.count : data.reports?.length || 0);
+          const reports = Array.isArray(data.reports) ? data.reports : [];
+          setScanReports(reports);
+          setScanReportCount(typeof data.count === "number" ? data.count : reports.length);
         })
         .catch(() => {
           setScanReports([]);
@@ -362,6 +363,10 @@ function getOverallRiskLevel(report: ScanReportEntry) {
   return "Standard risk";
 }
 
+function getReportCreatedAt(report: ScanReportEntry) {
+  return report.date;
+}
+
 function ScanReportsSection({
   reports,
   onViewReport,
@@ -411,7 +416,7 @@ function ScanReportsSection({
                 {report.title}
               </h3>
               <div className="mt-1 text-xs text-[var(--text-muted)]">
-                {report.filename || report.title} · {formatReportDate(report.date)} · {getOverallRiskLevel(report)} · {getReportClauseCount(report)} clauses · {getReportRiskSummary(report)}
+                Filename: {report.filename || report.title} · Created: {formatReportDate(getReportCreatedAt(report))} · Overall risk: {getOverallRiskLevel(report)} · Clause count: {getReportClauseCount(report)} · {getReportRiskSummary(report)}
               </div>
             </div>
             <div className="relative" data-vault-actions>
