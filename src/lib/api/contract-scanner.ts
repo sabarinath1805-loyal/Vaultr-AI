@@ -7,19 +7,15 @@ import {
   patchPredatoryClauseFindings,
 } from "@/lib/contract-scanner";
 import { LEX_SYSTEM_PROMPT } from "@/lib/lex";
-import { GROQ_DEFAULT_MODEL, getDefaultModel, isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL } from "@/lib/models";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const OLLAMA_HEALTH_URL = "http://localhost:11434";
+const PRIVATE_CONTRACT_SCANNER_MODEL = "qwen3:8b";
 
 export async function scanContractFormData(formData: FormData) {
   const file = formData.get("file");
   const mode = formData.get("mode") === "private" ? "private" : "cloud";
-  const requestedModel = formData.get("model");
-  const selectedModel =
-    typeof requestedModel === "string" && isLexModel(requestedModel)
-      ? requestedModel
-      : getDefaultModel().ollamaId;
   const requestedOllamaUrl = formData.get("ollamaUrl");
   const ollamaUrl =
     typeof requestedOllamaUrl === "string" && requestedOllamaUrl.trim()
@@ -58,7 +54,7 @@ export async function scanContractFormData(formData: FormData) {
         ...(mode === "private" ? {} : { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }),
       },
       body: JSON.stringify({
-        model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
+        model: mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL,
         stream: false,
         ...(mode === "cloud" ? { response_format: { type: "json_object" } } : {}),
         ...(mode === "private" ? { format: "json" } : {}),
@@ -73,7 +69,7 @@ export async function scanContractFormData(formData: FormData) {
     if (!response.ok) {
       console.error("Contract scanner model error response", {
         mode,
-        model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
+        model: mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL,
         status: response.status,
         body: responseBody,
       });
@@ -94,7 +90,7 @@ export async function scanContractFormData(formData: FormData) {
     if (!responseText) {
       console.error("Contract scanner empty model response", {
         mode,
-        model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
+        model: mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL,
         body: responseBody,
       });
       return NextResponse.json(
@@ -112,7 +108,7 @@ export async function scanContractFormData(formData: FormData) {
   } catch (error) {
     console.error("Contract scanner API error", {
       mode,
-      model: mode === "private" ? selectedModel : GROQ_DEFAULT_MODEL,
+      model: mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL,
       error,
     });
     if (error instanceof SyntaxError) {
