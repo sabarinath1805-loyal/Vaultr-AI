@@ -3,7 +3,7 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Brain, Check, Cloud, File, FileText, FolderOpen, Library, Lock, Square, X } from "lucide-react";
+import { ArrowRight, Check, Cloud, File, FileText, FolderOpen, Library, Lock, Square, X } from "lucide-react";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { WorkflowsModal } from "@/components/workflows/workflows-modal";
 import { AddDocButton } from "@/components/chat/add-doc-button";
@@ -26,9 +26,6 @@ interface ComposerCardProps {
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   modelSelectorDirection?: "up" | "down";
 }
-
-const toolbarButtonClass =
-  "flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]";
 
 function decodeBase64Text(base64: string) {
   const binary = window.atob(base64);
@@ -64,7 +61,6 @@ export function ComposerCard({
   const [selectedWorkflow, setSelectedWorkflow] = React.useState<AttachedWorkflow | null>(null);
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
   const [selectedSources, setSelectedSources] = React.useState<string[]>([]);
-  const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
   const pendingAttachedDocumentIds = useChatStore((state) => state.pendingAttachedDocumentIds);
@@ -72,26 +68,15 @@ export function ComposerCard({
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
   const setPendingWorkflow = useChatStore((state) => state.setPendingWorkflow);
   const composerResetToken = useChatStore((state) => state.composerResetToken);
-  const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const ollamaUrl = useChatStore((state) => state.ollamaUrl);
   const cloudMode = useChatStore((state) => state.cloudMode);
   const setCloudMode = useChatStore((state) => state.setCloudMode);
+  const usePrivacyMode = !cloudMode;
 
   React.useEffect(() => {
     textareaRef.current?.focus();
   }, []);
-
-  React.useEffect(() => {
-    const savedThinking = window.localStorage.getItem("vaultr-thinking-enabled");
-    const nextThinkingEnabled =
-      savedThinking === null ? thinkingModeDefault : savedThinking === "true";
-    setThinkingEnabled((current) =>
-      current === nextThinkingEnabled ? current : nextThinkingEnabled
-    );
-    // This only mirrors the persisted default when that default changes; the guarded
-    // setter avoids a same-value state write during Strict Mode remounts.
-  }, [thinkingModeDefault]);
 
   React.useEffect(() => {
     if (pendingAttachedDocumentIds.length === 0) return;
@@ -104,8 +89,6 @@ export function ComposerCard({
       });
     }
     setPendingAttachedDocumentIds([]);
-    // The effect clears pendingAttachedDocumentIds after consuming them so the
-    // dependency cannot retrigger the attachment write on subsequent renders.
   }, [documents, pendingAttachedDocumentIds, setPendingAttachedDocumentIds]);
 
   React.useEffect(() => {
@@ -114,8 +97,6 @@ export function ComposerCard({
       current?.id === pendingWorkflow.id ? current : pendingWorkflow
     );
     requestAnimationFrame(() => textareaRef.current?.focus());
-    // The global workflow stays active so document-backed sessions keep sending
-    // the workflow prompt until the lawyer explicitly removes or resets it.
   }, [pendingWorkflow]);
 
   React.useEffect(() => {
@@ -124,8 +105,6 @@ export function ComposerCard({
     setPendingWorkflow(null);
     if (setInput) setInput("");
     requestAnimationFrame(() => textareaRef.current?.focus());
-    // composerResetToken is a monotonic reset signal; it is the only reset trigger
-    // so streaming input changes cannot repeatedly clear composer state.
   }, [composerResetToken, setInput, setPendingWorkflow]);
 
   const submitFromTextarea = () => {
@@ -214,7 +193,7 @@ export function ComposerCard({
         content: doc.content,
         dataUrl: doc.dataUrl,
       })),
-      thinking: usePrivacyMode && thinkingEnabled && isThinkingCapableModel(selectedModel),
+      thinking: usePrivacyMode && isThinkingCapableModel(selectedModel),
       usePrivacyMode,
       jurisdictionPrompt,
       selectedSources,
@@ -234,13 +213,6 @@ export function ComposerCard({
     setSelectedWorkflow(workflow);
     setPendingWorkflow(workflow);
     requestAnimationFrame(() => textareaRef.current?.focus());
-  };
-
-  const setPersistentThinking = () => {
-    setThinkingEnabled((enabled) => {
-      window.localStorage.setItem("vaultr-thinking-enabled", String(!enabled));
-      return !enabled;
-    });
   };
 
   const switchMode = async () => {
@@ -276,9 +248,6 @@ export function ComposerCard({
   const removeSource = (sourceId: string) => {
     setSelectedSources((prev) => prev.filter((id) => id !== sourceId));
   };
-
-  const usePrivacyMode = !cloudMode;
-  const thinkingSupported = usePrivacyMode && isThinkingCapableModel(selectedModel);
 
   return (
     <>
@@ -347,14 +316,14 @@ export function ComposerCard({
             />
           </div>
 
-          <div className="flex items-center justify-between p-2 md:p-2.5">
-            <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-between gap-y-1 p-2 md:p-2.5">
+            <div className="flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 onClick={switchMode}
                 aria-pressed={cloudMode}
                 title={cloudMode ? "Switch to Private Mode" : "Switch to Cloud Mode"}
-                className="mr-1 flex h-8 items-center gap-2 rounded-lg px-2 text-[12px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                className="mr-1 flex h-8 items-center gap-2 rounded-lg px-[6px] py-[6px] text-[12px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
               >
                 <span className={`hidden items-center gap-1 sm:flex ${cloudMode ? "text-[var(--text-faint)]" : "text-[var(--text)]"}`}>
                   <Lock className="h-3.5 w-3.5" />
@@ -388,7 +357,7 @@ export function ComposerCard({
               />
               <button
                 type="button"
-                className={toolbarButtonClass}
+                className="flex h-8 items-center gap-1.5 rounded-lg px-[6px] py-[6px] text-sm text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
                 onClick={() => setDocSelectorOpen(true)}
                 aria-label="Open vault"
               >
@@ -397,7 +366,7 @@ export function ComposerCard({
               </button>
               <button
                 type="button"
-                className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm transition-colors ${
+                className={`flex h-8 items-center gap-1.5 rounded-lg px-[6px] py-[6px] text-sm transition-colors ${
                   selectedWorkflow
                     ? "text-[var(--blue)] hover:bg-[var(--bg-tertiary)]"
                     : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
@@ -415,30 +384,6 @@ export function ComposerCard({
             </div>
 
             <div className="flex items-center gap-1">
-              <button
-                type="button"
-                title={
-                  cloudMode
-                    ? "Thinking mode is only available in Private Mode with qwen3"
-                    : thinkingSupported
-                    ? thinkingEnabled ? "Thinking mode on" : "Thinking mode off"
-                    : "Thinking mode requires qwen3 or DeepSeek local models"
-                }
-                onClick={() => {
-                  if (thinkingSupported) {
-                    setPersistentThinking();
-                  }
-                }}
-                className={`flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] transition-colors ${
-                  thinkingEnabled && thinkingSupported
-                    ? "text-[var(--purple)]"
-                    : "text-[var(--text-muted)] hover:text-[var(--text)]"
-                } ${thinkingSupported ? "" : "cursor-not-allowed opacity-50"}`}
-                aria-pressed={thinkingEnabled && thinkingSupported}
-                aria-label="Thinking mode"
-              >
-                <Brain className="h-4 w-4" />
-              </button>
               <ModelSelector disabled={isLoading} direction={modelSelectorDirection} />
               <button
                 type={isLoading ? "button" : "submit"}
@@ -449,7 +394,7 @@ export function ComposerCard({
                   }
                 }}
                 disabled={!isLoading && !input.trim()}
-                className="relative flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--accent)] text-[var(--bg-primary)] transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
+                className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent)] text-[var(--bg-primary)] transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
                 aria-label={isLoading ? "Stop response" : "Send message"}
               >
                 {isLoading ? (

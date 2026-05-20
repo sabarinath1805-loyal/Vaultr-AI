@@ -207,3 +207,18 @@ html[data-theme="dark"] {
   border-radius: 50%;
   animation: reasoningSpin 0.8s linear infinite;
 }
+
+.reasoning-timeline-container {
+  transition: transform 300ms ease, opacity 300ms ease;
+}
+
+.reasoning-timeline-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.reasoning-timeline-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
