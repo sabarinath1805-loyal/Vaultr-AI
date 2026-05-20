@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { IconCloud, IconLock } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { UploadZone } from "@/components/contract-scanner/upload-zone";
 import type { RiskFilter } from "@/components/contract-scanner/results-display";
@@ -251,20 +252,23 @@ export default function ContractScannerPage() {
               {[
                 {
                   id: "cloud" as ScannerMode,
-                  title: "☁️ Cloud Mode",
+                  title: "Cloud Mode",
+                  icon: IconCloud,
                   description: "Uses Groq llama-3.3-70b-versatile for fast analysis.",
                   time: "~15 seconds",
                   note: "Processed by Groq. Zero data retention.",
                 },
                 {
                   id: "private" as ScannerMode,
-                  title: "🔒 Private Mode",
+                  title: "Private Mode",
+                  icon: IconLock,
                   description: "Uses your currently installed local Ollama model.",
                   time: "~2-5 minutes depending on your model",
                   note: "Your document never leaves your device.",
                 },
               ].map((option) => {
                 const active = scannerMode === option.id;
+                const ModeIcon = option.icon;
                 return (
                   <button
                     key={option.id}
@@ -277,7 +281,10 @@ export default function ContractScannerPage() {
                     }`}
                     aria-pressed={active}
                   >
-                    <div className="text-sm font-medium text-[var(--text)]">{option.title}</div>
+                    <div className="flex items-center gap-2 text-sm font-medium text-[var(--text)]">
+                      <ModeIcon className="h-4 w-4" stroke={1.8} />
+                      {option.title}
+                    </div>
                     <div className="mt-1 text-[13px] leading-[1.5] text-[var(--text-muted)]">
                       {option.description}
                     </div>

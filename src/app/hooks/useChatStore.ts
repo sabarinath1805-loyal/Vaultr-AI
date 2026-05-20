@@ -39,6 +39,8 @@ interface State {
 export interface ModelDownloadState {
   progress: number;
   remainingMb: number | null;
+  completedMb: number | null;
+  totalMb: number | null;
   status: string;
   error: string | null;
 }

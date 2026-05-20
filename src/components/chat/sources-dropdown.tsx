@@ -85,10 +85,10 @@ export function SourcesDropdown({
   }, [open]);
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative shrink-0" ref={dropdownRef}>
       <button
         type="button"
-        className={`flex h-8 items-center gap-1.5 rounded-lg px-[6px] py-[6px] text-sm transition-colors ${
+        className={`flex h-8 items-center gap-1.5 rounded-lg px-[10px] py-[6px] text-sm transition-colors ${
           selectedSources.length > 0
             ? "text-[var(--blue)] hover:bg-[var(--bg-tertiary)]"
             : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
