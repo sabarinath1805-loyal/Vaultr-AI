@@ -12,6 +12,7 @@ import { formatBytes, type LocalDocument } from "@/lib/local-documents";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import useChatStore, { type AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, isLexModel, isThinkingCapableModel, sortModelsByLexOrder } from "@/lib/models";
+import { SourcesDropdown, SourcePills, buildJurisdictionPrompt } from "@/components/chat/sources-dropdown";
 
 interface ComposerCardProps {
   input: string;
@@ -62,6 +63,7 @@ export function ComposerCard({
   const [docSelectorOpen, setDocSelectorOpen] = React.useState(false);
   const [selectedWorkflow, setSelectedWorkflow] = React.useState<AttachedWorkflow | null>(null);
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
+  const [selectedSources, setSelectedSources] = React.useState<string[]>([]);
   const [thinkingEnabled, setThinkingEnabled] = React.useState(false);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
@@ -200,6 +202,7 @@ export function ComposerCard({
       };
     });
     const activeWorkflow = selectedWorkflow || pendingWorkflow;
+    const jurisdictionPrompt = buildJurisdictionPrompt(selectedSources);
     const metadata = {
       workflow: activeWorkflow,
       attachedDocuments: documentsWithExtractedText.map((doc) => ({
@@ -213,6 +216,8 @@ export function ComposerCard({
       })),
       thinking: usePrivacyMode && thinkingEnabled && isThinkingCapableModel(selectedModel),
       usePrivacyMode,
+      jurisdictionPrompt,
+      selectedSources,
     };
 
     handleSubmit(event, {
@@ -260,6 +265,18 @@ export function ComposerCard({
     setCloudMode(false, privateModel);
   };
 
+  const toggleSource = (sourceId: string) => {
+    setSelectedSources((prev) =>
+      prev.includes(sourceId)
+        ? prev.filter((id) => id !== sourceId)
+        : [...prev, sourceId]
+    );
+  };
+
+  const removeSource = (sourceId: string) => {
+    setSelectedSources((prev) => prev.filter((id) => id !== sourceId));
+  };
+
   const usePrivacyMode = !cloudMode;
   const thinkingSupported = usePrivacyMode && isThinkingCapableModel(selectedModel);
 
@@ -267,8 +284,9 @@ export function ComposerCard({
     <>
       <form onSubmit={submitWithReset} className="w-full" style={{ maxWidth: "780px" }}>
         <div className="rounded-[16px] border border-[var(--border)] bg-[var(--bg)] md:rounded-[20px]">
-          {(selectedWorkflow || attachedDocuments.length > 0) && (
+          {(selectedWorkflow || attachedDocuments.length > 0 || selectedSources.length > 0) && (
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
+              <SourcePills selectedSources={selectedSources} onRemove={removeSource} />
               {selectedWorkflow && (
                 <div className="inline-flex items-center gap-1 rounded-full border border-[color:var(--white)]/20 bg-[var(--blue)] py-0.5 pl-2.5 pr-1 text-xs text-[var(--white)] shadow backdrop-blur-sm">
                   <Library className="h-2.5 w-2.5 shrink-0" />
@@ -363,6 +381,10 @@ export function ComposerCard({
                 onSelectDoc={handleAddDocument}
                 onBrowseAll={() => setDocSelectorOpen(true)}
                 selectedDocIds={attachedDocuments.map((doc) => doc.id)}
+              />
+              <SourcesDropdown
+                selectedSources={selectedSources}
+                onToggleSource={toggleSource}
               />
               <button
                 type="button"
