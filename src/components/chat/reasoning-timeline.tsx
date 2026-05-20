@@ -76,13 +76,13 @@ export function ReasoningTimeline({
           onClick={onToggleCollapse}
           className="mb-3 flex items-center gap-1 text-[13px] text-[var(--text-muted)]"
         >
-          Working...{" "}
+          Reasoning...{" "}
           <span className="text-[10px]">▾</span>
         </button>
         {renderedSteps.map((step) => {
           const isActive = !step.completed;
           return (
-            <div key={step.id} className="flex gap-2.5 pb-4">
+            <div key={step.id} className="reasoning-step flex gap-2.5 pb-4">
               <div className="flex flex-col items-center pt-[3px]">
                 {isActive ? (
                   <span className="reasoning-spinner inline-block h-[12px] w-[12px]" />
@@ -216,7 +216,7 @@ export function parseReasoningSteps(
       id: "search",
       label: "Searching the web for relevant information",
       detail: "",
-      pills: searchDomains.length > 0 ? searchDomains : ["Web search"],
+      pills: searchDomains,
       completed: true,
     });
   }

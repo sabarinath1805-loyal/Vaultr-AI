@@ -13,6 +13,22 @@ export const runtime = "nodejs";
 const dataDir = path.join(process.cwd(), ".vaultr");
 const dbPath = path.join(dataDir, "vaultr.db");
 
+function getString(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "string") return value;
+  }
+  return "";
+}
+
+function getNumber(row: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = row[key];
+    if (typeof value === "number") return value;
+  }
+  return null;
+}
+
 function openScanReportsDb() {
   fs.mkdirSync(dataDir, { recursive: true });
   const sqlite = new Database(dbPath);
@@ -43,16 +59,23 @@ interface ScanReportRow {
 }
 
 function toClientReport(row: ScanReportRow): ScanReportEntry {
+  const normalized = row as unknown as Record<string, unknown>;
+  const filename = getString(normalized, ["filename", "file_name", "name"]);
+  const createdAt = getString(normalized, ["created_at", "createdAt", "date"]);
+  const reportJson = getString(normalized, ["report_json", "reportJson", "content"]);
+  const highCount = getNumber(normalized, ["high_count", "highCount"]);
+  const mediumCount = getNumber(normalized, ["medium_count", "mediumCount"]);
+  const standardCount = getNumber(normalized, ["standard_count", "standardCount"]);
   return {
-    id: row.id,
-    title: `Scan: ${row.filename}`,
+    id: getString(normalized, ["id"]),
+    title: `Scan: ${filename}`,
     type: "scan_report",
-    date: row.created_at,
-    content: row.report_json,
-    filename: row.filename,
-    highCount: row.high_count ?? 0,
-    mediumCount: row.medium_count ?? 0,
-    standardCount: row.standard_count ?? 0,
+    date: createdAt,
+    content: reportJson,
+    filename,
+    highCount: highCount ?? 0,
+    mediumCount: mediumCount ?? 0,
+    standardCount: standardCount ?? 0,
   };
 }
 

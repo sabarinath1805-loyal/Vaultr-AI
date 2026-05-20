@@ -10,6 +10,7 @@ import { LEX_SYSTEM_PROMPT } from "@/lib/lex";
 import { GROQ_DEFAULT_MODEL, getDefaultModel, isLexModel } from "@/lib/models";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const OLLAMA_HEALTH_URL = "http://localhost:11434";
 
 export async function scanContractFormData(formData: FormData) {
   const file = formData.get("file");
@@ -23,7 +24,7 @@ export async function scanContractFormData(formData: FormData) {
   const ollamaUrl =
     typeof requestedOllamaUrl === "string" && requestedOllamaUrl.trim()
       ? requestedOllamaUrl.trim()
-      : process.env.OLLAMA_URL || "http://localhost:11434";
+      : process.env.OLLAMA_URL || OLLAMA_HEALTH_URL;
 
   if (!(file instanceof File)) {
     return NextResponse.json({ error: "File is required" }, { status: 400 });
@@ -40,7 +41,7 @@ export async function scanContractFormData(formData: FormData) {
     const contractText = await extractText(file);
     if (mode === "private") {
       try {
-        const health = await fetch(`${ollamaUrl}/api/tags`, { cache: "no-store" });
+        const health = await fetch(`${OLLAMA_HEALTH_URL}/api/tags`, { cache: "no-store" });
         if (health.status !== 200) {
           return NextResponse.json({ error: "Start Ollama first" }, { status: 503 });
         }
