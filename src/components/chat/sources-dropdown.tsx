@@ -2,10 +2,11 @@
 
 import React from "react";
 import { Globe, X } from "lucide-react";
+import "flag-icons/css/flag-icons.min.css";
 
 export interface JurisdictionSource {
   id: string;
-  flag: string;
+  flagClass: string;
   name: string;
   sites: string;
 }
@@ -13,41 +14,48 @@ export interface JurisdictionSource {
 export const JURISDICTION_SOURCES: JurisdictionSource[] = [
   {
     id: "sg",
-    flag: "\u{1F1F8}\u{1F1EC}",
+    flagClass: "fi fi-sg",
     name: "Singapore",
     sites: "site:judiciary.gov.sg OR site:singaporelawwatch.sg",
   },
   {
     id: "gb",
-    flag: "\u{1F1EC}\u{1F1E7}",
+    flagClass: "fi fi-gb",
     name: "United Kingdom",
     sites: "site:bailii.org",
   },
   {
     id: "au",
-    flag: "\u{1F1E6}\u{1F1FA}",
+    flagClass: "fi fi-au",
     name: "Australia",
     sites: "site:austlii.edu.au",
   },
   {
     id: "ca",
-    flag: "\u{1F1E8}\u{1F1E6}",
+    flagClass: "fi fi-ca",
     name: "Canada",
     sites: "site:canlii.org",
   },
   {
     id: "us",
-    flag: "\u{1F1FA}\u{1F1F8}",
+    flagClass: "fi fi-us",
     name: "United States",
     sites: "site:courtlistener.com",
   },
   {
     id: "intl",
-    flag: "\u{1F30D}",
+    flagClass: "",
     name: "International",
     sites: "unrestricted web search",
   },
 ];
+
+function FlagIcon({ source }: { source: JurisdictionSource }) {
+  if (source.id === "intl") {
+    return <Globe className="h-3.5 w-3.5 text-[var(--text-muted)]" />;
+  }
+  return <span className={`${source.flagClass} text-base leading-none`} />;
+}
 
 interface SourcesDropdownProps {
   selectedSources: string[];
@@ -80,7 +88,7 @@ export function SourcesDropdown({
     <div className="relative" ref={dropdownRef}>
       <button
         type="button"
-        className={`flex h-8 items-center gap-1.5 rounded-lg px-2 text-sm transition-colors ${
+        className={`flex h-8 items-center gap-1.5 rounded-lg px-[6px] py-[6px] text-sm transition-colors ${
           selectedSources.length > 0
             ? "text-[var(--blue)] hover:bg-[var(--bg-tertiary)]"
             : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
@@ -95,7 +103,7 @@ export function SourcesDropdown({
 
       {open && (
         <div
-          className="absolute bottom-full left-0 z-50 mb-2 w-64 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-2 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-[var(--border)] bg-[var(--bg)] p-2 shadow-lg"
           data-testid="sources-dropdown"
         >
           <div className="mb-1 px-2 py-1 text-[11px] font-medium uppercase tracking-wider text-[var(--text-tertiary)]">
@@ -114,7 +122,7 @@ export function SourcesDropdown({
                   onChange={() => onToggleSource(source.id)}
                   className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--blue)]"
                 />
-                <span className="text-base leading-none">{source.flag}</span>
+                <FlagIcon source={source} />
                 <span className="text-[13px] text-[var(--text-primary)]">
                   {source.name}
                 </span>
@@ -145,7 +153,9 @@ export function SourcePills({
             key={sourceId}
             className="inline-flex items-center gap-1 rounded-full border border-[color:var(--white)]/20 bg-[var(--blue)] py-0.5 pl-2 pr-1 text-xs text-[var(--white)] shadow backdrop-blur-sm"
           >
-            <span className="text-[10px] leading-none">{source.flag}</span>
+            <span className="text-[10px] leading-none">
+              <FlagIcon source={source} />
+            </span>
             <span className="max-w-[100px] truncate">{source.name}</span>
             <button
               type="button"
