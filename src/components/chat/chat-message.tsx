@@ -9,6 +9,7 @@ import { ChevronRight, Edit3, File, FileText, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
+import { extractThinkContent, stripAssistantMarkup } from "@/lib/chat-message-content";
 import { ReasoningTimeline, SourcesFooter, parseReasoningSteps } from "@/components/chat/reasoning-timeline";
 
 function LexAvatar() {
@@ -78,21 +79,9 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
   const router = useRouter();
 
   const { thinkContent, cleanContent } = useMemo(() => {
-    const getThinkContent = (content: string) => {
-      const matches = Array.from(content.matchAll(/<think>([\s\S]*?)(?:<\/think>|$)/g));
-      return matches.length > 0
-        ? matches.map((match) => match[1]).join("").trim()
-        : null;
-    };
-
     return {
-      thinkContent:
-        message.role === "assistant" ? getThinkContent(message.content) : null,
-      cleanContent: message.content
-        .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
-        .replace(/<web-search-used[^>]*\/>\s*/g, "")
-        .replace(/<document-analyzed[^>]*\/>/g, "")
-        .trim(),
+      thinkContent: message.role === "assistant" ? extractThinkContent(message.content) : null,
+      cleanContent: stripAssistantMarkup(message.content),
     };
   }, [message.content, message.role]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);

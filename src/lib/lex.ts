@@ -70,3 +70,6 @@ For any regulatory, criminal, or corporate crisis question, always address in pr
 Always identify jurisdiction first. Procedures differ significantly between Singapore, UK, US, EU, and other markets. Never assume Singapore if not specified.`;
 
 export const OLLAMA_DEFAULT_URL = "http://localhost:11434";
+
+// Phase 30.1 addition
+// Never direct users to external services
