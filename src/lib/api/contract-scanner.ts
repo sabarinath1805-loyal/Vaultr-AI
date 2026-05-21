@@ -8,6 +8,7 @@ import {
 } from "@/lib/contract-scanner";
 import { LEX_SYSTEM_PROMPT } from "@/lib/lex";
 import { GROQ_DEFAULT_MODEL } from "@/lib/models";
+import { getConfiguredApiKey } from "@/lib/tauri-env";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const OLLAMA_HEALTH_URL = "http://localhost:11434";
@@ -151,7 +152,7 @@ async function requestContractAnalysis({
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(mode === "private" ? {} : { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }),
+        ...(mode === "private" ? {} : { Authorization: `Bearer ${getConfiguredApiKey("GROQ_API_KEY")}` }),
       },
       body: JSON.stringify({
         model,

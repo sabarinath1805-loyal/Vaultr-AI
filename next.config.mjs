@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: process.env.NEXT_OUTPUT || "standalone",
+  images: {
+    unoptimized: true,
+  },
   reactStrictMode: false,
   webpack: (config, { isServer }) => {
         // Fixes npm packages that depend on `fs` module
