@@ -120,7 +120,11 @@ export function patchPredatoryClauseFindings(text: string, analysis: unknown) {
 }
 
 export function parseContractAnalysisJson(text: string) {
-  const trimmed = text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const trimmed = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "");
   return JSON.parse(trimmed);
 }
 

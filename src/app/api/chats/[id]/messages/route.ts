@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { addMessage, replaceMessages } from "@/lib/db/chats";
 import { toClientMessage } from "@/lib/api/chats";
+import { DatabaseUnavailableError } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,19 +23,26 @@ export async function POST(
     );
   }
 
-  const message = addMessage(params.id, {
-    id: body.id,
-    role: body.role,
-    content: body.content,
-    createdAt:
-      typeof body.createdAt === "number"
-        ? body.createdAt
-        : typeof body.createdAt === "string"
-          ? Math.floor(new Date(body.createdAt).getTime() / 1000)
-          : undefined,
-  });
+  try {
+    const message = addMessage(params.id, {
+      id: body.id,
+      role: body.role,
+      content: body.content,
+      createdAt:
+        typeof body.createdAt === "number"
+          ? body.createdAt
+          : typeof body.createdAt === "string"
+            ? Math.floor(new Date(body.createdAt).getTime() / 1000)
+            : undefined,
+    });
 
-  return NextResponse.json({ message: toClientMessage(message) });
+    return NextResponse.json({ message: toClientMessage(message) });
+  } catch (error) {
+    if (error instanceof DatabaseUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
+  }
 }
 
 export async function PUT(
@@ -60,27 +68,34 @@ export async function PUT(
     return NextResponse.json({ error: "Invalid message" }, { status: 400 });
   }
 
-  const messages = replaceMessages(
-    params.id,
-    body.messages.map(
-      (message: {
-        id?: string;
-        role: "user" | "assistant";
-        content: string;
-        createdAt?: number | string;
-      }) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        createdAt:
-          typeof message.createdAt === "number"
-            ? message.createdAt
-            : typeof message.createdAt === "string"
-              ? Math.floor(new Date(message.createdAt).getTime() / 1000)
-              : undefined,
-      })
-    )
-  );
+  try {
+    const messages = replaceMessages(
+      params.id,
+      body.messages.map(
+        (message: {
+          id?: string;
+          role: "user" | "assistant";
+          content: string;
+          createdAt?: number | string;
+        }) => ({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          createdAt:
+            typeof message.createdAt === "number"
+              ? message.createdAt
+              : typeof message.createdAt === "string"
+                ? Math.floor(new Date(message.createdAt).getTime() / 1000)
+                : undefined,
+        })
+      )
+    );
 
-  return NextResponse.json({ messages: messages.map(toClientMessage) });
+    return NextResponse.json({ messages: messages.map(toClientMessage) });
+  } catch (error) {
+    if (error instanceof DatabaseUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
+  }
 }

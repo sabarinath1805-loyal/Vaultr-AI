@@ -1,6 +1,6 @@
 import { asc, desc, eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
-import { db } from ".";
+import { getDb } from ".";
 import { chats, messages } from "./schema";
 
 export interface ChatRecord {
@@ -37,10 +37,12 @@ const titleFromContent = (content: string) => {
 };
 
 export function listChats(): ChatRecord[] {
+  const db = getDb();
   return db.select().from(chats).orderBy(desc(chats.updatedAt)).all();
 }
 
 export function createChat(id = uuidv4()): ChatRecord {
+  const db = getDb();
   const timestamp = now();
   const chat = {
     id,
@@ -55,6 +57,7 @@ export function createChat(id = uuidv4()): ChatRecord {
 }
 
 export function getChat(id: string): ChatWithMessages | null {
+  const db = getDb();
   const chat = db.select().from(chats).where(eq(chats.id, id)).get();
 
   if (!chat) {
@@ -75,6 +78,7 @@ export function getChat(id: string): ChatWithMessages | null {
 }
 
 export function listChatsWithMessages(): ChatWithMessages[] {
+  const db = getDb();
   return listChats().map((chat) => ({
     ...chat,
     messages: db
@@ -87,10 +91,12 @@ export function listChatsWithMessages(): ChatWithMessages[] {
 }
 
 export function deleteChat(id: string) {
+  const db = getDb();
   db.delete(chats).where(eq(chats.id, id)).run();
 }
 
 export function renameChat(id: string, title: string) {
+  const db = getDb();
   const timestamp = now();
   db.update(chats)
     .set({ title, updatedAt: timestamp })
@@ -99,10 +105,12 @@ export function renameChat(id: string, title: string) {
 }
 
 export function deleteAllChats() {
+  const db = getDb();
   db.delete(chats).run();
 }
 
 export function addMessage(chatId: string, message: MessageInput): MessageRecord {
+  const db = getDb();
   const timestamp = message.createdAt ?? now();
   const chat = db.select().from(chats).where(eq(chats.id, chatId)).get();
 
@@ -146,6 +154,7 @@ export function replaceMessages(
   chatId: string,
   replacementMessages: MessageInput[]
 ): MessageRecord[] {
+  const db = getDb();
   const timestamp = now();
   const chat = db.select().from(chats).where(eq(chats.id, chatId)).get();
 

@@ -3,6 +3,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
 import { LexThinkingIndicator } from "./chat-message";
+import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 interface ChatListProps {
   messages: Message[];
@@ -30,11 +31,7 @@ export default function ChatList({
     !messages.some(
       (message) =>
         message.role === "assistant" &&
-        message.content
-          .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
-          .replace(/<web-search-used[^>]*\/>\s*/g, "")
-          .replace(/<document-analyzed[^>]*\/>/g, "")
-          .trim().length > 0
+        stripAssistantMarkup(message.content).length > 0
     );
 
   useEffect(() => {
