@@ -110,6 +110,10 @@ interface ScanReportRow {
   report_json: string;
 }
 
+interface SqliteErrorLike extends Error {
+  code?: string;
+}
+
 function toClientReport(row: ScanReportRow): ScanReportEntry {
   const normalized = row as unknown as Record<string, unknown>;
   const filename = getString(normalized, ["filename", "file_name", "name"]);
@@ -221,10 +225,8 @@ export async function POST(req: Request) {
       } satisfies ScanReportEntry,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.toLowerCase().includes("unique")
-    ) {
+    const sqliteError = error as SqliteErrorLike;
+    if (sqliteError?.code === "SQLITE_CONSTRAINT_UNIQUE") {
       const existing = sqlite
         .prepare(
           `SELECT ${SCAN_REPORT_SELECT}

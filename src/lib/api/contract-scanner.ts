@@ -12,6 +12,14 @@ import { GROQ_DEFAULT_MODEL } from "@/lib/models";
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 const OLLAMA_HEALTH_URL = "http://localhost:11434";
 const PRIVATE_CONTRACT_SCANNER_MODEL = "qwen3:8b";
+const JSON_RETRY_PROMPT_SUFFIX = `
+
+Your first response was not valid JSON.
+Return JSON only.
+Do not use markdown fences.
+Do not include commentary.
+Every key and string value must use double quotes.
+Do not emit control characters.`;
 
 export async function scanContractFormData(formData: FormData) {
   const file = formData.get("file");
@@ -47,42 +55,13 @@ export async function scanContractFormData(formData: FormData) {
     }
 
     const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
-    const response = await fetch(mode === "private" ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(mode === "private" ? {} : { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }),
-      },
-      body: JSON.stringify({
-        model: mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL,
-        stream: false,
-        ...(mode === "cloud" ? { response_format: { type: "json_object" } } : {}),
-        ...(mode === "private" ? { format: "json" } : {}),
-        messages: [
-          { role: "system", content: LEX_SYSTEM_PROMPT },
-          { role: "user", content: prompt },
-        ],
-      }),
+    const modelId = mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL;
+    const responseBody = await requestContractAnalysis({
+      mode,
+      model: modelId,
+      ollamaUrl,
+      prompt,
     });
-    const responseBody = await response.text();
-
-    if (!response.ok) {
-      console.error("Contract scanner model error response", {
-        mode,
-        model: mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL,
-        status: response.status,
-        body: responseBody,
-      });
-      return NextResponse.json(
-        {
-          error:
-            mode === "private"
-              ? "Lex is unavailable. Make sure Ollama is running and try again."
-              : "Lex is unavailable. Check your internet connection and try again.",
-        },
-        { status: 503 }
-      );
-    }
 
     const payload = JSON.parse(responseBody);
     const responseText = getOpenAiResponseText(payload);
@@ -90,7 +69,7 @@ export async function scanContractFormData(formData: FormData) {
     if (!responseText) {
       console.error("Contract scanner empty model response", {
         mode,
-        model: mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL,
+        model: modelId,
         body: responseBody,
       });
       return NextResponse.json(
@@ -99,11 +78,34 @@ export async function scanContractFormData(formData: FormData) {
       );
     }
 
+    let analysis;
+    try {
+      analysis = parseContractAnalysisJson(responseText);
+    } catch (error) {
+      console.warn("Contract scanner JSON parse failed, retrying with stricter prompt", {
+        mode,
+        model: modelId,
+        error,
+      });
+
+      const retryBody = await requestContractAnalysis({
+        mode,
+        model: modelId,
+        ollamaUrl,
+        prompt: `${prompt}${JSON_RETRY_PROMPT_SUFFIX}`,
+      });
+      const retryPayload = JSON.parse(retryBody);
+      const retryText = getOpenAiResponseText(retryPayload);
+
+      if (!retryText) {
+        throw error;
+      }
+
+      analysis = parseContractAnalysisJson(retryText);
+    }
+
     return NextResponse.json({
-      analysis: patchPredatoryClauseFindings(
-        contractText,
-        parseContractAnalysisJson(responseText)
-      ),
+      analysis: patchPredatoryClauseFindings(contractText, analysis),
     });
   } catch (error) {
     console.error("Contract scanner API error", {
@@ -128,6 +130,54 @@ export async function scanContractFormData(formData: FormData) {
       { status: 503 }
     );
   }
+}
+
+async function requestContractAnalysis({
+  mode,
+  model,
+  ollamaUrl,
+  prompt,
+}: {
+  mode: "private" | "cloud";
+  model: string;
+  ollamaUrl: string;
+  prompt: string;
+}) {
+  const response = await fetch(
+    mode === "private"
+      ? `${ollamaUrl}/v1/chat/completions`
+      : "https://api.groq.com/openai/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(mode === "private" ? {} : { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }),
+      },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        ...(mode === "cloud" ? { response_format: { type: "json_object" } } : {}),
+        ...(mode === "private" ? { format: "json" } : {}),
+        messages: [
+          { role: "system", content: LEX_SYSTEM_PROMPT },
+          { role: "user", content: prompt },
+        ],
+      }),
+    }
+  );
+  const responseBody = await response.text();
+
+  if (!response.ok) {
+    console.error("Contract scanner model error response", {
+      mode,
+      model,
+      status: response.status,
+      body: responseBody,
+    });
+    throw new Error(`Contract scanner request failed: ${response.status}`);
+  }
+
+  return responseBody;
 }
 
 async function extractText(file: File) {

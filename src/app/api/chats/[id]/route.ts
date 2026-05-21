@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { deleteChat, getChat, renameChat } from "@/lib/db/chats";
 import { toClientChat } from "@/lib/api/chats";
+import { DatabaseUnavailableError } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -9,22 +10,36 @@ export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  const chat = getChat(params.id);
+  try {
+    const chat = getChat(params.id);
 
-  if (!chat) {
-    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    if (!chat) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ chat: toClientChat(chat) });
+  } catch (error) {
+    if (error instanceof DatabaseUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
   }
-
-  return NextResponse.json({ chat: toClientChat(chat) });
 }
 
 export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
 ) {
-  deleteChat(params.id);
+  try {
+    deleteChat(params.id);
 
-  return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    if (error instanceof DatabaseUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
+  }
 }
 
 export async function PATCH(
@@ -38,12 +53,19 @@ export async function PATCH(
     return NextResponse.json({ error: "Title is required" }, { status: 400 });
   }
 
-  renameChat(params.id, title);
-  const chat = getChat(params.id);
+  try {
+    renameChat(params.id, title);
+    const chat = getChat(params.id);
 
-  if (!chat) {
-    return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    if (!chat) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ chat: toClientChat(chat) });
+  } catch (error) {
+    if (error instanceof DatabaseUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
+    throw error;
   }
-
-  return NextResponse.json({ chat: toClientChat(chat) });
 }

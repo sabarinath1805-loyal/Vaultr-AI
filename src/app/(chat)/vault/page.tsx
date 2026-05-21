@@ -29,6 +29,8 @@ export default function VaultPage() {
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null);
   const [scanReports, setScanReports] = useState<ScanReportEntry[]>([]);
   const [scanReportCount, setScanReportCount] = useState(0);
+  const [scanReportsLoading, setScanReportsLoading] = useState(true);
+  const [scanReportsError, setScanReportsError] = useState<string | null>(null);
   const [openReportMenuId, setOpenReportMenuId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
@@ -72,16 +74,21 @@ export default function VaultPage() {
 
   useEffect(() => {
     const loadScanReports = () => {
+      setScanReportsLoading(true);
+      setScanReportsError(null);
       fetch("/api/scan-reports", { cache: "no-store" })
         .then((response) => (response.ok ? response.json() : { reports: [], count: 0 }))
         .then((data: { reports?: ScanReportEntry[]; count?: number }) => {
           const reports = Array.isArray(data.reports) ? data.reports : [];
           setScanReports(reports);
           setScanReportCount(typeof data.count === "number" ? data.count : reports.length);
+          setScanReportsLoading(false);
         })
         .catch(() => {
           setScanReports([]);
           setScanReportCount(0);
+          setScanReportsError("Saved scan reports could not be loaded.");
+          setScanReportsLoading(false);
         });
     };
 
@@ -284,6 +291,8 @@ export default function VaultPage() {
           </div>
           <ScanReportsSection
             reports={scanReports}
+            isLoading={scanReportsLoading}
+            error={scanReportsError}
             onViewReport={(id) => router.push(`/contract-scanner?report=${id}`)}
             openMenuId={openReportMenuId}
             onToggleMenu={setOpenReportMenuId}
@@ -379,6 +388,8 @@ function getReportCreatedAt(report: ScanReportEntry) {
 
 function ScanReportsSection({
   reports,
+  isLoading,
+  error,
   onViewReport,
   openMenuId,
   onToggleMenu,
@@ -386,13 +397,15 @@ function ScanReportsSection({
   onExportPdf,
 }: {
   reports: ScanReportEntry[];
+  isLoading: boolean;
+  error: string | null;
   onViewReport: (id: string) => void;
   openMenuId: string | null;
   onToggleMenu: (id: string | null) => void;
   onDelete: (id: string) => void;
   onExportPdf: (report: ScanReportEntry) => void;
 }) {
-  if (reports.length === 0) return null;
+  if (!isLoading && !error && reports.length === 0) return null;
 
   return (
     <section className="px-8 pb-10 pt-8">
@@ -405,8 +418,20 @@ function ScanReportsSection({
             Contract Scanner reports saved automatically after each scan.
           </p>
         </div>
+        <div className="text-[13px] text-[var(--text-muted)]">
+          {isLoading ? "Loading reports..." : `${reports.length} saved report${reports.length === 1 ? "" : "s"}`}
+        </div>
       </div>
-      <div className="grid gap-3">
+      {error ? (
+        <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4 text-[13px] text-[var(--danger)]">
+          {error}
+        </div>
+      ) : isLoading ? (
+        <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4 text-[13px] text-[var(--text-muted)]">
+          Loading saved scan reports...
+        </div>
+      ) : (
+        <div className="grid gap-3">
         {reports.map((report) => (
           <article
             key={report.id}
@@ -423,12 +448,22 @@ function ScanReportsSection({
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="truncate text-[22px] font-normal text-[var(--text)]">
-                {report.title}
+                {report.filename || report.title}
               </h3>
               <div className="mt-1 text-xs text-[var(--text-muted)]">
-                Filename: {report.filename || report.title} · Created: {formatReportDate(getReportCreatedAt(report))} · Overall risk: {getOverallRiskLevel(report)} · Clause count: {getReportClauseCount(report)} · {getReportRiskSummary(report)}
+                Created: {formatReportDate(getReportCreatedAt(report))} · Overall risk: {getOverallRiskLevel(report)} · Clause count: {getReportClauseCount(report)} · {getReportRiskSummary(report)}
               </div>
             </div>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewReport(report.id);
+              }}
+              className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+            >
+              Open full report
+            </button>
             <div className="relative" data-vault-actions>
               <button
                 type="button"
@@ -456,7 +491,8 @@ function ScanReportsSection({
             </div>
           </article>
         ))}
-      </div>
+        </div>
+      )}
     </section>
   );
 }

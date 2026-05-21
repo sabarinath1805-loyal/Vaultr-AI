@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
+import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ThinkingPhase = "idle" | "thinking" | "streaming";
 
@@ -138,11 +139,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const lastMessage = messages[messages.length - 1];
   const lastAssistantContent =
     lastMessage?.role === "assistant" ? lastMessage.content.trim() : "";
-  const assistantVisibleContentLength = lastAssistantContent
-    .replace(/<think>[\s\S]*?(?:<\/think>|$)/g, "")
-    .replace(/<web-search-used[^>]*\/>\s*/g, "")
-    .replace(/<document-analyzed[^>]*\/>/g, "")
-    .trim().length;
+  const assistantVisibleContentLength = stripAssistantMarkup(lastAssistantContent).length;
   const assistantHasDisplayableContent = assistantVisibleContentLength > 30;
   const localThinkingComplete = assistantVisibleContentLength > 30;
   const thinkingVisible = thinkingPhase !== "idle" && assistantVisibleContentLength <= 30;
