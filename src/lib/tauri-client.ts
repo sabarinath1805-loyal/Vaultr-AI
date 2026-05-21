@@ -17,5 +17,8 @@ export type ClientApiKeyValues = Partial<Record<ClientApiKeyName, string>>;
 export type ClientApiKeyStatus = Record<ClientApiKeyName, boolean>;
 
 export function isTauriDesktop() {
-  return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+  return (
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window || navigator.userAgent.includes("Tauri"))
+  );
 }
