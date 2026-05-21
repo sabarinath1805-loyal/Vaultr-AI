@@ -86,7 +86,7 @@ pub fn run() {
         }))
         .setup(|app| {
             if let Ok(app_data_dir) = app.path().app_data_dir() {
-                std::env::set_var("VAULTR_APP_DATA_DIR", app_data_dir);
+                std::env::set_var("VAULTR_APP_DATA_DIR", app_data_dir.join(".vaultr"));
             }
 
             if cfg!(debug_assertions) {
