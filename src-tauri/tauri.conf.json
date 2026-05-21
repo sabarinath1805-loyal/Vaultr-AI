@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../.next",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "VAULTR_DESKTOP=1 VAULTR_APP_DATA_DIR=${XDG_DATA_HOME:-$HOME/.local/share}/com.vaultr.app/.vaultr pnpm dev",
     "beforeBuildCommand": "pnpm build"
   },
   "app": {
