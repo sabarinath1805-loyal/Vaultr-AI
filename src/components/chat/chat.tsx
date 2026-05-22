@@ -307,6 +307,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     await append(updatedUserMessage, {
       body: {
         selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+        workflow: pendingWorkflow,
         workflowPrompt: pendingWorkflow?.prompt,
         usePrivacyMode,
         messages: retryMessages,
