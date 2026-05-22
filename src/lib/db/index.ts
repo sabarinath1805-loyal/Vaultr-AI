@@ -2,11 +2,11 @@ import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import fs from "fs";
-import path from "path";
 import * as schema from "./schema";
+import { getVaultrDataDir, getVaultrDbPath } from "@/lib/tauri-env";
 
-const dataDir = path.join(process.cwd(), ".vaultr");
-const dbPath = path.join(dataDir, "vaultr.db");
+const dataDir = getVaultrDataDir();
+const dbPath = getVaultrDbPath();
 
 fs.mkdirSync(dataDir, { recursive: true });
 
