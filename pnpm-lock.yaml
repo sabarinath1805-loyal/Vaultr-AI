@@ -62,6 +62,9 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.15
         version: 5.100.10(react@18.3.1)
+      '@tauri-apps/api':
+        specifier: ^2.11.0
+        version: 2.11.0
       '@types/dom-speech-recognition':
         specifier: ^0.0.4
         version: 0.0.4
@@ -1989,6 +1992,9 @@ packages:
     resolution: {integrity: sha512-FLaZf2RCrA/Zgp4aiu5tG3TyasTRO7aZ99skxQpr3Hg/zXOhu6yq5FZCYQ/tRaJtM9ylnoK8tFK7PolXQadv6Q==}
     peerDependencies:
       react: ^18 || ^19
+
+  '@tauri-apps/api@2.11.0':
+    resolution: {integrity: sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA==}
 
   '@tauri-apps/cli-darwin-arm64@2.11.1':
     resolution: {integrity: sha512-6eEKMBXsQPCuM1EmvrjT2+aBuxWQuFdKdW8pzNuNQtpq45nEEpBlD5gr8pUeAyOU1DQKlkFaEc/MPBxb/Pfjtg==}
@@ -6477,6 +6483,8 @@ snapshots:
     dependencies:
       '@tanstack/query-core': 5.100.10
       react: 18.3.1
+
+  '@tauri-apps/api@2.11.0': {}
 
   '@tauri-apps/cli-darwin-arm64@2.11.1':
     optional: true
