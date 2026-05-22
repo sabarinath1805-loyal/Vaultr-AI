@@ -26,14 +26,13 @@ export function ReasoningTimeline({
   onToggleCollapse,
 }: ReasoningTimelineProps) {
   const [visibleCount, setVisibleCount] = React.useState(1);
-  const stepKey = steps.map((step) => step.id).join("|");
 
   React.useEffect(() => {
-    setVisibleCount(1);
-  }, [stepKey]);
-
-  React.useEffect(() => {
-    if (!visible || collapsed || visibleCount >= steps.length) return;
+    if (collapsed) {
+      setVisibleCount(1);
+      return;
+    }
+    if (!visible || visibleCount >= steps.length) return;
     const timeout = window.setTimeout(() => {
       setVisibleCount((count) => Math.min(count + 1, steps.length));
     }, 1500);

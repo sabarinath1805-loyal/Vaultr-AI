@@ -34,7 +34,7 @@ const MODEL_TIERS: {
     tierDescription: "Fastest local model for quick legal Q&A.",
     color: "#1D9E75",
     models: [
-      { id: "gemma4:e4b", tierName: "Lex Flash", badge: "Flash", color: "#1D9E75", ram: "2.6GB", description: "Fastest local model. Strong reasoning for its size." },
+      { id: "gemma4:e2b", tierName: "Lex Flash (Private)", badge: "Flash", color: "#1D9E75", ram: "2.6GB", description: "Fastest, lightest local model." },
     ],
   },
   {
@@ -43,7 +43,7 @@ const MODEL_TIERS: {
     tierDescription: "Balanced speed and legal reasoning for daily work.",
     color: "#378ADD",
     models: [
-      { id: "phi4-mini", tierName: "Lex Core", badge: "Core", color: "#378ADD", ram: "3.8GB", description: "Best reasoning per GB. Ideal for most legal queries." },
+      { id: "phi4-mini", tierName: "Lex Core (Private)", badge: "Core", color: "#378ADD", ram: "3.8GB", description: "Balanced local model for everyday legal queries." },
     ],
   },
   {
@@ -52,7 +52,7 @@ const MODEL_TIERS: {
     tierDescription: "Stronger models for deep clause analysis.",
     color: "#7F77DD",
     models: [
-      { id: "deepseek-r1:7b", tierName: "Lex Pro", badge: "Pro", color: "#7F77DD", ram: "5GB", description: "Chain-of-thought reasoning. Shows full thinking process for complex contracts." },
+      { id: "qwen3:8b", tierName: "Lex Pro (Private)", badge: "Pro", color: "#7F77DD", ram: "5.2GB", description: "Most capable local model for deep legal analysis." },
     ],
   },
 ];

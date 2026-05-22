@@ -70,8 +70,8 @@ export const LEX_MODELS: LexModel[] = [
   {
     id: "lex-flash",
     tierId: "flash",
-    tierName: "Lex Flash",
-    name: "Lex Flash",
+    tierName: "Lex Flash (Private)",
+    name: "Lex Flash (Private)",
     ollamaId: "gemma4:e2b",
     badge: "Flash",
     color: "#1D9E75",
@@ -84,8 +84,8 @@ export const LEX_MODELS: LexModel[] = [
   {
     id: "lex-core",
     tierId: "core",
-    tierName: "Lex Core",
-    name: "Lex Core",
+    tierName: "Lex Core (Private)",
+    name: "Lex Core (Private)",
     ollamaId: "phi4-mini",
     badge: "Core",
     color: "#378ADD",
@@ -98,16 +98,16 @@ export const LEX_MODELS: LexModel[] = [
   {
     id: "lex-pro",
     tierId: "pro",
-    tierName: "Lex Pro",
-    name: "Lex Pro",
-    ollamaId: "deepseek-r1:7b",
+    tierName: "Lex Pro (Private)",
+    name: "Lex Pro (Private)",
+    ollamaId: "qwen3:8b",
     badge: "Pro",
     color: "#7F77DD",
-    ramRequired: "16GB RAM · 5GB",
-    description: "Chain-of-thought reasoning. Shows full thinking process for complex contracts.",
-    speed: 70,
-    reasoning: 80,
-    legalDepth: 78,
+    ramRequired: "16GB RAM · 5.2GB",
+    description: "Most capable local model. Best for deep legal analysis.",
+    speed: 72,
+    reasoning: 86,
+    legalDepth: 84,
   },
 ];
 
@@ -216,7 +216,7 @@ export function sortModelsByLexOrder(modelIds: string[]): string[] {
 export const THINKING_CAPABLE_MODEL_IDS = [
   "gemma4:e2b",
   "phi4-mini",
-  "deepseek-r1:7b",
+  "qwen3:8b",
 ];
 
 export function isThinkingCapableModel(modelId: string | null | undefined): boolean {

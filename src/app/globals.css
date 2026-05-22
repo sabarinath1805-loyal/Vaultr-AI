@@ -213,10 +213,12 @@ html[data-theme="dark"] {
   max-height: 520px;
   overflow: hidden;
   transition: opacity 0.3s ease, max-height 0.4s ease;
+  will-change: opacity, max-height;
 }
 
 .reasoning-timeline-visible {
   opacity: 1;
+  max-height: 520px;
 }
 
 .reasoning-timeline-hidden {
@@ -227,6 +229,7 @@ html[data-theme="dark"] {
 
 .reasoning-step {
   opacity: 0;
+  min-height: 34px;
   animation: reasoningStepFade 0.2s ease forwards;
 }
 
