@@ -86,7 +86,9 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
   }, [message.content, message.role]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const shouldShowReasoning = Boolean(
-    thinkContent && (isCurrentlyStreaming || cleanContent.length >= 100)
+    message.role === "assistant" &&
+      (thinkContent || isCurrentlyStreaming) &&
+      (isCurrentlyStreaming || cleanContent.length >= 100)
   );
   const hasAttachedDocument = Boolean(
     message.attachedDocuments && message.attachedDocuments.length > 0
@@ -162,7 +164,7 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
   );
 
   const timelineVisible = shouldShowReasoning && !reasoningCollapsed && !timelineFading;
-  const showResponseContent = !timelineVisible || cleanContent.length > 0;
+  const responseFadedForReasoning = timelineVisible && cleanContent.length === 0;
 
   React.useEffect(() => {
     if (shouldShowReasoning && timelineStartedAt === null) {
@@ -429,11 +431,9 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
                   ))}
               </div>
             )}
-            {showResponseContent && (
-              <div className={`prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline ${timelineFading ? "opacity-100" : timelineVisible ? "opacity-0" : "opacity-100"}`}>
-                <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
-              </div>
-            )}
+            <div className={`prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline ${responseFadedForReasoning ? "opacity-0" : "opacity-100"}`}>
+              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
+            </div>
             {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
             )}
