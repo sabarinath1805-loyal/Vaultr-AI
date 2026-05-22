@@ -10,6 +10,11 @@ import {
   isOllamaCloudModel,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
+import {
+  createThinkStripState,
+  flushThinkStripState,
+  stripThinkFromStreamChunk,
+} from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
 
 export const runtime = "nodejs";
@@ -301,6 +306,9 @@ export async function POST(req: Request) {
             }
           }
           const remaining = tokenFlushState.get(controller);
+          if (remaining) {
+            remaining.buffer += flushThinkStripState(remaining.thinkStripState);
+          }
           if (remaining?.buffer) {
             controller.enqueue(
               encoder.encode(`0:${JSON.stringify(remaining.buffer)}\n`)
@@ -594,6 +602,9 @@ function flushSseToken(
 ) {
   if (line === null) {
     const remaining = tokenFlushState.get(controller);
+    if (remaining) {
+      remaining.buffer += flushThinkStripState(remaining.thinkStripState);
+    }
     if (remaining?.buffer) {
       controller.enqueue(encoder.encode(`0:${JSON.stringify(remaining.buffer)}\n`));
     }
@@ -621,8 +632,10 @@ function flushSseToken(
       const state = tokenFlushState.get(controller) || {
         buffer: "",
         lastFlush: Date.now(),
+        thinkStripState: createThinkStripState(),
       };
-      state.buffer += token;
+      const visibleToken = stripThinkFromStreamChunk(token, state.thinkStripState);
+      state.buffer += visibleToken;
       const now = Date.now();
       if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
         controller.enqueue(encoder.encode(`0:${JSON.stringify(state.buffer)}\n`));
@@ -661,7 +674,7 @@ function shouldUseWebSearch(message: string) {
 
 const tokenFlushState: WeakMap<
   ReadableStreamDefaultController<Uint8Array>,
-  { buffer: string; lastFlush: number }
+  { buffer: string; lastFlush: number; thinkStripState: ReturnType<typeof createThinkStripState> }
 > = new WeakMap();
 
 async function getWebSearchContext(query: string): Promise<{ context: string; sources: WebSearchSource[] }> {
