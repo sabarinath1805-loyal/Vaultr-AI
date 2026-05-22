@@ -15,6 +15,7 @@ import {
   flushThinkStripState,
   stripThinkFromStreamChunk,
 } from "@/lib/chat-message-content";
+import { getConfiguredApiKey } from "@/lib/tauri-env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -219,7 +220,7 @@ export async function POST(req: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(privacyMode ? {} : { Authorization: `Bearer ${process.env.GROQ_API_KEY}` }),
+        ...(privacyMode ? {} : { Authorization: `Bearer ${getConfiguredApiKey("GROQ_API_KEY")}` }),
       },
       signal: abortController.signal,
       body: JSON.stringify({
@@ -375,7 +376,7 @@ async function streamGeminiResponse({
   activeModel: string | null;
   attachedDocuments: { filename?: string }[] | undefined;
 }) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getConfiguredApiKey("GEMINI_API_KEY");
   if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
 
   const genAI = new GoogleGenerativeAI(apiKey);
@@ -468,7 +469,7 @@ async function streamOllamaCloudResponse({
   attachedDocuments: { filename?: string }[] | undefined;
   abortSignal: AbortSignal;
 }) {
-  const apiKey = process.env.OLLAMA_API_KEY;
+  const apiKey = getConfiguredApiKey("OLLAMA_API_KEY");
   if (!apiKey) throw new Error("Missing OLLAMA_API_KEY");
 
   const ollamaCloud = createOllama({
@@ -677,7 +678,7 @@ const tokenFlushState: WeakMap<
 > = new WeakMap();
 
 async function getWebSearchContext(query: string): Promise<{ context: string; sources: WebSearchSource[] }> {
-  const apiKey = process.env.SERPER_API_KEY;
+  const apiKey = getConfiguredApiKey("SERPER_API_KEY");
 
   if (!apiKey?.trim()) {
     return {
