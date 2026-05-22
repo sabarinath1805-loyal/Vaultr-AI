@@ -229,6 +229,7 @@ export function ComposerCard({
   const useWorkflowPrompt = (workflow: AttachedWorkflow) => {
     setSelectedWorkflow(workflow);
     setPendingWorkflow(workflow);
+    setWorkflowModalOpen(false);
     requestAnimationFrame(() => textareaRef.current?.focus());
   };
 
@@ -284,7 +285,7 @@ export function ComposerCard({
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
               <SourcePills selectedSources={selectedSources} onRemove={removeSource} />
               {selectedWorkflow && (
-                <div className="inline-flex items-center gap-1 rounded-full border border-[color:var(--white)]/20 bg-[var(--blue)] py-0.5 pl-2.5 pr-1 text-xs text-[var(--white)] shadow backdrop-blur-sm">
+                <div className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-[var(--color-border-primary)] bg-[var(--color-background-primary)] py-0.5 pl-2.5 pr-1 text-xs text-[var(--color-text-primary)]">
                   <Library className="h-2.5 w-2.5 shrink-0" />
                   <span className="max-w-[140px] truncate">{selectedWorkflow.title}</span>
                   <button
@@ -293,7 +294,7 @@ export function ComposerCard({
                       setSelectedWorkflow(null);
                       setPendingWorkflow(null);
                     }}
-                    className="ml-0.5 rounded-full p-0.5 text-[var(--white)]/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-[var(--white)]"
+                    className="ml-0.5 rounded-full p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-primary)]"
                     aria-label="Remove workflow"
                   >
                     <X className="h-2.5 w-2.5" />

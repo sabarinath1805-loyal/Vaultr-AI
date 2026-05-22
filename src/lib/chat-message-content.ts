@@ -1,4 +1,6 @@
-const THINK_BLOCK_REGEX = /<think>([\s\S]*?)(?:<\/think>|$)/gi;
+const THINK_BLOCK_REGEX = /<think\b[^>]*>([\s\S]*?)(?:<\/think>|$)/gi;
+const THINK_TAG_REGEX = /<\/?think\b[^>]*>/gi;
+const DANGLING_THINK_TAG_REGEX = /<\/?think\b[^>]*$/i;
 const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
 
@@ -21,6 +23,8 @@ export function extractThinkContent(content: string) {
 export function stripAssistantMarkup(content: string) {
   return content
     .replace(THINK_BLOCK_REGEX, "")
+    .replace(THINK_TAG_REGEX, "")
+    .replace(DANGLING_THINK_TAG_REGEX, "")
     .replace(WEB_SEARCH_MARKER_REGEX, "")
     .replace(DOCUMENT_ANALYZED_MARKER_REGEX, "")
     .trim();
@@ -41,13 +45,18 @@ export function stripThinkFromStreamChunk(
   while (input.length > 0) {
     if (state.insideThink) {
       const closeIndex = input.toLowerCase().indexOf("</think>");
-      if (closeIndex === -1) return output;
+      if (closeIndex === -1) {
+        const possibleCloseTagStart = getTrailingTagPrefixLength(input, "</think>");
+        state.pending = possibleCloseTagStart > 0 ? input.slice(-possibleCloseTagStart) : "";
+        return output;
+      }
       input = input.slice(closeIndex + "</think>".length);
       state.insideThink = false;
       continue;
     }
 
-    const openIndex = input.toLowerCase().indexOf("<think>");
+    const lowerInput = input.toLowerCase();
+    const openIndex = lowerInput.search(/<think\b[^>]*>/);
     if (openIndex === -1) {
       const possibleTagStart = getTrailingThinkTagPrefixLength(input);
       if (possibleTagStart > 0) {
@@ -60,7 +69,12 @@ export function stripThinkFromStreamChunk(
     }
 
     output += input.slice(0, openIndex);
-    input = input.slice(openIndex + "<think>".length);
+    const openEnd = input.indexOf(">", openIndex);
+    if (openEnd === -1) {
+      state.pending = input.slice(openIndex);
+      return output;
+    }
+    input = input.slice(openEnd + 1);
     state.insideThink = true;
   }
 
@@ -76,7 +90,17 @@ export function flushThinkStripState(state: ThinkStripState) {
 
 function getTrailingThinkTagPrefixLength(input: string) {
   const lower = input.toLowerCase();
-  const tag = "<think>";
+  const lastOpen = lower.lastIndexOf("<");
+  if (lastOpen === -1) return 0;
+  const candidate = lower.slice(lastOpen);
+  if ("<think".startsWith(candidate) || candidate.startsWith("<think")) {
+    return candidate.length;
+  }
+  return 0;
+}
+
+function getTrailingTagPrefixLength(input: string, tag: string) {
+  const lower = input.toLowerCase();
   const max = Math.min(tag.length - 1, lower.length);
   for (let length = max; length > 0; length -= 1) {
     if (tag.startsWith(lower.slice(-length))) return length;

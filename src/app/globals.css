@@ -197,43 +197,52 @@ html[data-theme="dark"] {
   background-color: var(--text-faint);
 }
 
-@keyframes reasoningSpin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+@keyframes lexThinkingDotJump {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
 
-.reasoning-spinner {
-  border: 2px solid var(--border);
-  border-top-color: var(--text-primary);
-  border-radius: 50%;
-  animation: reasoningSpin 0.8s linear infinite;
-}
-
-.reasoning-timeline-container {
-  max-height: 520px;
+.lex-thinking-indicator {
+  min-height: 28px;
   overflow: hidden;
-  transition: opacity 0.3s ease, max-height 0.4s ease;
-  will-change: opacity, max-height;
+  transition: opacity 300ms ease, max-height 300ms ease, margin-bottom 300ms ease;
 }
 
-.reasoning-timeline-visible {
+.lex-thinking-visible {
+  max-height: 28px;
   opacity: 1;
-  max-height: 520px;
 }
 
-.reasoning-timeline-hidden {
-  opacity: 0;
+.lex-thinking-hidden {
   max-height: 0;
+  margin-bottom: 0;
+  opacity: 0;
   pointer-events: none;
 }
 
-.reasoning-step {
-  opacity: 0;
-  min-height: 34px;
-  animation: reasoningStepFade 0.2s ease forwards;
+.lex-thinking-dots {
+  display: inline-flex;
+  gap: 4px;
+  padding-left: 1px;
 }
 
-@keyframes reasoningStepFade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.lex-thinking-dots span {
+  display: inline-block;
+  font-size: 7px;
+  line-height: 1;
+  animation: lexThinkingDotJump 0.9s ease-in-out infinite;
+}
+
+.lex-thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.lex-thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
 }
