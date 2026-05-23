@@ -21,7 +21,7 @@
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "additionalBrowserArgs": "--disable-web-security"
+        "additionalBrowserArgs": "--disable-web-security --enable-features=ClipboardRead,ClipboardWrite"
       }
     ],
     "security": {
