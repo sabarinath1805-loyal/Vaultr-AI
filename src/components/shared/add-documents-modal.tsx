@@ -42,6 +42,7 @@ export function AddDocumentsModal({
     if (!open) return;
     setSearch("");
     setSelectedIds(new Set());
+    useLocalVaultStore.persist.rehydrate();
   }, [open]);
 
   const filtered = useMemo(() => {

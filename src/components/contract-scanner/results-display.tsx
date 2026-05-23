@@ -1,7 +1,9 @@
 "use client";
 
+import { pdf } from "@react-pdf/renderer";
 import type { ContractAnalysis, ContractRisk } from "@/lib/contract-scanner";
 import { getRiskCounts, sortClausesByRisk } from "@/lib/contract-scanner";
+import { ContractRiskReportPdf } from "@/components/contract-scanner/risk-report-pdf";
 
 export type RiskFilter = "all" | "high" | "medium" | "standard";
 
@@ -10,6 +12,8 @@ interface ResultsDisplayProps {
   onReset: () => void;
   activeFilter: RiskFilter;
   onFilterChange: (filter: RiskFilter) => void;
+  filename?: string;
+  reportDate?: string;
 }
 
 const riskClasses: Record<ContractRisk, { badge: string; border: string; text: string }> = {
@@ -75,6 +79,8 @@ export function ResultsDisplay({
   onReset,
   activeFilter,
   onFilterChange,
+  filename,
+  reportDate,
 }: ResultsDisplayProps) {
   const clauses = sortClausesByRisk(
     (Array.isArray(analysis.clauses) ? analysis.clauses : []).map((clause) => ({
@@ -99,16 +105,23 @@ export function ResultsDisplay({
   });
   const counts = getRiskCounts(clauses);
   const criticalCount = clauses.filter((clause) => normalizeRisk(clause.risk) === "CRITICAL").length;
-  const reportText = [
-    title,
-    `Parties: ${parties.join(", ")}`,
-    `Overall risk: ${overallRisk}`,
-    summary,
-    ...clauses.map(
-      (clause) =>
-        `${normalizeRisk(clause.risk)}: ${clause.title}\nIssue: ${clause.issue}\nRecommendation: ${clause.recommendation}`
-    ),
-  ].join("\n\n");
+  const downloadReportPdf = async () => {
+    const blob = await pdf(
+      <ContractRiskReportPdf
+        analysis={{ ...analysis, clauses }}
+        filename={filename || `${title}.pdf`}
+        reportDate={reportDate || new Date().toISOString()}
+      />
+    ).toBlob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${title.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") || "contract-risk-report"}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="space-y-5 px-6 pb-8">
@@ -176,10 +189,10 @@ export function ResultsDisplay({
         </button>
         <button
           type="button"
-          onClick={() => navigator.clipboard.writeText(reportText)}
+          onClick={() => void downloadReportPdf()}
           className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-4 py-2 text-[13px] text-[var(--text)] transition-[background-color] duration-150 hover:bg-[var(--surface)]"
         >
-          Copy report
+          Download PDF
         </button>
       </div>
 

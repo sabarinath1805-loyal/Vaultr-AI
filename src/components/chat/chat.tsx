@@ -14,6 +14,13 @@ import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ThinkingPhase = "idle" | "thinking" | "streaming";
 
+function getCounselorGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Morning, Counselor.";
+  if (hour < 17) return "Afternoon, Counselor.";
+  return "Evening, Counselor.";
+}
+
 export interface ChatProps {
   id: string;
   initialMessages: Message[] | [];
@@ -89,8 +96,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   });
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
   const [thinkingPhase, setThinkingPhase] = React.useState<ThinkingPhase>("idle");
+  const [thinkingMessageId, setThinkingMessageId] = React.useState<string | null>(null);
   const [groqThinkingMinimumMet, setGroqThinkingMinimumMet] = React.useState(true);
+  const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
   React.useEffect(() => {
+    setHomeGreeting(getCounselorGreeting());
     return () => {
       if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
     };
@@ -142,7 +152,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const assistantVisibleContent = stripAssistantMarkup(lastAssistantContent);
   const firstSentenceRendered = /[.!?]/.test(assistantVisibleContent);
   const localThinkingComplete = firstSentenceRendered;
-  const thinkingVisible = thinkingPhase !== "idle" && !firstSentenceRendered;
+  const thinkingVisible = thinkingPhase !== "idle" && !localThinkingComplete;
 
   React.useEffect(() => {
     if (thinkingPhase === "idle" || !localThinkingComplete) return;
@@ -163,6 +173,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setGroqThinkingMinimumMet(usePrivacyMode);
     firstTokenLoggedRef.current = false;
     setThinkingPhase("thinking");
+    setThinkingMessageId(null);
     if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
     if (!usePrivacyMode) {
       minThinkingTimerRef.current = setTimeout(() => {
@@ -240,6 +251,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
     setLoadingSubmit(true);
     beginThinking();
+    setThinkingMessageId(userMessage.id);
 
     const attachments: Attachment[] = base64Images
       ? base64Images.map((image) => ({
@@ -304,6 +316,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     await saveMessages(id, retryMessages);
     setLoadingSubmit(true);
     beginThinking();
+    setThinkingMessageId(updatedUserMessage.id);
     await append(updatedUserMessage, {
       body: {
         selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
@@ -348,7 +361,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   style={{ fontSize: "52px", marginBottom: "28px" }}
                 >
                   <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
-                  Hi, Counselor
+                  {homeGreeting}
                 </h1>
               )}
             </div>
@@ -369,12 +382,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       ) : (
         <div className="relative h-full w-full">
           <h1 className="sr-only" style={{ fontSize: "52px" }}>
-            Hi, Counselor
+            {homeGreeting}
           </h1>
           <ChatList
             messages={messages}
             isLoading={isLoading}
             thinkingPhase={thinkingVisible ? "thinking" : "idle"}
+            thinkingMessageId={thinkingMessageId}
             onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();
@@ -389,6 +403,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
               setLoadingSubmit(true);
               beginThinking();
+              const lastRetryMessage = retryMessages[retryMessages.length - 1];
+              setThinkingMessageId(lastRetryMessage?.role === "user" ? lastRetryMessage.id : null);
               return reload({
                 ...requestOptions,
                 body: { ...requestOptions.body, messages: retryMessages },
