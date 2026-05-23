@@ -65,33 +65,6 @@ fn read_saved_api_keys(app: &tauri::AppHandle) -> Result<HashMap<String, String>
     serde_json::from_str(&raw).map_err(|error| error.to_string())
 }
 
-#[tauri::command]
-fn read_files(paths: Vec<String>) -> Result<Vec<FilePayload>, String> {
-    paths
-        .into_iter()
-        .map(|file_path| {
-            let path = std::path::PathBuf::from(&file_path);
-            let bytes = fs::read(&path).map_err(|error| error.to_string())?;
-            let filename = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .unwrap_or("Selected document")
-                .to_string();
-
-            Ok(FilePayload {
-                filename,
-                bytes,
-            })
-        })
-        .collect()
-}
-
-#[derive(serde::Serialize)]
-struct FilePayload {
-    filename: String,
-    bytes: Vec<u8>,
-}
-
 fn api_keys_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(app
         .path()
@@ -104,9 +77,8 @@ fn api_keys_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .enable_macos_default_menu(true)
-        .invoke_handler(tauri::generate_handler![get_api_key_status, save_api_keys, read_files])
-        .plugin(tauri_plugin_dialog::init())
+        .enable_macos_default_menu(false)
+        .invoke_handler(tauri::generate_handler![get_api_key_status, save_api_keys])
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
@@ -127,7 +99,6 @@ pub fn run() {
             }
             Ok(())
         })
-        .on_window_event(|_window, _event| {})
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
