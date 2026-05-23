@@ -8,10 +8,11 @@ export const runtime = "nodejs";
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    const chat = getChat(params.id);
+    const chat = getChat(id);
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
@@ -28,10 +29,11 @@ export async function GET(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   try {
-    deleteChat(params.id);
+    deleteChat(id);
 
     return NextResponse.json({ ok: true });
   } catch (error) {
@@ -44,8 +46,9 @@ export async function DELETE(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const body = await req.json();
   const title = typeof body.title === "string" ? body.title.trim() : "";
 
@@ -54,8 +57,8 @@ export async function PATCH(
   }
 
   try {
-    renameChat(params.id, title);
-    const chat = getChat(params.id);
+    renameChat(id, title);
+    const chat = getChat(id);
 
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
