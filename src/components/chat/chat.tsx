@@ -2,7 +2,7 @@
 
 import ChatList from "./chat-list";
 import ChatBottombar from "./chat-bottombar";
-import { Attachment, ChatRequestOptions, generateId } from "ai";
+import { ChatRequestOptions, generateId } from "ai";
 import { Message, useChat } from "ai/react";
 import React from "react";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -12,9 +12,26 @@ import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, OLLAMA_CLOUD_MAX_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
-type ResponseFlowState = "idle" | "thinking" | "done";
-const TYPEWRITER_CHARS_PER_SECOND = 90;
+type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
+const TYPEWRITER_CHARS_PER_SECOND = 150;
 const THINKING_FADE_MS = 150;
+
+function parseDataStreamLine(line: string) {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  const separatorIndex = trimmed.indexOf(":");
+  if (separatorIndex < 0) return null;
+
+  const prefix = trimmed.slice(0, separatorIndex);
+  const payload = trimmed.slice(separatorIndex + 1);
+  if (prefix === "0") {
+    return { type: "text" as const, value: JSON.parse(payload) as string };
+  }
+  if (prefix === "3") {
+    return { type: "error" as const, value: JSON.parse(payload) as string };
+  }
+  return null;
+}
 
 function getCounselorGreeting() {
   const hour = new Date().getHours();
@@ -30,14 +47,14 @@ export interface ChatProps {
 }
 
 export default function Chat({ initialMessages, id }: ChatProps) {
-  const firstTokenLoggedRef = React.useRef(false);
   const typewriterTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const thinkingFadeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
-  const submittedUserMessageRef = React.useRef<Message | null>(null);
   const typewriterMessageIdRef = React.useRef<string | null>(null);
-  const directStreamingResponseRef = React.useRef(false);
-  const directStreamFirstWordShownRef = React.useRef(false);
-  const messagesRef = React.useRef<Message[]>(initialMessages);
+  const streamStartedRef = React.useRef(false);
+  const bufferedAssistantContentRef = React.useRef("");
+  const activeResponseAbortRef = React.useRef<AbortController | null>(null);
+  const activeRequestMessagesRef = React.useRef<Message[]>(initialMessages);
+  const activeAssistantMessageRef = React.useRef<Message | null>(null);
   const typewriterStateRef = React.useRef<{
     fullContent: string;
     finalAssistantMessage: Message;
@@ -45,33 +62,18 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     index: number;
   } | null>(null);
 
-  const markFirstTokenArrived = React.useCallback(() => {
-    if (firstTokenLoggedRef.current) return;
-    firstTokenLoggedRef.current = true;
-  }, []);
-
   const {
     messages,
     input,
     handleInputChange,
-    handleSubmit,
-    append,
     isLoading,
     stop,
     setMessages,
     setInput,
-    reload,
   } = useChat({
     id,
     initialMessages,
     onResponse: () => {},
-    onFinish: async (message) => {
-      markFirstTokenArrived();
-      const userMessage = submittedUserMessageRef.current;
-      submittedUserMessageRef.current = null;
-      handleFinishedResponse(message, userMessage);
-      setLoadingSubmit(false);
-    },
     onError: async (error) => {
       setLoadingSubmit(false);
       handleResponseError(error);
@@ -112,10 +114,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     !usePrivacyMode && (selectedModel || GROQ_DEFAULT_MODEL) === OLLAMA_CLOUD_MAX_MODEL;
 
   React.useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-
-  React.useEffect(() => {
     const nextChatId = isOpenEmptyChat ? id : null;
     const currentChatId = useChatStore.getState().currentChatId;
     if (currentChatId === nextChatId) return;
@@ -149,23 +147,25 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     thinkingFadeTimerRef.current = null;
     typewriterMessageIdRef.current = null;
     typewriterStateRef.current = null;
-    directStreamingResponseRef.current = false;
-    directStreamFirstWordShownRef.current = false;
+    activeResponseAbortRef.current = null;
+    activeAssistantMessageRef.current = null;
+    bufferedAssistantContentRef.current = "";
+    streamStartedRef.current = false;
     setDirectStreamingActive(false);
     setResponseFlowState("idle");
     setThinkingMessageId(null);
   }, []);
 
   const beginThinking = React.useCallback((directStream = false) => {
-    firstTokenLoggedRef.current = false;
     if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
     if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
     typewriterTimerRef.current = null;
     thinkingFadeTimerRef.current = null;
     typewriterStateRef.current = null;
     typewriterMessageIdRef.current = null;
-    directStreamingResponseRef.current = directStream;
-    directStreamFirstWordShownRef.current = false;
+    bufferedAssistantContentRef.current = "";
+    activeAssistantMessageRef.current = null;
+    streamStartedRef.current = false;
     setDirectStreamingActive(directStream);
     setResponseFlowState("thinking");
     setThinkingMessageId(null);
@@ -181,20 +181,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     }, THINKING_FADE_MS);
   }, []);
 
-  React.useEffect(() => {
-    if (!directStreamingActive || directStreamFirstWordShownRef.current) return;
-    const lastAssistantMessage = [...messages]
-      .reverse()
-      .find((message) => message.role === "assistant");
-    const visibleContent = stripAssistantMarkup(lastAssistantMessage?.content || "");
-    if (!/\S+/.test(visibleContent)) return;
-
-    directStreamFirstWordShownRef.current = true;
-    finishResponseFlowAfterFade();
-  }, [directStreamingActive, finishResponseFlowAfterFade, messages]);
-
   const startTypewriter = React.useCallback(
-    async (assistantMessage: Message, userMessage: Message | null) => {
+    async (
+      assistantMessage: Message,
+      userMessage: Message | null,
+      baseMessagesOverride?: Message[]
+    ) => {
       const fullContent = stripAssistantMarkup(assistantMessage.content);
       const finalAssistantMessage: Message = {
         ...assistantMessage,
@@ -205,7 +197,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         ...finalAssistantMessage,
         content: "",
       };
-      const savedMessages = getMessagesById(id).filter(
+      const savedMessages = (baseMessagesOverride || getMessagesById(id)).filter(
         (savedMessage) =>
           stripAssistantMarkup(savedMessage.content).length > 0 &&
           savedMessage.id !== assistantMessage.id &&
@@ -226,9 +218,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         baseMessages,
         index: 0,
       };
-      setResponseFlowState("thinking");
+      setResponseFlowState("typing");
       setMessages([...baseMessages, visibleAssistantMessage]);
-      router.replace(`/c/${id}`);
 
       const intervalMs = Math.max(1, Math.round(1000 / TYPEWRITER_CHARS_PER_SECOND));
       const tick = () => {
@@ -251,7 +242,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         typewriterTimerRef.current = null;
         typewriterMessageIdRef.current = null;
         typewriterStateRef.current = null;
+        activeResponseAbortRef.current = null;
+        activeAssistantMessageRef.current = null;
+        bufferedAssistantContentRef.current = "";
         void saveMessages(id, [...state.baseMessages, state.finalAssistantMessage]);
+        if (!isOpenEmptyChat) router.replace(`/c/${id}`);
         finishResponseFlowAfterFade();
       };
 
@@ -259,37 +254,27 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         typewriterMessageIdRef.current = null;
         typewriterStateRef.current = null;
         await saveMessages(id, [...baseMessages, finalAssistantMessage]);
+        if (!isOpenEmptyChat) router.replace(`/c/${id}`);
+        activeResponseAbortRef.current = null;
+        activeAssistantMessageRef.current = null;
+        bufferedAssistantContentRef.current = "";
         finishResponseFlowAfterFade();
         return;
       }
 
       typewriterTimerRef.current = setTimeout(tick, intervalMs);
     },
-    [finishResponseFlowAfterFade, getMessagesById, id, router, saveMessages, setMessages]
+    [
+      finishResponseFlowAfterFade,
+      getMessagesById,
+      id,
+      isOpenEmptyChat,
+      router,
+      saveMessages,
+      setMessages,
+    ]
   );
 
-
-  const handleFinishedResponse = React.useCallback(
-    (message: Message, userMessage: Message | null) => {
-      if (directStreamingResponseRef.current) {
-        const cleanedMessages = messagesRef.current.map((existingMessage) =>
-          existingMessage.id === message.id
-            ? { ...existingMessage, content: stripAssistantMarkup(existingMessage.content) }
-            : existingMessage
-        );
-        void saveMessages(id, cleanedMessages);
-        setLoadingSubmit(false);
-        setDirectStreamingActive(false);
-        directStreamingResponseRef.current = false;
-        if (!directStreamFirstWordShownRef.current) {
-          finishResponseFlowAfterFade();
-        }
-        return;
-      }
-      void startTypewriter(message, userMessage);
-    },
-    [finishResponseFlowAfterFade, id, saveMessages, startTypewriter]
-  );
 
   const handleResponseError = React.useCallback(
     async (error: Error) => {
@@ -313,6 +298,132 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       router.replace(`/c/${id}`);
     },
     [clearResponseFlow, cloudMode, getMessagesById, id, router, saveMessages, setMessages]
+  );
+
+  const handleChatStream = React.useCallback(
+    async (
+      requestBody: Record<string, unknown>,
+      userMessage: Message,
+      requestMessages: Message[],
+      directStream: boolean
+    ) => {
+      const abortController = new AbortController();
+      activeResponseAbortRef.current = abortController;
+      activeRequestMessagesRef.current = requestMessages;
+      bufferedAssistantContentRef.current = "";
+
+      const assistantMessage: Message = {
+        id: generateId(),
+        role: "assistant",
+        content: "",
+        createdAt: new Date(),
+      };
+      activeAssistantMessageRef.current = assistantMessage;
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+          signal: abortController.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(`Chat request failed: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let lineBuffer = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+          const lines = lineBuffer.split("\n");
+          lineBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const parsed = parseDataStreamLine(line);
+            if (!parsed) continue;
+            if (parsed.type === "error") throw new Error(parsed.value);
+            if (parsed.type !== "text") continue;
+
+            const nextContent = stripAssistantMarkup(
+              bufferedAssistantContentRef.current + parsed.value
+            );
+            bufferedAssistantContentRef.current = nextContent;
+
+            if (!directStream || nextContent.length === 0) continue;
+
+            const visibleAssistantMessage: Message = {
+              ...assistantMessage,
+              content: nextContent,
+            };
+            activeAssistantMessageRef.current = visibleAssistantMessage;
+            if (!streamStartedRef.current) {
+              streamStartedRef.current = true;
+              setResponseFlowState("streaming");
+              setDirectStreamingActive(true);
+            }
+            setMessages([...requestMessages, visibleAssistantMessage]);
+          }
+        }
+
+        if (lineBuffer.trim()) {
+          const parsed = parseDataStreamLine(lineBuffer);
+          if (parsed?.type === "text") {
+            bufferedAssistantContentRef.current = stripAssistantMarkup(
+              bufferedAssistantContentRef.current + parsed.value
+            );
+          } else if (parsed?.type === "error") {
+            throw new Error(parsed.value);
+          }
+        }
+
+        const finalAssistantMessage: Message = {
+          ...assistantMessage,
+          ...(activeAssistantMessageRef.current || {}),
+          content: stripAssistantMarkup(bufferedAssistantContentRef.current),
+          createdAt: assistantMessage.createdAt,
+        };
+
+        if (directStream) {
+          const nextMessages = finalAssistantMessage.content
+            ? [...requestMessages, finalAssistantMessage]
+            : requestMessages;
+          setMessages(nextMessages);
+          await saveMessages(id, nextMessages);
+          if (!isOpenEmptyChat) router.replace(`/c/${id}`);
+          setDirectStreamingActive(false);
+          activeResponseAbortRef.current = null;
+          activeAssistantMessageRef.current = null;
+          bufferedAssistantContentRef.current = "";
+          finishResponseFlowAfterFade();
+          return;
+        }
+
+        await startTypewriter(finalAssistantMessage, userMessage, requestMessages);
+      } catch (error) {
+        activeResponseAbortRef.current = null;
+        activeAssistantMessageRef.current = null;
+        bufferedAssistantContentRef.current = "";
+        setLoadingSubmit(false);
+        if ((error as Error).name === "AbortError") return;
+        await handleResponseError(error as Error);
+      }
+    },
+    [
+      finishResponseFlowAfterFade,
+      handleResponseError,
+      id,
+      isOpenEmptyChat,
+      router,
+      saveMessages,
+      setMessages,
+      startTypewriter,
+    ]
   );
 
   const onSubmit = (
@@ -381,48 +492,30 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     } as Message;
     const nextMessages = [...messages, userMessage];
 
+    setMessages(nextMessages);
     setLoadingSubmit(true);
     beginThinking(shouldDirectStreamLexMax);
     setThinkingMessageId(userMessage.id);
-    submittedUserMessageRef.current = userMessage;
-
-    const attachments: Attachment[] = base64Images
-      ? base64Images.map((image) => ({
-          contentType: "image/base64",
-          url: image,
-        }))
-      : [];
-
-    const requestOptions: ChatRequestOptions = {
-      body: {
-        selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
-        workflow,
-        workflowPrompt: workflow?.prompt,
-        attachedDocuments: requestBody?.attachedDocuments || [],
-        thinking,
-        thinkingMode: thinking,
-        usePrivacyMode,
-        ollamaUrl: requestBody?.ollamaUrl,
-        jurisdictionPrompt: requestBody?.jurisdictionPrompt,
-        selectedSources: requestBody?.selectedSources,
-        directStream: shouldDirectStreamLexMax,
-      },
-      ...(base64Images && {
-        data: {
-          images: base64Images,
-        },
-        experimental_attachments: attachments,
-      }),
+    const requestPayload = {
+      messages: nextMessages,
+      selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+      workflow,
+      workflowPrompt: workflow?.prompt,
+      attachedDocuments: requestBody?.attachedDocuments || [],
+      thinking,
+      thinkingMode: thinking,
+      usePrivacyMode,
+      ollamaUrl: requestBody?.ollamaUrl,
+      jurisdictionPrompt: requestBody?.jurisdictionPrompt,
+      selectedSources: requestBody?.selectedSources,
+      directStream: shouldDirectStreamLexMax,
+      ...(base64Images ? { data: { images: base64Images } } : {}),
     };
 
-    void append(userMessage, {
-      ...requestOptions,
-      body: { ...requestOptions.body, messages: nextMessages },
-    });
     setInput("");
     void saveMessages(id, nextMessages);
     setBase64Images(null);
-    router.replace(`/c/${id}`);
+    void handleChatStream(requestPayload, userMessage, nextMessages, shouldDirectStreamLexMax);
   };
 
   const displayedMessages = React.useMemo(() => {
@@ -459,9 +552,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setLoadingSubmit(true);
     beginThinking(shouldDirectStreamLexMax);
     setThinkingMessageId(updatedUserMessage.id);
-    submittedUserMessageRef.current = updatedUserMessage;
-    await append(updatedUserMessage, {
-      body: {
+    await handleChatStream(
+      {
         selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
         workflow: pendingWorkflow,
         workflowPrompt: pendingWorkflow?.prompt,
@@ -469,11 +561,15 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         messages: retryMessages,
         directStream: shouldDirectStreamLexMax,
       },
-    });
+      updatedUserMessage,
+      retryMessages,
+      shouldDirectStreamLexMax
+    );
   };
 
   const handleStop = () => {
     stop();
+    activeResponseAbortRef.current?.abort();
     setLoadingSubmit(false);
     const activeTypewriterState = typewriterStateRef.current;
     if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
@@ -485,8 +581,17 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       const nextMessages = [...activeTypewriterState.baseMessages, partialAssistantMessage];
       setMessages(nextMessages);
       void saveMessages(id, nextMessages);
+    } else if (activeAssistantMessageRef.current?.content) {
+      const partialAssistantMessage = {
+        ...activeAssistantMessageRef.current,
+        content: stripAssistantMarkup(activeAssistantMessageRef.current.content),
+      };
+      const nextMessages = [...activeRequestMessagesRef.current, partialAssistantMessage];
+      setMessages(nextMessages);
+      void saveMessages(id, nextMessages);
     } else {
-      void saveMessages(id, [...messages]);
+      setMessages(activeRequestMessagesRef.current);
+      void saveMessages(id, activeRequestMessagesRef.current);
     }
     clearResponseFlow();
   };
@@ -547,25 +652,27 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();
-
-              const requestOptions: ChatRequestOptions = {
-                body: {
-                  selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
-                  usePrivacyMode,
-                  workflowPrompt: pendingWorkflow?.prompt,
-                  directStream: shouldDirectStreamLexMax,
-                },
-              };
+              const lastRetryMessage = [...retryMessages]
+                .reverse()
+                .find((message) => message.role === "user");
+              if (!lastRetryMessage) return null;
 
               setLoadingSubmit(true);
               beginThinking(shouldDirectStreamLexMax);
-              const lastRetryMessage = retryMessages[retryMessages.length - 1];
-              setThinkingMessageId(lastRetryMessage?.role === "user" ? lastRetryMessage.id : null);
-              submittedUserMessageRef.current = lastRetryMessage?.role === "user" ? lastRetryMessage : null;
-              return reload({
-                ...requestOptions,
-                body: { ...requestOptions.body, messages: retryMessages },
-              });
+              setThinkingMessageId(lastRetryMessage.id);
+              await handleChatStream(
+                {
+                  selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+                  usePrivacyMode,
+                  workflowPrompt: pendingWorkflow?.prompt,
+                  messages: retryMessages,
+                  directStream: shouldDirectStreamLexMax,
+                },
+                lastRetryMessage,
+                retryMessages,
+                shouldDirectStreamLexMax
+              );
+              return null;
             }}
           />
           <div

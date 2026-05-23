@@ -14,9 +14,9 @@ export function ThinkingIndicator({ visible }: ThinkingIndicatorProps) {
       }`}
       data-testid="lex-thinking-indicator"
     >
-      <span className="text-[16px] font-medium leading-none">✳</span>
+      <span className="text-[16px] font-semibold leading-none">✳</span>
       <span aria-hidden="true" className="w-2" />
-      <span className="text-[16px] font-medium leading-none">Lex is thinking</span>
+      <span className="text-[16px] font-semibold leading-none">Lex is thinking</span>
       <span aria-hidden="true" className="w-2" />
       <span className="lex-thinking-dots" aria-hidden="true">
         <span>●</span>
