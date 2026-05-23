@@ -35,6 +35,7 @@ const scanningSteps = [
 ];
 
 export default function ContractScannerPage() {
+  const [reportId, setReportId] = useState<string | null>(null);
   const [scannerMode, setScannerMode] = useState<ScannerMode>("cloud");
   const [slowScan, setSlowScan] = useState(false);
   const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
@@ -70,8 +71,10 @@ export default function ContractScannerPage() {
   }, [cloudMode, setCloudMode]);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const reportId = searchParams.get("report");
+    setReportId(new URLSearchParams(window.location.search).get("report"));
+  }, []);
+
+  useEffect(() => {
     if (!reportId) return;
 
     const loadReport = async () => {
@@ -103,7 +106,7 @@ export default function ContractScannerPage() {
     loadReport().catch(() => setError("Saved report could not be loaded."));
     // Saved reports are loaded once from the URL; store setters are guarded, so
     // loading a report cannot retrigger when analysis state changes.
-  }, [setAnalysis, setError, setFile]);
+  }, [reportId, setAnalysis, setError, setFile]);
 
   useEffect(() => {
     if (!isScanning) {
@@ -239,16 +242,28 @@ export default function ContractScannerPage() {
       </div>
 
       {analysis ? (
-        <ResultsDisplay
-          analysis={analysis}
-          activeFilter={activeFilter}
-          onFilterChange={setActiveFilter}
-          onReset={() => {
-            setActiveFilter("all");
-            setAnalysis(null);
-            reset();
-          }}
-        />
+        <>
+          {reportId && (
+            <div className="px-6 pb-4">
+              <Link
+                href="/vault"
+                className="text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+              >
+                ← Back to Vault
+              </Link>
+            </div>
+          )}
+          <ResultsDisplay
+            analysis={analysis}
+            activeFilter={activeFilter}
+            onFilterChange={setActiveFilter}
+            onReset={() => {
+              setActiveFilter("all");
+              setAnalysis(null);
+              reset();
+            }}
+          />
+        </>
       ) : (
         <>
           <div className="px-6 pb-4">
