@@ -3,7 +3,7 @@ const THINK_TAG_REGEX = /<\/?think\b[^>]*>/gi;
 const DANGLING_THINK_TAG_REGEX = /<\/?think\b[^>]*$/i;
 const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
-const SEARCH_PREAMBLE_REGEX = /^(?:\s*(?:Will perform web search[^\n]*(?:\n|$)|Fetching[^\n]*(?:\n|$)|Search query:[^\n]*(?:\n|$)|Search results(?:\s+fetched)?[^\n]*(?:\n|$)|Search(?:ing|\.\.\.)?(?:\s+(?:for|the web for|query:|results(?:\s+fetched)?))?[^\n]*(?:\n|$)|I(?:'ll| will)\s+(?:simulate\s+)?search(?:\s+the\s+web)?[^\n]*(?:\n|$)|I'll simulate[^\n]*(?:\n|$)|Let me search(?:\s+the\s+web)?[^\n]*(?:\n|$)))+/i;
+const SEARCH_PREAMBLE_REGEX = /^(?:\s*[\(\["“']?\s*(?:Will perform web search[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Fetching[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search query:[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search results(?:\s+fetched)?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search(?:ing|\.\.\.)?(?:\s+(?:for|the web for|query:|results(?:\s+fetched)?))?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|I(?:'ll| will)\s+(?:simulate\s+)?search(?:\s+the\s+web)?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|I'll simulate[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Let me search(?:\s+the\s+web)?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))))+/i;
 const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*(?:Open with a direct one-sentence verdict[^\n]*(?:\n|$)|Break into clearly labelled sections[^\n]*(?:\n|$)|End with a ["“]?Recommended Next Steps["”]? section[^\n]*(?:\n|$)|Simple questions and greetings[^\n]*(?:\n|$)|Complex legal analysis[^\n]*(?:\n|$)|You are Lex, a private AI legal assistant built into Vaultr[^\n]*(?:\n|$)|PERSONALITY:\s*(?:\n|$)|RESPONSE STYLE:\s*(?:\n|$))+/gi;
 
 export interface ThinkStripState {
@@ -138,7 +138,10 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
 
   state.searchPreambleBuffer += chunk;
   const buffer = state.searchPreambleBuffer;
-  const trimmedStart = buffer.trimStart().toLowerCase();
+  const trimmedStart = buffer
+    .trimStart()
+    .replace(/^[\(\["“']+\s*/, "")
+    .toLowerCase();
   const looksLikeSearchPreamble =
     trimmedStart.startsWith("search for") ||
     trimmedStart.startsWith("searching for") ||
@@ -183,7 +186,7 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
 }
 
 function isOnlySearchProcessLine(buffer: string) {
-  return /^\s*(?:Will perform web search[^\n]*|Fetching[^\n]*|Search(?:ing|\.\.\.)?[^\n]*|Search query:[^\n]*|Search results(?:\s+fetched)?[^\n]*|I'll simulate[^\n]*|I(?:'ll| will)\s+simulate\s+search[^\n]*|Open with a direct one-sentence verdict[^\n]*|Break into clearly labelled sections[^\n]*|End with ["“]?Recommended Next Steps["”]?[^\n]*|Simple questions and greetings[^\n]*|Complex legal analysis[^\n]*|You are Lex, a private AI legal assistant[^\n]*|PERSONALITY:|RESPONSE STYLE:)\s*$/i.test(buffer);
+  return /^\s*[\(\["“']?\s*(?:Will perform web search[^\n]*|Fetching[^\n]*|Search(?:ing|\.\.\.)?[^\n]*|Search query:[^\n]*|Search results(?:\s+fetched)?[^\n]*|I'll simulate[^\n]*|I(?:'ll| will)\s+simulate\s+search[^\n]*|Open with a direct one-sentence verdict[^\n]*|Break into clearly labelled sections[^\n]*|End with ["“]?Recommended Next Steps["”]?[^\n]*|Simple questions and greetings[^\n]*|Complex legal analysis[^\n]*|You are Lex, a private AI legal assistant[^\n]*|PERSONALITY:|RESPONSE STYLE:)\s*[\)\]"”']?\s*$/i.test(buffer);
 }
 
 function getSearchPreambleBoundary(buffer: string) {
@@ -208,7 +211,7 @@ function getSearchPreambleBoundary(buffer: string) {
     return paragraphBreak + (paragraphMatch?.[0].length || 0);
   }
 
-  const lineMatch = buffer.match(/\n(?!\s*(?:will perform web search|fetching|search(?:ing|\.\.\.)?|search query|search results|i'll simulate|i(?:'ll| will)\s+simulate|open with|break into|end with|simple questions|complex legal|you are lex|personality:|response style:))/i);
+  const lineMatch = buffer.match(/\n(?!\s*[\(\["“']?\s*(?:will perform web search|fetching|search(?:ing|\.\.\.)?|search query|search results|i'll simulate|i(?:'ll| will)\s+simulate|open with|break into|end with|simple questions|complex legal|you are lex|personality:|response style:))/i);
   if (lineMatch?.index !== undefined) return lineMatch.index + 1;
 
   return isOnlySearchProcessLine(buffer) ? buffer.length : -1;
