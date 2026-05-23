@@ -57,7 +57,7 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const firstSentenceRendered = /[.!?]/.test(cleanContent);
   const shouldRenderThinking = Boolean(
-    message.role === "assistant" && (isCurrentlyStreaming || !firstSentenceRendered)
+    message.role === "assistant" && isCurrentlyStreaming
   );
   const thinkingVisible = isCurrentlyStreaming && !firstSentenceRendered;
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);

@@ -289,7 +289,7 @@ export function ComposerCard({
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
               <SourcePills selectedSources={selectedSources} onRemove={removeSource} />
               {selectedWorkflow && (
-                <div className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-[var(--color-border-primary)] bg-[var(--color-background-primary)] py-0.5 pl-2.5 pr-1 text-xs text-[var(--color-text-primary)]">
+                <div className="inline-flex items-center gap-1 rounded-full border border-[#e8e6e1] bg-white py-0.5 pl-2.5 pr-1 text-xs text-[#1a1916] shadow-sm">
                   <Library className="h-2.5 w-2.5 shrink-0" />
                   <span className="max-w-[140px] truncate">{selectedWorkflow.title}</span>
                   <button
@@ -308,7 +308,7 @@ export function ComposerCard({
               {attachedDocuments.map((doc) => (
                 <div
                   key={doc.id}
-                  className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-[var(--color-border-primary)] bg-[var(--color-background-primary)] py-0.5 pl-2 pr-1 text-xs text-[var(--color-text-primary)]"
+                  className="inline-flex items-center gap-1 rounded-full border border-[#e8e6e1] bg-white py-0.5 pl-2 pr-1 text-xs text-[#1a1916] shadow-sm"
                 >
                   {doc.fileType === "pdf" ? (
                     <FileText className="h-2.5 w-2.5 shrink-0 text-[var(--danger)]" />

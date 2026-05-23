@@ -3,7 +3,7 @@ import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel } from "@/lib/models";
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 
 interface State {
   base64Images: string[] | null;
@@ -447,6 +447,7 @@ const useChatStore = create<State & Actions>()(
     }),
     {
       name: "nextjs-ollama-ui-state",
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: (state) => ({
         selectedModel: state.selectedModel,
         cloudMode: state.cloudMode,
@@ -460,7 +461,6 @@ const useChatStore = create<State & Actions>()(
         autoCleanupConversations: state.autoCleanupConversations,
         scanProgress: state.scanProgress,
         scanningStep: state.scanningStep,
-        scanResult: state.scanResult,
         isScanning: state.isScanning,
         scanStartedAt: state.scanStartedAt,
         modelDownloads: state.modelDownloads,
@@ -526,7 +526,7 @@ const useChatStore = create<State & Actions>()(
               ? persisted.scanProgress
               : currentState.scanProgress,
           scanningStep: persisted.scanningStep || currentState.scanningStep,
-          scanResult: persisted.scanResult || currentState.scanResult,
+          scanResult: currentState.scanResult,
           isScanning:
             typeof persisted.isScanning === "boolean"
               ? persisted.isScanning
@@ -587,3 +587,34 @@ const useChatStore = create<State & Actions>()(
 );
 
 export default useChatStore;
+
+const safeLocalStorage = {
+  getItem: (name: string) => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(name);
+  },
+  setItem: (name: string, value: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(name, value);
+    } catch (error) {
+      if (!isQuotaExceededError(error)) throw error;
+      window.localStorage.removeItem(name);
+      window.dispatchEvent(new Event("vaultr-local-storage-quota-cleared"));
+    }
+  },
+  removeItem: (name: string) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(name);
+  },
+};
+
+function isQuotaExceededError(error: unknown) {
+  return (
+    error instanceof DOMException &&
+    (error.name === "QuotaExceededError" ||
+      error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      error.code === 22 ||
+      error.code === 1014)
+  );
+}
