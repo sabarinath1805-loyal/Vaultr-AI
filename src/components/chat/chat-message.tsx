@@ -9,8 +9,8 @@ import { ChevronRight, Edit3, File, FileText, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
-import { extractThinkContent, stripAssistantMarkup } from "@/lib/chat-message-content";
-import { ReasoningTimeline, SourcesFooter, parseReasoningSteps } from "@/components/chat/reasoning-timeline";
+import { stripAssistantMarkup } from "@/lib/chat-message-content";
+import { ReasoningTimeline, SourcesFooter } from "@/components/chat/reasoning-timeline";
 
 function LexAvatar() {
   return (
@@ -31,29 +31,7 @@ function LexAvatar() {
 }
 
 export function LexThinkingIndicator() {
-  return (
-    <div
-      className="w-full pl-4 transition-opacity duration-300"
-      data-testid="thinking-timeline"
-    >
-      <div className="mb-3 flex items-center gap-1 text-[13px] text-[var(--text-muted)]">
-        Reasoning... <span className="text-[10px]">▾</span>
-      </div>
-      <div className="flex gap-2.5 pb-4">
-        <div className="flex flex-col items-center pt-[3px]">
-          <span className="reasoning-spinner inline-block h-[12px] w-[12px]" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-normal leading-tight text-[var(--text-primary)]">
-            Assessing query
-          </div>
-          <div className="mt-0.5 text-[13px] leading-snug text-[var(--text-muted)]">
-            Analyzing the legal question
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  return <ReasoningTimeline visible />;
 }
 
 export type ChatMessageProps = {
@@ -70,34 +48,20 @@ export type ChatMessageProps = {
 
 function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
-  const [reasoningCollapsed, setReasoningCollapsed] = useState(false);
-  const [timelineFading, setTimelineFading] = useState(false);
-  const [timelineStartedAt, setTimelineStartedAt] = useState<number | null>(null);
-  const [hasAutoCollapsedReasoning, setHasAutoCollapsedReasoning] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draftContent, setDraftContent] = useState(message.content);
   const router = useRouter();
 
-  const { thinkContent, cleanContent } = useMemo(() => {
-    return {
-      thinkContent: message.role === "assistant" ? extractThinkContent(message.content) : null,
-      cleanContent: stripAssistantMarkup(message.content),
-    };
-  }, [message.content, message.role]);
+  const cleanContent = useMemo(() => stripAssistantMarkup(message.content), [message.content]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
-  const shouldShowReasoning = Boolean(
-    message.role === "assistant" &&
-      (thinkContent || isCurrentlyStreaming) &&
-      (isCurrentlyStreaming || cleanContent.length >= 100)
+  const renderedWordCount = useMemo(
+    () => cleanContent.split(/\s+/).filter(Boolean).length,
+    [cleanContent]
   );
-  const hasAttachedDocument = Boolean(
-    message.attachedDocuments && message.attachedDocuments.length > 0
+  const shouldRenderThinking = Boolean(
+    message.role === "assistant" && (isCurrentlyStreaming || renderedWordCount < 2)
   );
-  const documentFilenames = useMemo(
-    () =>
-      (message.attachedDocuments || []).map((doc) => doc.filename),
-    [message.attachedDocuments]
-  );
+  const thinkingVisible = isCurrentlyStreaming && renderedWordCount < 2;
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchSources = useMemo(() => {
@@ -117,28 +81,6 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
     }
   }, [webSearchMatch]);
   const documentAnalyzed = Array.from(message.content.matchAll(/<document-analyzed\s+filename="([^"]+)"\s*\/>/g));
-  const searchDomains = useMemo(() => {
-    const domains: string[] = [];
-    webSearchSources.forEach((source) => domains.push(source.domain));
-    const urlMatches = message.content.match(/(?:site:)([\w.]+)/g);
-    if (urlMatches) {
-      urlMatches.forEach((m) => domains.push(m.replace("site:", "")));
-    }
-    const linkMatches = message.content.match(/https?:\/\/([\w.-]+)/g);
-    if (linkMatches) {
-      linkMatches.forEach((m) => {
-        try {
-          const hostname = new URL(m).hostname;
-          if (!domains.includes(hostname) && !hostname.includes("localhost")) {
-            domains.push(hostname);
-          }
-        } catch {
-          // ignore
-        }
-      });
-    }
-    return Array.from(new Set(domains.filter((domain) => domain !== "Web search")));
-  }, [message.content, webSearchSources]);
   const searchUrls = useMemo(() => {
     const entries = webSearchSources.map((source) => [source.domain, source.url] as const);
     return Object.fromEntries(entries);
@@ -147,69 +89,6 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
     () => Array.from(new Set(webSearchSources.map((source) => source.domain))),
     [webSearchSources]
   );
-
-  const reasoningSteps = useMemo(
-    () =>
-      shouldShowReasoning
-        ? parseReasoningSteps(
-            thinkContent,
-            hasAttachedDocument,
-            documentFilenames,
-            webSearchUsed,
-            searchDomains,
-            isCurrentlyStreaming
-          )
-        : [],
-    [thinkContent, hasAttachedDocument, documentFilenames, webSearchUsed, searchDomains, isCurrentlyStreaming, shouldShowReasoning]
-  );
-
-  const timelineVisible = shouldShowReasoning && !reasoningCollapsed && !timelineFading;
-  const responseFadedForReasoning = timelineVisible && cleanContent.length === 0;
-
-  React.useEffect(() => {
-    if (shouldShowReasoning && timelineStartedAt === null) {
-      setTimelineStartedAt(Date.now());
-    }
-  }, [shouldShowReasoning, timelineStartedAt]);
-
-  React.useEffect(() => {
-    setReasoningCollapsed(false);
-    setTimelineFading(false);
-    setTimelineStartedAt(null);
-    setHasAutoCollapsedReasoning(false);
-  }, [message.id]);
-
-  React.useEffect(() => {
-    if (
-      !shouldShowReasoning ||
-      reasoningCollapsed ||
-      timelineFading ||
-      hasAutoCollapsedReasoning ||
-      cleanContent.length <= 50
-    ) {
-      return;
-    }
-
-    const elapsed = timelineStartedAt ? Date.now() - timelineStartedAt : 0;
-    const delay = Math.max(1000, 3000 - elapsed);
-    const startFade = window.setTimeout(() => {
-      setTimelineFading(true);
-      setHasAutoCollapsedReasoning(true);
-      window.setTimeout(() => {
-        setReasoningCollapsed(true);
-        setTimelineFading(false);
-      }, 500);
-    }, delay);
-
-    return () => window.clearTimeout(startFade);
-  }, [
-    cleanContent.length,
-    hasAutoCollapsedReasoning,
-    reasoningCollapsed,
-    shouldShowReasoning,
-    timelineFading,
-    timelineStartedAt,
-  ]);
 
   const markdownComponents: Components = {
     h1: ({ children }) => (
@@ -405,14 +284,8 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
       {message.role === "assistant" ? (
         <div className="w-full">
           <div className="min-w-0 text-[15px] leading-[1.75]">
-            {shouldShowReasoning && (
-              <ReasoningTimeline
-                steps={reasoningSteps}
-                visible={timelineVisible}
-                collapsed={reasoningCollapsed && !isCurrentlyStreaming}
-                showCollapsedIndicator={timelineFading}
-                onToggleCollapse={() => setReasoningCollapsed((v) => !v)}
-              />
+            {shouldRenderThinking && (
+              <ReasoningTimeline visible={thinkingVisible} />
             )}
             {message.experimental_attachments?.some((attachment) =>
               attachment.contentType?.startsWith("image/")
@@ -431,7 +304,7 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
                   ))}
               </div>
             )}
-            <div className={`prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline ${responseFadedForReasoning ? "opacity-0" : "opacity-100"}`}>
+            <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
             {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
