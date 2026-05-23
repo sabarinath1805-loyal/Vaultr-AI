@@ -13,6 +13,7 @@ import { extractDocumentText } from "@/lib/document-extraction";
 import {
   createThinkStripState,
   flushThinkStripState,
+  stripAssistantMarkup,
   stripAssistantStreamChunk,
 } from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
@@ -57,6 +58,9 @@ const NO_SEARCH_TRIGGERS = [
 ];
 
 const GEMINI_MODELS = ["gemini-3-flash-preview"];
+
+const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*(?:Open with a direct one-sentence verdict[^\n]*(?:\n|$)|Break into clearly labelled sections[^\n]*(?:\n|$)|End with a ["“]?Recommended Next Steps["”]? section[^\n]*(?:\n|$)|Simple questions and greetings[^\n]*(?:\n|$)|Complex legal analysis[^\n]*(?:\n|$))/gi;
+const LEX_IDENTITY_LEAK_REGEX = /(?:^|\n)\s*(?:You are Lex, a private AI legal assistant built into Vaultr[^\n]*(?:\n|$)|PERSONALITY:\s*(?:\n|$)|RESPONSE STYLE:\s*(?:\n|$))/gi;
 
 const WEB_SEARCH_TOOLS = [
   {
@@ -124,7 +128,7 @@ export async function POST(req: Request) {
     ? activeModel
     : null;
   const conversationMessages = Array.isArray(messages) ? messages : [];
-  const initialMessages = conversationMessages.slice(0, -1).filter(isChatMessage);
+  const initialMessages = sanitizeChatMessages(conversationMessages.slice(0, -1));
   const currentMessage = conversationMessages[conversationMessages.length - 1];
   const userMessage =
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
@@ -170,7 +174,6 @@ export async function POST(req: Request) {
     ? jurisdictionPrompt.trim()
     : "";
   const systemMessage = `${finalSystemPrompt}${documentContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}`;
-  console.log("SYSTEM PROMPT APPLIED:", systemMessage.substring(0, 1200));
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },
@@ -239,12 +242,7 @@ export async function POST(req: Request) {
         } : {}),
         messages: [
           { role: "system", content: systemMessage },
-          ...initialMessages.map(
-            (message: { role: string; content: string }) => ({
-              role: message.role,
-              content: message.content,
-            })
-          ),
+          ...initialMessages,
           { role: "user", content: userContent },
         ],
       }),
@@ -385,12 +383,10 @@ async function streamGeminiResponse({
     systemInstruction: systemMessage,
   });
   const contents: Content[] = [
-    ...initialMessages
-      .filter((message) => message.role === "user" || message.role === "assistant")
-      .map((message) => ({
-        role: message.role === "assistant" ? "model" : "user",
-        parts: [{ text: message.content }],
-      })),
+    ...initialMessages.map((message) => ({
+      role: message.role === "assistant" ? "model" : "user",
+      parts: [{ text: message.content }],
+    })),
     { role: "user", parts: [{ text: userMessage }] },
   ];
   const result = await generativeModel.generateContentStream({ contents });
@@ -483,10 +479,7 @@ async function streamOllamaCloudResponse({
     model: ollamaCloud.chat(model),
     system: systemMessage,
     messages: [
-      ...initialMessages.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
+      ...initialMessages,
       { role: "user", content: userMessage },
     ] as CoreMessage[],
     abortSignal,
@@ -541,6 +534,24 @@ async function streamOllamaCloudResponse({
       },
     }
   );
+}
+
+
+function sanitizeChatMessages(messages: unknown[]) {
+  return messages
+    .filter(isChatMessage)
+    .map((message) => ({
+      role: message.role,
+      content: stripLeakedSystemPrompt(stripAssistantMarkup(message.content)),
+    }))
+    .filter((message) => message.content.length > 0);
+}
+
+function stripLeakedSystemPrompt(content: string) {
+  return content
+    .replace(SYSTEM_PROMPT_LEAK_REGEX, "")
+    .replace(LEX_IDENTITY_LEAK_REGEX, "")
+    .trim();
 }
 
 function parseGeminiChunk(chunk: unknown) {
@@ -624,9 +635,7 @@ function flushSseToken(
       delta?.reasoning || delta?.reasoning_content || delta?.thinking;
     const token = delta?.content;
     if (thinkingToken) {
-      controller.enqueue(
-        encoder.encode(`0:${JSON.stringify(`<think>${thinkingToken}</think>`)}\n`)
-      );
+      flushVisibleToken(`<think>${thinkingToken}</think>`, controller, encoder);
     }
     if (token) {
       flushVisibleToken(token, controller, encoder);

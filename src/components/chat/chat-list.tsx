@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
-import { LexThinkingIndicator } from "./chat-message";
+import { ThinkingIndicator } from "./thinking-indicator";
 
 interface ChatListProps {
   messages: Message[];
   isLoading: boolean;
-  thinkingPhase: "idle" | "thinking" | "streaming";
+  thinkingVisible: boolean;
   thinkingMessageId: string | null;
   onEditMessage: (messageId: string, content: string) => void;
   reload: (
@@ -18,7 +18,7 @@ interface ChatListProps {
 export default function ChatList({
   messages,
   isLoading,
-  thinkingPhase,
+  thinkingVisible,
   thinkingMessageId,
   onEditMessage,
   reload,
@@ -30,13 +30,13 @@ export default function ChatList({
   const latestUserMessageId =
     [...messages].reverse().find((message) => message.role === "user")?.id || null;
   const showStandaloneThinking =
-    thinkingPhase !== "idle" &&
+    thinkingVisible &&
     thinkingMessageId === latestUserMessageId;
 
   useEffect(() => {
     if (!isNearBottom) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [isNearBottom, messages.length, lastMessageContent, thinkingPhase]);
+  }, [isNearBottom, messages.length, lastMessageContent, thinkingVisible]);
 
   return (
     <div
@@ -64,7 +64,7 @@ export default function ChatList({
           ))}
           {showStandaloneThinking && (
             <div className="message animate-message-in mb-10 w-full max-w-4xl text-left">
-              <LexThinkingIndicator />
+              <ThinkingIndicator visible />
             </div>
           )}
           <div ref={bottomRef} />
