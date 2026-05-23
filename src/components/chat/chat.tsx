@@ -9,7 +9,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, OLLAMA_CLOUD_MAX_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ResponseFlowState = "idle" | "thinking" | "done";
@@ -35,6 +35,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const thinkingFadeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const submittedUserMessageRef = React.useRef<Message | null>(null);
   const typewriterMessageIdRef = React.useRef<string | null>(null);
+  const directStreamingResponseRef = React.useRef(false);
+  const directStreamFirstWordShownRef = React.useRef(false);
+  const messagesRef = React.useRef<Message[]>(initialMessages);
   const typewriterStateRef = React.useRef<{
     fullContent: string;
     finalAssistantMessage: Message;
@@ -77,6 +80,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
   const [responseFlowState, setResponseFlowState] = React.useState<ResponseFlowState>("idle");
   const [thinkingMessageId, setThinkingMessageId] = React.useState<string | null>(null);
+  const [directStreamingActive, setDirectStreamingActive] = React.useState(false);
   const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
   React.useEffect(() => {
     setHomeGreeting(getCounselorGreeting());
@@ -104,6 +108,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const pathname = usePathname();
   const isOpenEmptyChat = pathname.startsWith("/c/");
   const usePrivacyMode = !cloudMode;
+  const shouldDirectStreamLexMax =
+    !usePrivacyMode && (selectedModel || GROQ_DEFAULT_MODEL) === OLLAMA_CLOUD_MAX_MODEL;
+
+  React.useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   React.useEffect(() => {
     const nextChatId = isOpenEmptyChat ? id : null;
@@ -139,11 +149,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     thinkingFadeTimerRef.current = null;
     typewriterMessageIdRef.current = null;
     typewriterStateRef.current = null;
+    directStreamingResponseRef.current = false;
+    directStreamFirstWordShownRef.current = false;
+    setDirectStreamingActive(false);
     setResponseFlowState("idle");
     setThinkingMessageId(null);
   }, []);
 
-  const beginThinking = React.useCallback(() => {
+  const beginThinking = React.useCallback((directStream = false) => {
     firstTokenLoggedRef.current = false;
     if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
     if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
@@ -151,6 +164,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     thinkingFadeTimerRef.current = null;
     typewriterStateRef.current = null;
     typewriterMessageIdRef.current = null;
+    directStreamingResponseRef.current = directStream;
+    directStreamFirstWordShownRef.current = false;
+    setDirectStreamingActive(directStream);
     setResponseFlowState("thinking");
     setThinkingMessageId(null);
   }, []);
@@ -164,6 +180,18 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       thinkingFadeTimerRef.current = null;
     }, THINKING_FADE_MS);
   }, []);
+
+  React.useEffect(() => {
+    if (!directStreamingActive || directStreamFirstWordShownRef.current) return;
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "assistant");
+    const visibleContent = stripAssistantMarkup(lastAssistantMessage?.content || "");
+    if (!/\S+/.test(visibleContent)) return;
+
+    directStreamFirstWordShownRef.current = true;
+    finishResponseFlowAfterFade();
+  }, [directStreamingActive, finishResponseFlowAfterFade, messages]);
 
   const startTypewriter = React.useCallback(
     async (assistantMessage: Message, userMessage: Message | null) => {
@@ -243,9 +271,24 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
   const handleFinishedResponse = React.useCallback(
     (message: Message, userMessage: Message | null) => {
+      if (directStreamingResponseRef.current) {
+        const cleanedMessages = messagesRef.current.map((existingMessage) =>
+          existingMessage.id === message.id
+            ? { ...existingMessage, content: stripAssistantMarkup(existingMessage.content) }
+            : existingMessage
+        );
+        void saveMessages(id, cleanedMessages);
+        setLoadingSubmit(false);
+        setDirectStreamingActive(false);
+        directStreamingResponseRef.current = false;
+        if (!directStreamFirstWordShownRef.current) {
+          finishResponseFlowAfterFade();
+        }
+        return;
+      }
       void startTypewriter(message, userMessage);
     },
-    [startTypewriter]
+    [finishResponseFlowAfterFade, id, saveMessages, startTypewriter]
   );
 
   const handleResponseError = React.useCallback(
@@ -339,7 +382,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     const nextMessages = [...messages, userMessage];
 
     setLoadingSubmit(true);
-    beginThinking();
+    beginThinking(shouldDirectStreamLexMax);
     setThinkingMessageId(userMessage.id);
     submittedUserMessageRef.current = userMessage;
 
@@ -362,6 +405,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         ollamaUrl: requestBody?.ollamaUrl,
         jurisdictionPrompt: requestBody?.jurisdictionPrompt,
         selectedSources: requestBody?.selectedSources,
+        directStream: shouldDirectStreamLexMax,
       },
       ...(base64Images && {
         data: {
@@ -382,12 +426,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   };
 
   const displayedMessages = React.useMemo(() => {
-    if (responseFlowState !== "thinking") return messages;
+    if (directStreamingActive || responseFlowState !== "thinking") return messages;
     const lastIndex = messages.length - 1;
     const lastMessage = messages[lastIndex];
     if (lastMessage?.role !== "assistant") return messages;
     return messages.slice(0, lastIndex);
-  }, [messages, responseFlowState]);
+  }, [directStreamingActive, messages, responseFlowState]);
 
   const removeLatestMessage = () => {
     const updatedMessages = messages.slice(0, -1);
@@ -413,7 +457,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setMessages(retryMessages);
     await saveMessages(id, retryMessages);
     setLoadingSubmit(true);
-    beginThinking();
+    beginThinking(shouldDirectStreamLexMax);
     setThinkingMessageId(updatedUserMessage.id);
     submittedUserMessageRef.current = updatedUserMessage;
     await append(updatedUserMessage, {
@@ -423,6 +467,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         workflowPrompt: pendingWorkflow?.prompt,
         usePrivacyMode,
         messages: retryMessages,
+        directStream: shouldDirectStreamLexMax,
       },
     });
   };
@@ -508,11 +553,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
                   usePrivacyMode,
                   workflowPrompt: pendingWorkflow?.prompt,
+                  directStream: shouldDirectStreamLexMax,
                 },
               };
 
               setLoadingSubmit(true);
-              beginThinking();
+              beginThinking(shouldDirectStreamLexMax);
               const lastRetryMessage = retryMessages[retryMessages.length - 1];
               setThinkingMessageId(lastRetryMessage?.role === "user" ? lastRetryMessage.id : null);
               submittedUserMessageRef.current = lastRetryMessage?.role === "user" ? lastRetryMessage : null;
@@ -530,7 +576,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               input={input}
               handleInputChange={handleInputChange}
               handleSubmit={onSubmit}
-              isLoading={isLoading}
+              isLoading={thinkingVisible || isLoading}
               stop={handleStop}
               setInput={setInput}
               className="flex w-full justify-center"
