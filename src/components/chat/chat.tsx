@@ -12,9 +12,9 @@ import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
-type ThinkingPhase = "idle" | "thinking" | "streaming";
-const TYPEWRITER_CHARS_PER_SECOND = 30;
-const THINKING_FADE_MS = 200;
+type ResponseFlowState = "idle" | "thinking" | "done";
+const TYPEWRITER_CHARS_PER_SECOND = 90;
+const THINKING_FADE_MS = 150;
 
 function getCounselorGreeting() {
   const hour = new Date().getHours();
@@ -31,11 +31,16 @@ export interface ChatProps {
 
 export default function Chat({ initialMessages, id }: ChatProps) {
   const firstTokenLoggedRef = React.useRef(false);
-  const minThinkingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const typewriterTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const thinkingFadeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const submittedUserMessageRef = React.useRef<Message | null>(null);
   const typewriterMessageIdRef = React.useRef<string | null>(null);
+  const typewriterStateRef = React.useRef<{
+    fullContent: string;
+    finalAssistantMessage: Message;
+    baseMessages: Message[];
+    index: number;
+  } | null>(null);
 
   const markFirstTokenArrived = React.useCallback(() => {
     if (firstTokenLoggedRef.current) return;
@@ -61,35 +66,16 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       markFirstTokenArrived();
       const userMessage = submittedUserMessageRef.current;
       submittedUserMessageRef.current = null;
-      startTypewriter(message, userMessage);
+      handleFinishedResponse(message, userMessage);
       setLoadingSubmit(false);
-      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
     },
     onError: async (error) => {
       setLoadingSubmit(false);
-      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
-      setThinkingPhase("idle");
-      console.error(error.message);
-      console.error(error.cause);
-
-      const errorMessage: Message = {
-        id: generateId(),
-        role: "assistant",
-        content: cloudMode
-          ? "Lex is unavailable. Check your internet connection and try again."
-          : "Lex is unavailable. Make sure Ollama is running and try again.",
-        createdAt: new Date(),
-      };
-
-      const savedMessages = getMessagesById(id);
-      const nextMessages = [...savedMessages, errorMessage];
-      setMessages(nextMessages);
-      await saveMessages(id, nextMessages);
-      router.replace(`/c/${id}`);
+      handleResponseError(error);
     },
   });
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
-  const [thinkingPhase, setThinkingPhase] = React.useState<ThinkingPhase>("idle");
+  const [responseFlowState, setResponseFlowState] = React.useState<ResponseFlowState>("idle");
   const [thinkingMessageId, setThinkingMessageId] = React.useState<string | null>(null);
   const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
   React.useEffect(() => {
@@ -98,7 +84,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
   React.useEffect(
     () => () => {
-      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
       if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
       if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
     },
@@ -145,22 +130,36 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     // guard prevents the loading reset from firing repeatedly during streaming.
   }, [input, loadingSubmit]);
 
-  const thinkingVisible = thinkingPhase !== "idle";
+  const thinkingVisible = responseFlowState !== "idle";
+
+  const clearResponseFlow = React.useCallback(() => {
+    if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
+    if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
+    typewriterTimerRef.current = null;
+    thinkingFadeTimerRef.current = null;
+    typewriterMessageIdRef.current = null;
+    typewriterStateRef.current = null;
+    setResponseFlowState("idle");
+    setThinkingMessageId(null);
+  }, []);
 
   const beginThinking = React.useCallback(() => {
     firstTokenLoggedRef.current = false;
-    setThinkingPhase("thinking");
-    setThinkingMessageId(null);
-    if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
-    if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
     if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
+    if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
+    typewriterTimerRef.current = null;
+    thinkingFadeTimerRef.current = null;
+    typewriterStateRef.current = null;
+    typewriterMessageIdRef.current = null;
+    setResponseFlowState("thinking");
+    setThinkingMessageId(null);
   }, []);
 
-  const finishThinkingAfterFade = React.useCallback(() => {
+  const finishResponseFlowAfterFade = React.useCallback(() => {
     if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
-    setThinkingPhase("streaming");
+    setResponseFlowState("done");
     thinkingFadeTimerRef.current = setTimeout(() => {
-      setThinkingPhase("idle");
+      setResponseFlowState("idle");
       setThinkingMessageId(null);
       thinkingFadeTimerRef.current = null;
     }, THINKING_FADE_MS);
@@ -193,34 +192,84 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           : savedMessages;
 
       typewriterMessageIdRef.current = finalAssistantMessage.id;
+      typewriterStateRef.current = {
+        fullContent,
+        finalAssistantMessage,
+        baseMessages,
+        index: 0,
+      };
+      setResponseFlowState("thinking");
       setMessages([...baseMessages, visibleAssistantMessage]);
-      finishThinkingAfterFade();
       router.replace(`/c/${id}`);
 
       const intervalMs = Math.max(1, Math.round(1000 / TYPEWRITER_CHARS_PER_SECOND));
-      let index = 0;
       const tick = () => {
-        index += 1;
-        const partial = fullContent.slice(0, index);
-        setMessages([...baseMessages, { ...finalAssistantMessage, content: partial }]);
-        if (index < fullContent.length) {
+        const state = typewriterStateRef.current;
+        if (!state) return;
+
+        const nextIndex = Math.min(state.fullContent.length, state.index + 1);
+        typewriterStateRef.current = { ...state, index: nextIndex };
+        const partial = state.fullContent.slice(0, nextIndex);
+        setMessages([
+          ...state.baseMessages,
+          { ...state.finalAssistantMessage, content: partial },
+        ]);
+
+        if (nextIndex < state.fullContent.length) {
           typewriterTimerRef.current = setTimeout(tick, intervalMs);
           return;
         }
+
         typewriterTimerRef.current = null;
         typewriterMessageIdRef.current = null;
-        void saveMessages(id, [...baseMessages, finalAssistantMessage]);
+        typewriterStateRef.current = null;
+        void saveMessages(id, [...state.baseMessages, state.finalAssistantMessage]);
+        finishResponseFlowAfterFade();
       };
 
       if (fullContent.length === 0) {
         typewriterMessageIdRef.current = null;
+        typewriterStateRef.current = null;
         await saveMessages(id, [...baseMessages, finalAssistantMessage]);
+        finishResponseFlowAfterFade();
         return;
       }
 
       typewriterTimerRef.current = setTimeout(tick, intervalMs);
     },
-    [finishThinkingAfterFade, getMessagesById, id, router, saveMessages, setMessages]
+    [finishResponseFlowAfterFade, getMessagesById, id, router, saveMessages, setMessages]
+  );
+
+
+  const handleFinishedResponse = React.useCallback(
+    (message: Message, userMessage: Message | null) => {
+      void startTypewriter(message, userMessage);
+    },
+    [startTypewriter]
+  );
+
+  const handleResponseError = React.useCallback(
+    async (error: Error) => {
+      clearResponseFlow();
+      console.error(error.message);
+      console.error(error.cause);
+
+      const errorMessage: Message = {
+        id: generateId(),
+        role: "assistant",
+        content: cloudMode
+          ? "Lex is unavailable. Check your internet connection and try again."
+          : "Lex is unavailable. Make sure Ollama is running and try again.",
+        createdAt: new Date(),
+      };
+
+      const savedMessages = getMessagesById(id);
+      const nextMessages = [...savedMessages, errorMessage];
+      setMessages(nextMessages);
+      await saveMessages(id, nextMessages);
+      router.replace(`/c/${id}`);
+    },
+    [clearResponseFlow, cloudMode, getMessagesById, id, router, saveMessages, setMessages]
   );
 
   const onSubmit = (
@@ -333,12 +382,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   };
 
   const displayedMessages = React.useMemo(() => {
-    if (thinkingPhase !== "thinking") return messages;
+    if (responseFlowState !== "thinking") return messages;
     const lastIndex = messages.length - 1;
     const lastMessage = messages[lastIndex];
     if (lastMessage?.role !== "assistant") return messages;
     return messages.slice(0, lastIndex);
-  }, [messages, thinkingPhase]);
+  }, [messages, responseFlowState]);
 
   const removeLatestMessage = () => {
     const updatedMessages = messages.slice(0, -1);
@@ -380,12 +429,21 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
   const handleStop = () => {
     stop();
-    saveMessages(id, [...messages]);
     setLoadingSubmit(false);
-    if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
+    const activeTypewriterState = typewriterStateRef.current;
     if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
-    if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
-    setThinkingPhase("idle");
+    if (activeTypewriterState) {
+      const partialAssistantMessage: Message = {
+        ...activeTypewriterState.finalAssistantMessage,
+        content: activeTypewriterState.fullContent.slice(0, activeTypewriterState.index),
+      };
+      const nextMessages = [...activeTypewriterState.baseMessages, partialAssistantMessage];
+      setMessages(nextMessages);
+      void saveMessages(id, nextMessages);
+    } else {
+      void saveMessages(id, [...messages]);
+    }
+    clearResponseFlow();
   };
 
   return (
@@ -422,7 +480,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 input={input}
                 handleInputChange={handleInputChange}
                 handleSubmit={onSubmit}
-                isLoading={isLoading}
+                isLoading={thinkingVisible || isLoading}
                 stop={handleStop}
                 setInput={setInput}
                 modelSelectorDirection="down"
@@ -438,8 +496,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           </h1>
           <ChatList
             messages={displayedMessages}
-            isLoading={isLoading}
-            thinkingPhase={thinkingVisible ? "thinking" : "idle"}
+            isLoading={thinkingVisible || isLoading}
+            thinkingVisible={thinkingVisible}
             thinkingMessageId={thinkingMessageId}
             onEditMessage={handleEditMessage}
             reload={async () => {
