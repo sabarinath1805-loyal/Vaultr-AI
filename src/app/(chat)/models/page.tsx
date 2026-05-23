@@ -10,6 +10,7 @@ interface RemoveState {
   error: string | null;
 }
 
+const OLLAMA_URL = "http://localhost:11434";
 const activeModelPulls = new Map<string, AbortController>();
 
 interface IndividualModel {
@@ -61,9 +62,10 @@ const ALL_LOCAL_MODEL_IDS = MODEL_TIERS.flatMap((tier) =>
   tier.models.map((model) => model.id)
 );
 
-function formatModelSize(valueMb: number) {
-  if (valueMb >= 1024) return `${(valueMb / 1024).toFixed(1)} GB`;
-  return `${Math.round(valueMb)} MB`;
+function formatModelSize(valueBytes: number) {
+  const valueGb = valueBytes / 1024 / 1024 / 1024;
+  if (valueGb >= 1) return `${valueGb.toFixed(1)} GB`;
+  return `${Math.max(valueBytes / 1024 / 1024, 1).toFixed(0)} MB`;
 }
 
 export default function ModelsPage() {
@@ -102,7 +104,7 @@ export default function ModelsPage() {
 
     async function loadModels() {
       try {
-        const response = await fetch("/api/tags");
+        const response = await fetch(`${OLLAMA_URL}/api/tags`);
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const data = await response.json();
         const modelIds = Array.isArray(data?.models)
@@ -146,7 +148,7 @@ export default function ModelsPage() {
   }, [cloudMode, selectedLocalModel, selectedModel, setSelectedModel]);
 
   const refreshModels = async () => {
-    const response = await fetch("/api/tags");
+    const response = await fetch(`${OLLAMA_URL}/api/tags`);
     if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
     const data = await response.json();
     const modelIds = Array.isArray(data?.models)
@@ -165,18 +167,18 @@ export default function ModelsPage() {
     activeModelPulls.set(ollamaId, controller);
     setModelDownload(ollamaId, {
       progress: 0,
-      remainingMb: null,
-      completedMb: null,
-      totalMb: null,
+      remainingBytes: null,
+      completedBytes: null,
+      totalBytes: null,
       status: "Starting",
       error: null,
     });
 
     try {
-      const response = await fetch("/api/model", {
+      const response = await fetch(`${OLLAMA_URL}/api/pull`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: ollamaId }),
+        body: JSON.stringify({ model: ollamaId, name: ollamaId, stream: true }),
         signal: controller.signal,
       });
 
@@ -203,16 +205,15 @@ export default function ModelsPage() {
           const total = chunk.total || 0;
           const completed = chunk.completed || 0;
           const progress = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
-          const remainingMb =
-            total > completed ? Math.max((total - completed) / 1024 / 1024, 0) : null;
-          const completedMb = total > 0 ? completed / 1024 / 1024 : null;
-          const totalMb = total > 0 ? total / 1024 / 1024 : null;
+          const remainingBytes = total > completed ? total - completed : null;
+          const completedBytes = total > 0 ? completed : null;
+          const totalBytes = total > 0 ? total : null;
 
           useChatStore.getState().setModelDownload(ollamaId, {
             progress: chunk.status === "success" ? 100 : progress,
-            remainingMb,
-            completedMb,
-            totalMb,
+            remainingBytes,
+            completedBytes,
+            totalBytes,
             status: chunk.status || "Downloading",
             error: null,
           });
@@ -243,12 +244,12 @@ export default function ModelsPage() {
       useChatStore.getState().setModelDownload(ollamaId, {
         ...(useChatStore.getState().modelDownloads[ollamaId] || {
           progress: 0,
-          remainingMb: null,
-          completedMb: null,
-          totalMb: null,
+          remainingBytes: null,
+          completedBytes: null,
+          totalBytes: null,
           status: "",
         }),
-        error: "Download failed. Make sure Ollama is running and try again.",
+        error: "Start Ollama first",
       });
       activeModelPulls.delete(ollamaId);
     }
@@ -267,7 +268,7 @@ export default function ModelsPage() {
     }));
 
     try {
-      const response = await fetch("http://localhost:11434/api/delete", {
+      const response = await fetch(`${OLLAMA_URL}/api/delete`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: ollamaId }),
@@ -383,8 +384,8 @@ export default function ModelsPage() {
                                 background: `linear-gradient(90deg, ${model.color} ${download.progress}%, var(--text-secondary) ${download.progress}%)`,
                               }}
                             >
-                              {download.completedMb != null && download.totalMb != null
-                                ? `${formatModelSize(download.completedMb)} / ${formatModelSize(download.totalMb)} — ${download.progress}%`
+                              {download.completedBytes != null && download.totalBytes != null
+                                ? `${formatModelSize(download.completedBytes)} / ${formatModelSize(download.totalBytes)} — ${download.progress}%`
                                 : `Downloading... ${download.progress}%`}
                             </button>
                             <button

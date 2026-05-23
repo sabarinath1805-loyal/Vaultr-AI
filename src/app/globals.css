@@ -164,6 +164,14 @@ html[data-theme="dark"] {
   opacity: 1;
 }
 
+
+input,
+textarea,
+[contenteditable] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
 @layer base {
   * {
     border-color: var(--border);
@@ -228,8 +236,8 @@ html[data-theme="dark"] {
 
 .lex-thinking-dots {
   display: inline-flex;
-  gap: 4px;
-  padding-left: 1px;
+  gap: 3px;
+  padding-left: 0;
 }
 
 .lex-thinking-dots span {

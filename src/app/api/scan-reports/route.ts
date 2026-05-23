@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
-import path from "path";
+import { getVaultrDataDir, getVaultrDbPath } from "@/lib/tauri-env";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { getRiskCounts } from "@/lib/contract-scanner";
 import type { ScanReportEntry } from "@/lib/scan-reports";
@@ -10,8 +10,8 @@ import type { ScanReportEntry } from "@/lib/scan-reports";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-const dataDir = path.join(process.cwd(), ".vaultr");
-const dbPath = path.join(dataDir, "vaultr.db");
+const dataDir = getVaultrDataDir();
+const dbPath = getVaultrDbPath();
 const SCAN_REPORT_COLUMNS = [
   "id",
   "filename",
