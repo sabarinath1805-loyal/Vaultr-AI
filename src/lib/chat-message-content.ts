@@ -4,6 +4,7 @@ const DANGLING_THINK_TAG_REGEX = /<\/?think\b[^>]*$/i;
 const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
 const SEARCH_PREAMBLE_REGEX = /^(?:\s*(?:Fetching[^\n]*(?:\n|$)|Search query:[^\n]*(?:\n|$)|Search results(?:\s+fetched)?[^\n]*(?:\n|$)|Search(?:ing)?(?:\s+(?:for|the web for|query:|results(?:\s+fetched)?))?[^\n]*(?:\n|$)|I(?:'ll| will)\s+search(?:\s+the\s+web)?[^\n]*(?:\n|$)|Let me search(?:\s+the\s+web)?[^\n]*(?:\n|$)))+/i;
+const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*(?:Open with a direct one-sentence verdict[^\n]*(?:\n|$)|Break into clearly labelled sections[^\n]*(?:\n|$)|End with a ["“]?Recommended Next Steps["”]? section[^\n]*(?:\n|$)|Simple questions and greetings[^\n]*(?:\n|$)|Complex legal analysis[^\n]*(?:\n|$)|You are Lex, a private AI legal assistant built into Vaultr[^\n]*(?:\n|$)|PERSONALITY:\s*(?:\n|$)|RESPONSE STYLE:\s*(?:\n|$))+/gi;
 
 export interface ThinkStripState {
   insideThink: boolean;
@@ -31,6 +32,7 @@ export function stripAssistantMarkup(content: string) {
     .replace(DANGLING_THINK_TAG_REGEX, "")
     .replace(WEB_SEARCH_MARKER_REGEX, "")
     .replace(DOCUMENT_ANALYZED_MARKER_REGEX, "")
+    .replace(SYSTEM_PROMPT_LEAK_REGEX, "")
     .replace(SEARCH_PREAMBLE_REGEX, "")
     .trim();
 }
@@ -147,7 +149,15 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
     trimmedStart.startsWith("fetching") ||
     trimmedStart.startsWith("i'll search") ||
     trimmedStart.startsWith("i will search") ||
-    trimmedStart.startsWith("let me search");
+    trimmedStart.startsWith("let me search") ||
+    trimmedStart.startsWith("open with a direct one-sentence verdict") ||
+    trimmedStart.startsWith("break into clearly labelled sections") ||
+    trimmedStart.startsWith("end with") ||
+    trimmedStart.startsWith("simple questions and greetings") ||
+    trimmedStart.startsWith("complex legal analysis") ||
+    trimmedStart.startsWith("you are lex, a private ai legal assistant") ||
+    trimmedStart.startsWith("personality:") ||
+    trimmedStart.startsWith("response style:");
 
   if (!looksLikeSearchPreamble) {
     state.searchPreambleComplete = true;
@@ -170,7 +180,7 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
 }
 
 function isOnlySearchProcessLine(buffer: string) {
-  return /^\s*(?:Fetching[^\n]*|Search(?:ing)?[^\n]*|Search query:[^\n]*|Search results(?:\s+fetched)?[^\n]*)\s*$/i.test(buffer);
+  return /^\s*(?:Fetching[^\n]*|Search(?:ing)?[^\n]*|Search query:[^\n]*|Search results(?:\s+fetched)?[^\n]*|Open with a direct one-sentence verdict[^\n]*|Break into clearly labelled sections[^\n]*|End with ["“]?Recommended Next Steps["”]?[^\n]*|Simple questions and greetings[^\n]*|Complex legal analysis[^\n]*|You are Lex, a private AI legal assistant[^\n]*|PERSONALITY:|RESPONSE STYLE:)\s*$/i.test(buffer);
 }
 
 function getSearchPreambleBoundary(buffer: string) {
@@ -195,7 +205,7 @@ function getSearchPreambleBoundary(buffer: string) {
     return paragraphBreak + (paragraphMatch?.[0].length || 0);
   }
 
-  const lineMatch = buffer.match(/\n(?!\s*(?:fetching|search(?:ing)?|search query|search results)\b)/i);
+  const lineMatch = buffer.match(/\n(?!\s*(?:fetching|search(?:ing)?|search query|search results|open with|break into|end with|simple questions|complex legal|you are lex|personality:|response style:))/i);
   if (lineMatch?.index !== undefined) return lineMatch.index + 1;
 
   return isOnlySearchProcessLine(buffer) ? buffer.length : -1;
