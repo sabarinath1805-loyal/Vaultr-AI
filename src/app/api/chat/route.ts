@@ -13,7 +13,7 @@ import { extractDocumentText } from "@/lib/document-extraction";
 import {
   createThinkStripState,
   flushThinkStripState,
-  stripThinkFromStreamChunk,
+  stripAssistantStreamChunk,
 } from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
 
@@ -404,12 +404,13 @@ async function streamGeminiResponse({
           for await (const chunk of result.stream) {
             const { text, reasoning } = parseGeminiChunk(chunk);
             if (reasoning) reasoningContent += reasoning;
-            if (text) controller.enqueue(encoder.encode(`0:${JSON.stringify(text)}\n`));
+            if (text) flushVisibleToken(text, controller, encoder);
           }
           if (!reasoningContent.trim()) {
             const finalResponse = await result.response;
             reasoningContent = extractGeminiReasoning(finalResponse);
           }
+          flushSseToken(null, controller, encoder);
           const markers = [
             formatThinkBlock(reasoningContent),
             shouldSearch ? formatWebSearchMarker(activeModel, searchSources) : "",
@@ -498,14 +499,13 @@ async function streamOllamaCloudResponse({
         try {
           for await (const part of result.fullStream) {
             if (part.type === "reasoning" && part.textDelta) {
-              controller.enqueue(
-                encoder.encode(`0:${JSON.stringify(`<think>${part.textDelta}</think>`)}\n`)
-              );
+              flushVisibleToken(`<think>${part.textDelta}</think>`, controller, encoder);
             }
             if (part.type === "text-delta" && part.textDelta) {
-              controller.enqueue(encoder.encode(`0:${JSON.stringify(part.textDelta)}\n`));
+              flushVisibleToken(part.textDelta, controller, encoder);
             }
           }
+          flushSseToken(null, controller, encoder);
           const markers = [
             shouldSearch ? formatWebSearchMarker(activeModel, searchSources) : "",
             ...(Array.isArray(attachedDocuments)
@@ -629,28 +629,36 @@ function flushSseToken(
       );
     }
     if (token) {
-      const state = tokenFlushState.get(controller) || {
-        buffer: "",
-        lastFlush: Date.now(),
-        thinkStripState: createThinkStripState(),
-      };
-      const visibleToken = stripThinkFromStreamChunk(token, state.thinkStripState);
-      if (state.thinkStripState.strippedContent) {
-        controller.enqueue(encoder.encode(`0:${JSON.stringify("")}\n`));
-        state.thinkStripState.strippedContent = false;
-      }
-      state.buffer += visibleToken;
-      const now = Date.now();
-      if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
-        controller.enqueue(encoder.encode(`0:${JSON.stringify(state.buffer)}\n`));
-        state.buffer = "";
-        state.lastFlush = now;
-      }
-      tokenFlushState.set(controller, state);
+      flushVisibleToken(token, controller, encoder);
     }
   } catch {
     return;
   }
+}
+
+function flushVisibleToken(
+  token: string,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  encoder: TextEncoder
+) {
+  const state = tokenFlushState.get(controller) || {
+    buffer: "",
+    lastFlush: Date.now(),
+    thinkStripState: createThinkStripState(),
+  };
+  const visibleToken = stripAssistantStreamChunk(token, state.thinkStripState);
+  if (state.thinkStripState.strippedContent) {
+    controller.enqueue(encoder.encode(`0:${JSON.stringify("")}\n`));
+    state.thinkStripState.strippedContent = false;
+  }
+  state.buffer += visibleToken;
+  const now = Date.now();
+  if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
+    controller.enqueue(encoder.encode(`0:${JSON.stringify(state.buffer)}\n`));
+    state.buffer = "";
+    state.lastFlush = now;
+  }
+  tokenFlushState.set(controller, state);
 }
 
 function isChatMessage(

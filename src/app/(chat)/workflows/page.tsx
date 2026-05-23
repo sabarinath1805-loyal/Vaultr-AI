@@ -35,6 +35,7 @@ export default function WorkflowsPage() {
   const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
   const router = useRouter();
   const setPendingWorkflow = useChatStore((state) => state.setPendingWorkflow);
+  const resetComposerState = useChatStore((state) => state.resetComposerState);
   const customWorkflows = useChatStore((state) => state.customWorkflows);
   const addCustomWorkflow = useChatStore((state) => state.addCustomWorkflow);
 
@@ -61,13 +62,28 @@ export default function WorkflowsPage() {
   });
 
   const applyWorkflow = (workflow: AttachedWorkflow) => {
-    setPendingWorkflow({
+    const nextWorkflow = {
       id: workflow.id,
       title: workflow.title,
       prompt: workflow.prompt,
       requireDocumentUpload: workflow.requireDocumentUpload,
+    };
+    resetComposerState();
+    requestAnimationFrame(() => {
+      setPendingWorkflow(nextWorkflow);
+      if (typeof window !== "undefined") {
+        const storedState = window.localStorage.getItem("nextjs-ollama-ui-state");
+        if (storedState) {
+          try {
+            const parsed = JSON.parse(storedState);
+            parsed.state = { ...(parsed.state || {}), pendingWorkflow: nextWorkflow };
+            window.localStorage.setItem("nextjs-ollama-ui-state", JSON.stringify(parsed));
+          } catch {
+          }
+        }
+      }
+      router.push("/");
     });
-    router.push("/");
   };
 
   return (
