@@ -36,6 +36,7 @@ const scanningSteps = [
 
 export default function ContractScannerPage() {
   const [reportId, setReportId] = useState<string | null>(null);
+  const [reportMeta, setReportMeta] = useState<{ filename: string; date: string } | null>(null);
   const [scannerMode, setScannerMode] = useState<ScannerMode>("cloud");
   const [slowScan, setSlowScan] = useState(false);
   const [activeFilter, setActiveFilter] = useState<RiskFilter>("all");
@@ -99,6 +100,7 @@ export default function ContractScannerPage() {
 
       setFile(null);
       setAnalysis(savedAnalysis);
+      setReportMeta({ filename: report.filename, date: report.date });
       setActiveFilter("all");
       setError(null);
     };
@@ -215,6 +217,7 @@ export default function ContractScannerPage() {
           },
         });
       }
+      setReportMeta({ filename: file.name, date: new Date().toISOString() });
       setScanProgress(100);
       setScanStartedAt(null);
     } catch (error) {
@@ -257,9 +260,12 @@ export default function ContractScannerPage() {
             analysis={analysis}
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
+            filename={reportMeta?.filename || file?.name}
+            reportDate={reportMeta?.date || new Date().toISOString()}
             onReset={() => {
               setActiveFilter("all");
               setAnalysis(null);
+              setReportMeta(null);
               reset();
             }}
           />

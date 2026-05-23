@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { generateUUID } from "@/lib/utils";
 import type { LocalDocument, LocalProject } from "@/lib/local-documents";
 import { getFileType } from "@/lib/local-documents";
@@ -130,8 +130,44 @@ const useLocalVaultStore = create<LocalVaultState>()(
     }),
     {
       name: "vaultr-local-vault",
+      storage: createJSONStorage(() => safeLocalStorage),
+      partialize: (state) => ({
+        documents: state.documents.map(({ content, dataUrl, ...document }) => document),
+        projects: state.projects,
+      }),
     }
   )
 );
 
 export default useLocalVaultStore;
+
+const safeLocalStorage = {
+  getItem: (name: string) => {
+    if (typeof window === "undefined") return null;
+    return window.localStorage.getItem(name);
+  },
+  setItem: (name: string, value: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(name, value);
+    } catch (error) {
+      if (!isQuotaExceededError(error)) throw error;
+      window.localStorage.removeItem(name);
+      window.dispatchEvent(new Event("vaultr-local-storage-quota-cleared"));
+    }
+  },
+  removeItem: (name: string) => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(name);
+  },
+};
+
+function isQuotaExceededError(error: unknown) {
+  return (
+    error instanceof DOMException &&
+    (error.name === "QuotaExceededError" ||
+      error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
+      error.code === 22 ||
+      error.code === 1014)
+  );
+}
