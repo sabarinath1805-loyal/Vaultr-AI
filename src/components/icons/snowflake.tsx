@@ -12,10 +12,18 @@ export function SnowflakeIcon({ size = 16, className }: SnowflakeIconProps) {
       height={size}
       className={className}
     >
-      <line x1="11" y1="1" x2="11" y2="21" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="1" y1="11" x2="21" y2="11" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="4" y1="4" x2="18" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
-      <line x1="18" y1="4" x2="4" y2="18" stroke="#1a1916" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M11 1.6V20.4M1.6 11H20.4M4.35 4.35L17.65 17.65M17.65 4.35L4.35 17.65"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="square"
+      />
+      <path
+        d="M11 1.6L9.4 4.2M11 1.6L12.6 4.2M11 20.4L9.4 17.8M11 20.4L12.6 17.8M1.6 11L4.2 9.4M1.6 11L4.2 12.6M20.4 11L17.8 9.4M20.4 11L17.8 12.6"
+        stroke="currentColor"
+        strokeWidth="1.1"
+        strokeLinecap="square"
+      />
     </svg>
   );
 }
