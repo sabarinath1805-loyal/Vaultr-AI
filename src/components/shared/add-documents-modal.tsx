@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { File, FileText, Loader2, Search, Upload, X } from "lucide-react";
-import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
+import useLocalVaultStore, { rehydrateLocalVaultSafely } from "@/app/hooks/useLocalVaultStore";
 import { formatBytes, type LocalDocument } from "@/lib/local-documents";
 import { FileDirectory } from "@/components/shared/file-directory";
 import { selectTauriDocumentFiles } from "@/lib/tauri-client";
@@ -42,7 +42,7 @@ export function AddDocumentsModal({
     if (!open) return;
     setSearch("");
     setSelectedIds(new Set());
-    useLocalVaultStore.persist.rehydrate();
+    rehydrateLocalVaultSafely();
   }, [open]);
 
   const filtered = useMemo(() => {

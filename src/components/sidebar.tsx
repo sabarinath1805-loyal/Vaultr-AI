@@ -15,7 +15,6 @@ import {
   Shield,
   Square,
 } from "lucide-react";
-import { SnowflakeIcon } from "@/components/icons/snowflake";
 import {
   Dialog,
   DialogContent,
@@ -140,14 +139,14 @@ export function Sidebar() {
 
   return (
     <aside className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ease-in-out ${collapsed ? "w-10" : "w-[var(--sidebar-w)]"}`}>
-      <div className={`flex items-center ${collapsed ? "justify-center px-1" : "justify-between px-4"} py-[14px]`}>
+      <div className={`flex items-center ${collapsed ? "justify-center px-1" : "justify-between pl-[76px] pr-4"} py-[14px]`}>
         <Link
           href="/"
           className="flex items-center gap-2 text-[var(--text)]"
           title="Vaultr"
           onClick={() => resetComposerState()}
         >
-          <SnowflakeIcon size={18} />
+          <span className="text-[18px] leading-none text-[var(--text)]">✳</span>
           {!collapsed && <span className="text-[15px] font-medium">Vaultr</span>}
         </Link>
         <button

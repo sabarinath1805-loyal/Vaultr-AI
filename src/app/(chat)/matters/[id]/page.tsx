@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { FileText, FolderOpen } from "lucide-react";
+import { FileText, FolderOpen, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
@@ -67,6 +67,14 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
   const persistLinks = (next: MatterLinks) => {
     setLinks(next);
     writeMatterLinks(params.id, next);
+  };
+
+  const unlinkChat = (chatId: string) => {
+    persistLinks({ ...links, chats: links.chats.filter((id) => id !== chatId) });
+  };
+
+  const unlinkScan = (scanId: string) => {
+    persistLinks({ ...links, scans: links.scans.filter((id) => id !== scanId) });
   };
 
   if (!matter) {
@@ -167,17 +175,29 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
             ) : (
               <div className="grid gap-2">
                 {linkedChats.map((chat) => (
-                  <button
+                  <div
                     key={chat.id}
-                    type="button"
-                    onClick={() => router.push(`/c/${chat.id}`)}
-                    className="rounded-[var(--radius-md)] border border-[var(--border)] p-4 text-left hover:bg-[var(--sidebar-bg)]"
+                    className="flex items-start justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] p-4 hover:bg-[var(--sidebar-bg)]"
                   >
-                    <div className="text-sm font-medium text-[var(--text)]">{chat.title}</div>
-                    <div className="mt-1 text-xs text-[var(--text-muted)]">
-                      {new Date(chat.updatedAt).toLocaleDateString()}
-                    </div>
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/c/${chat.id}`)}
+                      className="min-w-0 flex-1 text-left"
+                    >
+                      <div className="text-sm font-medium text-[var(--text)]">{chat.title}</div>
+                      <div className="mt-1 text-xs text-[var(--text-muted)]">
+                        {new Date(chat.updatedAt).toLocaleDateString()}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => unlinkChat(chat.id)}
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                      aria-label={`Unlink ${chat.title}`}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -214,17 +234,29 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
                   const analysis = parseScanReportContent(scan);
                   const counts = getRiskCounts(analysis?.clauses || []);
                   return (
-                    <button
+                    <div
                       key={scan.id}
-                      type="button"
-                      onClick={() => router.push(`/contract-scanner?report=${encodeURIComponent(scan.id)}`)}
-                      className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-4 text-left hover:bg-[var(--sidebar-bg)]"
+                      className="flex items-start justify-between gap-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-4 hover:bg-[var(--sidebar-bg)]"
                     >
-                      <div className="text-sm font-medium text-[var(--text)]">{scan.filename}</div>
-                      <div className="mt-1 text-xs text-[var(--text-muted)]">
-                        {scan.overallRisk || analysis?.overall_risk || "Risk pending"} · {counts.high} High · {counts.medium} Medium · {counts.standard} Standard
-                      </div>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/contract-scanner?report=${encodeURIComponent(scan.id)}`)}
+                        className="min-w-0 flex-1 text-left"
+                      >
+                        <div className="text-sm font-medium text-[var(--text)]">{scan.filename}</div>
+                        <div className="mt-1 text-xs text-[var(--text-muted)]">
+                          {scan.overallRisk || analysis?.overall_risk || "Risk pending"} · {counts.high} High · {counts.medium} Medium · {counts.standard} Standard
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => unlinkScan(scan.id)}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                        aria-label={`Unlink ${scan.filename}`}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   );
                 })}
               </div>

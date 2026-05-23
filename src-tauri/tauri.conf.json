@@ -20,11 +20,11 @@
         "minWidth": 1024,
         "minHeight": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "additionalBrowserArgs": "--disable-web-security"
       }
     ],
     "security": {
-      "csp": null,
       "dangerousDisableAssetCspModification": true
     }
   },
