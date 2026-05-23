@@ -9,6 +9,7 @@ interface ChatListProps {
   messages: Message[];
   isLoading: boolean;
   thinkingPhase: "idle" | "thinking" | "streaming";
+  thinkingMessageId: string | null;
   onEditMessage: (messageId: string, content: string) => void;
   reload: (
     chatRequestOptions?: ChatRequestOptions
@@ -19,6 +20,7 @@ export default function ChatList({
   messages,
   isLoading,
   thinkingPhase,
+  thinkingMessageId,
   onEditMessage,
   reload,
 }: ChatListProps) {
@@ -26,8 +28,11 @@ export default function ChatList({
   const bottomRef = useRef<HTMLDivElement>(null);
   const [isNearBottom, setIsNearBottom] = useState(true);
   const lastMessageContent = messages[messages.length - 1]?.content || "";
+  const latestUserMessageId =
+    [...messages].reverse().find((message) => message.role === "user")?.id || null;
   const showStandaloneThinking =
     thinkingPhase !== "idle" &&
+    thinkingMessageId === latestUserMessageId &&
     !messages.some(
       (message) =>
         message.role === "assistant" &&

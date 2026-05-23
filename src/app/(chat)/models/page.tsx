@@ -164,6 +164,7 @@ export default function ModelsPage() {
   const downloadModel = async (ollamaId: string, label: string) => {
     const controller = new AbortController();
     if (activeModelPulls.has(ollamaId)) return;
+    setIsOllamaRunning(true);
     activeModelPulls.set(ollamaId, controller);
     setModelDownload(ollamaId, {
       progress: 0,
@@ -182,7 +183,7 @@ export default function ModelsPage() {
         signal: controller.signal,
       });
 
-      if (!response.ok || !response.body) throw new Error("pull failed");
+      if (!response.ok || !response.body) throw new Error("Start Ollama first");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -197,11 +198,16 @@ export default function ModelsPage() {
 
         for (const line of lines) {
           if (!line.trim()) continue;
-          const chunk = JSON.parse(line) as {
+          let chunk: {
             status?: string;
             total?: number;
             completed?: number;
           };
+          try {
+            chunk = JSON.parse(line) as typeof chunk;
+          } catch {
+            continue;
+          }
           const total = chunk.total || 0;
           const completed = chunk.completed || 0;
           const progress = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
@@ -251,6 +257,7 @@ export default function ModelsPage() {
         }),
         error: "Start Ollama first",
       });
+      setIsOllamaRunning(false);
       activeModelPulls.delete(ollamaId);
     }
   };
@@ -399,12 +406,11 @@ export default function ModelsPage() {
                         ) : (
                           <button
                             type="button"
-                            disabled={!isOllamaRunning}
                             onClick={() => downloadModel(model.id, model.id)}
                             className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--bg-primary)] transition-[color,background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-50"
                             style={{ backgroundColor: model.color }}
                           >
-                            {isOllamaRunning ? "Install" : "Start Ollama first"}
+                            Install
                           </button>
                         )}
                       </div>
