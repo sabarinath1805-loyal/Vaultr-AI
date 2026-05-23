@@ -96,19 +96,23 @@ export function ComposerCard({
 
   React.useEffect(() => {
     if (!pendingWorkflow) return;
-    setSelectedWorkflow((current) =>
-      current?.id === pendingWorkflow.id ? current : pendingWorkflow
-    );
-    requestAnimationFrame(() => textareaRef.current?.focus());
+    const syncPendingWorkflow = () => {
+      setSelectedWorkflow((current) =>
+        current?.id === pendingWorkflow.id ? current : pendingWorkflow
+      );
+      textareaRef.current?.focus();
+    };
+    syncPendingWorkflow();
+    const timer = window.setTimeout(syncPendingWorkflow, 100);
+    return () => window.clearTimeout(timer);
   }, [pendingWorkflow]);
 
   React.useEffect(() => {
     setSelectedWorkflow((current) => (current === null ? current : null));
     setAttachedDocuments((current) => (current.length === 0 ? current : []));
-    setPendingWorkflow(null);
     if (setInput) setInput("");
     requestAnimationFrame(() => textareaRef.current?.focus());
-  }, [composerResetToken, setInput, setPendingWorkflow]);
+  }, [composerResetToken, setInput]);
 
   React.useEffect(() => {
     if (!modePopoverOpen) return;
@@ -304,7 +308,7 @@ export function ComposerCard({
               {attachedDocuments.map((doc) => (
                 <div
                   key={doc.id}
-                  className="inline-flex items-center gap-1 rounded-full border border-[color:var(--white)]/20 bg-[var(--accent)] py-0.5 pl-2 pr-1 text-xs text-[var(--white)] shadow backdrop-blur-sm"
+                  className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-[var(--color-border-primary)] bg-[var(--color-background-primary)] py-0.5 pl-2 pr-1 text-xs text-[var(--color-text-primary)]"
                 >
                   {doc.fileType === "pdf" ? (
                     <FileText className="h-2.5 w-2.5 shrink-0 text-[var(--danger)]" />
@@ -319,7 +323,7 @@ export function ComposerCard({
                         current.filter((item) => item.id !== doc.id)
                       )
                     }
-                    className="ml-0.5 rounded-full p-0.5 text-[var(--white)]/60 transition-colors hover:bg-[var(--bg)]/20 hover:text-[var(--white)]"
+                    className="ml-0.5 rounded-full p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-primary)]"
                     aria-label={`Remove ${doc.filename}`}
                   >
                     <X className="h-2.5 w-2.5" />
