@@ -3,7 +3,6 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
 import { LexThinkingIndicator } from "./chat-message";
-import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 interface ChatListProps {
   messages: Message[];
@@ -32,12 +31,7 @@ export default function ChatList({
     [...messages].reverse().find((message) => message.role === "user")?.id || null;
   const showStandaloneThinking =
     thinkingPhase !== "idle" &&
-    thinkingMessageId === latestUserMessageId &&
-    !messages.some(
-      (message) =>
-        message.role === "assistant" &&
-        stripAssistantMarkup(message.content).length > 0
-    );
+    thinkingMessageId === latestUserMessageId;
 
   useEffect(() => {
     if (!isNearBottom) return;
