@@ -59,9 +59,9 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
     [cleanContent]
   );
   const shouldRenderThinking = Boolean(
-    message.role === "assistant" && isCurrentlyStreaming
+    message.role === "assistant" && (isCurrentlyStreaming || renderedWordCount < 2)
   );
-  const thinkingVisible = shouldRenderThinking && renderedWordCount < 2;
+  const thinkingVisible = isCurrentlyStreaming && renderedWordCount < 2;
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchSources = useMemo(() => {
