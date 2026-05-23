@@ -5,8 +5,8 @@ import React from "react";
 import { notFound } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 
-export default function Page({ params }: { params: { id: string } }) {
-  const id = params.id;
+export default function Page({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = React.use(params);
 
   const chats = useChatStore((state) => state.chats);
   const loadChatById = useChatStore((state) => state.loadChatById);
