@@ -19,6 +19,12 @@ interface LocalVaultState {
   attachDocumentsToProject: (projectId: string, files: File[]) => LocalDocument[];
 }
 
+const LOCAL_VAULT_STORAGE_KEY = "vaultr-local-vault";
+const emptyPersistedVault = JSON.stringify({
+  state: { documents: [], projects: [] },
+  version: 1,
+});
+
 const useLocalVaultStore = create<LocalVaultState>()(
   persist(
     (set, get) => ({
@@ -129,10 +135,11 @@ const useLocalVaultStore = create<LocalVaultState>()(
       attachDocumentsToProject: (projectId, files) => get().addDocuments(files, projectId),
     }),
     {
-      name: "vaultr-local-vault",
-      storage: createJSONStorage(() => safeLocalStorage),
+      name: LOCAL_VAULT_STORAGE_KEY,
+      version: 1,
+      storage: createJSONStorage(() => sqliteVaultStorage),
       partialize: (state) => ({
-        documents: state.documents.map(({ content, dataUrl, ...document }) => document),
+        documents: state.documents,
         projects: state.projects,
       }),
     }
@@ -141,33 +148,93 @@ const useLocalVaultStore = create<LocalVaultState>()(
 
 export default useLocalVaultStore;
 
-const safeLocalStorage = {
-  getItem: (name: string) => {
+export async function rehydrateLocalVaultSafely() {
+  try {
+    await useLocalVaultStore.persist.rehydrate();
+  } catch {
+    await resetLocalVaultPersistence();
+  }
+}
+
+async function resetLocalVaultPersistence() {
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(LOCAL_VAULT_STORAGE_KEY);
+    }
+    await sqliteVaultStorage.setItem(LOCAL_VAULT_STORAGE_KEY, emptyPersistedVault);
+  } finally {
+    useLocalVaultStore.setState({ documents: [], projects: [] });
+  }
+}
+
+const sqliteVaultStorage = {
+  getItem: async (name: string) => {
     if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(name);
+    try {
+      const response = await fetch("/api/local-vault", { cache: "no-store" });
+      if (!response.ok) throw new Error("Local vault unavailable");
+      const data = (await response.json()) as {
+        documents?: LocalDocument[];
+        projects?: LocalProject[];
+      };
+      const documents = Array.isArray(data.documents) ? data.documents : [];
+      const projects = Array.isArray(data.projects) ? data.projects : [];
+      if (documents.length > 0 || projects.length > 0) {
+        window.localStorage.removeItem(name);
+        return JSON.stringify({ state: { documents, projects }, version: 1 });
+      }
+    } catch {
+      return null;
+    }
+
+    return migrateLegacyLocalStorageVault(name);
   },
-  setItem: (name: string, value: string) => {
+  setItem: async (_name: string, value: string) => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(name, value);
-    } catch (error) {
-      if (!isQuotaExceededError(error)) throw error;
-      window.localStorage.removeItem(name);
-      window.dispatchEvent(new Event("vaultr-local-storage-quota-cleared"));
+      const parsed = JSON.parse(value) as {
+        state?: { documents?: LocalDocument[]; projects?: LocalProject[] };
+      };
+      await fetch("/api/local-vault", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documents: Array.isArray(parsed.state?.documents) ? parsed.state.documents : [],
+          projects: Array.isArray(parsed.state?.projects) ? parsed.state.projects : [],
+        }),
+      });
+    } catch {
+      return;
     }
   },
-  removeItem: (name: string) => {
+  removeItem: async (name: string) => {
     if (typeof window === "undefined") return;
     window.localStorage.removeItem(name);
+    await fetch("/api/local-vault", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documents: [], projects: [] }),
+    }).catch(() => undefined);
   },
 };
 
-function isQuotaExceededError(error: unknown) {
-  return (
-    error instanceof DOMException &&
-    (error.name === "QuotaExceededError" ||
-      error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
-      error.code === 22 ||
-      error.code === 1014)
-  );
+function migrateLegacyLocalStorageVault(name: string) {
+  const legacyValue = window.localStorage.getItem(name);
+  if (!legacyValue) return null;
+
+  try {
+    const parsed = JSON.parse(legacyValue) as {
+      state?: { documents?: LocalDocument[]; projects?: LocalProject[] };
+      version?: number;
+    };
+    const documents = Array.isArray(parsed.state?.documents) ? parsed.state.documents : [];
+    const projects = Array.isArray(parsed.state?.projects) ? parsed.state.projects : [];
+    const nextValue = JSON.stringify({ state: { documents, projects }, version: 1 });
+    void sqliteVaultStorage.setItem(name, nextValue);
+    window.localStorage.removeItem(name);
+    return nextValue;
+  } catch {
+    window.localStorage.removeItem(name);
+    return emptyPersistedVault;
+  }
 }

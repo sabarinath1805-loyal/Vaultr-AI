@@ -5,7 +5,7 @@ import { FileText, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { HeaderSearchBtn } from "@/components/shared/header-search-btn";
 import { NewVaultModal } from "@/components/vault/new-vault-modal";
-import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
+import useLocalVaultStore, { rehydrateLocalVaultSafely } from "@/app/hooks/useLocalVaultStore";
 import { useReturnDocumentsToComposer } from "@/components/vault/vault-route-bridge";
 import { getRiskCounts } from "@/lib/contract-scanner";
 import { formatBytes, LocalDocument } from "@/lib/local-documents";
@@ -54,6 +54,7 @@ export default function VaultPage() {
   const deleteDocumentTarget = documents.find((document) => document.id === deleteDocumentId) || null;
 
   useEffect(() => {
+    rehydrateLocalVaultSafely();
     const closeMenus = (event: MouseEvent) => {
       if (event.target instanceof Element && event.target.closest("[data-vault-actions]")) {
         return;

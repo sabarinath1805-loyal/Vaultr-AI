@@ -13,6 +13,8 @@ import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ThinkingPhase = "idle" | "thinking" | "streaming";
+const TYPEWRITER_CHARS_PER_SECOND = 30;
+const THINKING_FADE_MS = 200;
 
 function getCounselorGreeting() {
   const hour = new Date().getHours();
@@ -30,6 +32,10 @@ export interface ChatProps {
 export default function Chat({ initialMessages, id }: ChatProps) {
   const firstTokenLoggedRef = React.useRef(false);
   const minThinkingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const typewriterTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const thinkingFadeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const submittedUserMessageRef = React.useRef<Message | null>(null);
+  const typewriterMessageIdRef = React.useRef<string | null>(null);
 
   const markFirstTokenArrived = React.useCallback(() => {
     if (firstTokenLoggedRef.current) return;
@@ -53,23 +59,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     onResponse: () => {},
     onFinish: async (message) => {
       markFirstTokenArrived();
-      const savedMessages = getMessagesById(id);
-      const matchingAssistantIndex = savedMessages.findIndex(
-        (savedMessage) =>
-          savedMessage.role === "assistant" &&
-          message.content.trim().length > 0 &&
-          savedMessage.content.includes(message.content.trim())
-      );
-      const savedAssistantMessage =
-        matchingAssistantIndex >= 0 ? savedMessages[matchingAssistantIndex] : null;
-      await saveMessages(id, [
-        ...savedMessages.filter((_, index) => index !== matchingAssistantIndex),
-        savedAssistantMessage || message,
-      ]);
+      const userMessage = submittedUserMessageRef.current;
+      submittedUserMessageRef.current = null;
+      startTypewriter(message, userMessage);
       setLoadingSubmit(false);
       if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
-      setThinkingPhase("idle");
-      router.replace(`/c/${id}`);
     },
     onError: async (error) => {
       setLoadingSubmit(false);
@@ -97,14 +91,19 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
   const [thinkingPhase, setThinkingPhase] = React.useState<ThinkingPhase>("idle");
   const [thinkingMessageId, setThinkingMessageId] = React.useState<string | null>(null);
-  const [groqThinkingMinimumMet, setGroqThinkingMinimumMet] = React.useState(true);
   const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
   React.useEffect(() => {
     setHomeGreeting(getCounselorGreeting());
-    return () => {
-      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
-    };
   }, []);
+
+  React.useEffect(
+    () => () => {
+      if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
+      if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
+      if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
+    },
+    []
+  );
 
   const base64Images = useChatStore((state) => state.base64Images);
   const setBase64Images = useChatStore((state) => state.setBase64Images);
@@ -146,42 +145,83 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     // guard prevents the loading reset from firing repeatedly during streaming.
   }, [input, loadingSubmit]);
 
-  const lastMessage = messages[messages.length - 1];
-  const lastAssistantContent =
-    lastMessage?.role === "assistant" ? lastMessage.content.trim() : "";
-  const assistantVisibleContent = stripAssistantMarkup(lastAssistantContent);
-  const firstSentenceRendered = /[.!?]/.test(assistantVisibleContent);
-  const localThinkingComplete = firstSentenceRendered;
-  const thinkingVisible = thinkingPhase !== "idle" && !localThinkingComplete;
-
-  React.useEffect(() => {
-    if (thinkingPhase === "idle" || !localThinkingComplete) return;
-    markFirstTokenArrived();
-    const nextPhase = usePrivacyMode || groqThinkingMinimumMet ? "streaming" : "thinking";
-    setThinkingPhase((current) => (current === nextPhase ? current : nextPhase));
-    // This effect watches primitive readiness flags rather than the streaming
-    // messages array; the guarded setter only advances thinking -> streaming once.
-  }, [
-    groqThinkingMinimumMet,
-    localThinkingComplete,
-    markFirstTokenArrived,
-    thinkingPhase,
-    usePrivacyMode,
-  ]);
+  const thinkingVisible = thinkingPhase !== "idle";
 
   const beginThinking = React.useCallback(() => {
-    setGroqThinkingMinimumMet(usePrivacyMode);
     firstTokenLoggedRef.current = false;
     setThinkingPhase("thinking");
     setThinkingMessageId(null);
     if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
-    if (!usePrivacyMode) {
-      minThinkingTimerRef.current = setTimeout(() => {
-        setGroqThinkingMinimumMet(true);
-        minThinkingTimerRef.current = null;
-      }, 1500);
-    }
-  }, [usePrivacyMode]);
+    if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
+    if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
+  }, []);
+
+  const finishThinkingAfterFade = React.useCallback(() => {
+    if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
+    setThinkingPhase("streaming");
+    thinkingFadeTimerRef.current = setTimeout(() => {
+      setThinkingPhase("idle");
+      setThinkingMessageId(null);
+      thinkingFadeTimerRef.current = null;
+    }, THINKING_FADE_MS);
+  }, []);
+
+  const startTypewriter = React.useCallback(
+    async (assistantMessage: Message, userMessage: Message | null) => {
+      const fullContent = stripAssistantMarkup(assistantMessage.content);
+      const finalAssistantMessage: Message = {
+        ...assistantMessage,
+        content: fullContent,
+        createdAt: assistantMessage.createdAt || new Date(),
+      };
+      const visibleAssistantMessage: Message = {
+        ...finalAssistantMessage,
+        content: "",
+      };
+      const savedMessages = getMessagesById(id).filter(
+        (savedMessage) =>
+          stripAssistantMarkup(savedMessage.content).length > 0 &&
+          savedMessage.id !== assistantMessage.id &&
+          !(
+            savedMessage.role === "assistant" &&
+            stripAssistantMarkup(savedMessage.content) === fullContent
+          )
+      );
+      const baseMessages =
+        userMessage && !savedMessages.some((savedMessage) => savedMessage.id === userMessage.id)
+          ? [...savedMessages, userMessage]
+          : savedMessages;
+
+      typewriterMessageIdRef.current = finalAssistantMessage.id;
+      setMessages([...baseMessages, visibleAssistantMessage]);
+      finishThinkingAfterFade();
+      router.replace(`/c/${id}`);
+
+      const intervalMs = Math.max(1, Math.round(1000 / TYPEWRITER_CHARS_PER_SECOND));
+      let index = 0;
+      const tick = () => {
+        index += 1;
+        const partial = fullContent.slice(0, index);
+        setMessages([...baseMessages, { ...finalAssistantMessage, content: partial }]);
+        if (index < fullContent.length) {
+          typewriterTimerRef.current = setTimeout(tick, intervalMs);
+          return;
+        }
+        typewriterTimerRef.current = null;
+        typewriterMessageIdRef.current = null;
+        void saveMessages(id, [...baseMessages, finalAssistantMessage]);
+      };
+
+      if (fullContent.length === 0) {
+        typewriterMessageIdRef.current = null;
+        await saveMessages(id, [...baseMessages, finalAssistantMessage]);
+        return;
+      }
+
+      typewriterTimerRef.current = setTimeout(tick, intervalMs);
+    },
+    [finishThinkingAfterFade, getMessagesById, id, router, saveMessages, setMessages]
+  );
 
   const onSubmit = (
     e: React.FormEvent<HTMLFormElement>,
@@ -252,6 +292,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setLoadingSubmit(true);
     beginThinking();
     setThinkingMessageId(userMessage.id);
+    submittedUserMessageRef.current = userMessage;
 
     const attachments: Attachment[] = base64Images
       ? base64Images.map((image) => ({
@@ -291,6 +332,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     router.replace(`/c/${id}`);
   };
 
+  const displayedMessages = React.useMemo(() => {
+    if (thinkingPhase !== "thinking") return messages;
+    const lastIndex = messages.length - 1;
+    const lastMessage = messages[lastIndex];
+    if (lastMessage?.role !== "assistant") return messages;
+    return messages.slice(0, lastIndex);
+  }, [messages, thinkingPhase]);
+
   const removeLatestMessage = () => {
     const updatedMessages = messages.slice(0, -1);
     setMessages(updatedMessages);
@@ -317,6 +366,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setLoadingSubmit(true);
     beginThinking();
     setThinkingMessageId(updatedUserMessage.id);
+    submittedUserMessageRef.current = updatedUserMessage;
     await append(updatedUserMessage, {
       body: {
         selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
@@ -333,6 +383,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     saveMessages(id, [...messages]);
     setLoadingSubmit(false);
     if (minThinkingTimerRef.current) clearTimeout(minThinkingTimerRef.current);
+    if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
+    if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
     setThinkingPhase("idle");
   };
 
@@ -385,7 +437,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             {homeGreeting}
           </h1>
           <ChatList
-            messages={messages}
+            messages={displayedMessages}
             isLoading={isLoading}
             thinkingPhase={thinkingVisible ? "thinking" : "idle"}
             thinkingMessageId={thinkingMessageId}
@@ -405,6 +457,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               beginThinking();
               const lastRetryMessage = retryMessages[retryMessages.length - 1];
               setThinkingMessageId(lastRetryMessage?.role === "user" ? lastRetryMessage.id : null);
+              submittedUserMessageRef.current = lastRetryMessage?.role === "user" ? lastRetryMessage : null;
               return reload({
                 ...requestOptions,
                 body: { ...requestOptions.body, messages: retryMessages },

@@ -3,7 +3,7 @@ const THINK_TAG_REGEX = /<\/?think\b[^>]*>/gi;
 const DANGLING_THINK_TAG_REGEX = /<\/?think\b[^>]*$/i;
 const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
-const SEARCH_PREAMBLE_REGEX = /^(?:\s*(?:Search(?:ing)?\s+(?:for|the web for)|I(?:'ll| will)\s+search(?:\s+the\s+web)?\s+for|Let me search(?:\s+the\s+web)?\s+for)[\s\S]*?(?:\n{2,}|(?<=[.!?])\s+))+/i;
+const SEARCH_PREAMBLE_REGEX = /^(?:\s*(?:Fetching(?:\s+current\s+time)?(?:\.\.\.)?|Search(?:ing)?(?:\s+(?:for|the web for|query:|results(?:\s+fetched)?))?|Search query:|Search results(?:\s+fetched)?|I(?:'ll| will)\s+search(?:\s+the\s+web)?\s+for|Let me search(?:\s+the\s+web)?\s+for)[\s\S]*?(?:\n{2,}|(?<=[.!?])\s+))+/i;
 
 export interface ThinkStripState {
   insideThink: boolean;
@@ -142,6 +142,9 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
     trimmedStart.startsWith("searching for") ||
     trimmedStart.startsWith("search the web for") ||
     trimmedStart.startsWith("searching the web for") ||
+    trimmedStart.startsWith("search query:") ||
+    trimmedStart.startsWith("search results") ||
+    trimmedStart.startsWith("fetching") ||
     trimmedStart.startsWith("i'll search") ||
     trimmedStart.startsWith("i will search") ||
     trimmedStart.startsWith("let me search");
@@ -153,15 +156,7 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
     return output;
   }
 
-  const sentenceEnd = buffer.search(/[.!?](?:\s|$)/);
-  const paragraphBreak = buffer.search(/\n{2,}/);
-  const paragraphMatch = paragraphBreak >= 0 ? buffer.match(/\n{2,}/) : null;
-  const boundary =
-    paragraphBreak >= 0 && paragraphMatch
-      ? paragraphBreak + paragraphMatch[0].length
-      : sentenceEnd >= 0
-        ? sentenceEnd + 1
-        : -1;
+  const boundary = getSearchPreambleBoundary(buffer);
 
   if (boundary < 0) {
     state.strippedContent = true;
@@ -172,4 +167,33 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
   state.strippedContent = true;
   state.searchPreambleBuffer = "";
   return buffer.slice(boundary).replace(/^\s+/, "");
+}
+
+function getSearchPreambleBoundary(buffer: string) {
+  const lower = buffer.toLowerCase();
+  const answerMarkers = [
+    "answer:",
+    "final answer:",
+    "response:",
+    "the answer is",
+    "in summary",
+    "based on",
+  ];
+  const markerIndex = answerMarkers
+    .map((marker) => lower.indexOf(marker))
+    .filter((index) => index >= 0)
+    .sort((a, b) => a - b)[0];
+  if (typeof markerIndex === "number") return markerIndex;
+
+  const paragraphBreak = buffer.search(/\n{2,}/);
+  if (paragraphBreak >= 0) {
+    const paragraphMatch = buffer.slice(paragraphBreak).match(/^\n{2,}/);
+    return paragraphBreak + (paragraphMatch?.[0].length || 0);
+  }
+
+  const lineMatch = buffer.match(/\n(?!\s*(?:fetching|search(?:ing)?|search query|search results)\b)/i);
+  if (lineMatch?.index !== undefined) return lineMatch.index + 1;
+
+  const sentenceEnd = buffer.search(/[.!?](?:\s|$)/);
+  return sentenceEnd >= 0 ? sentenceEnd + 1 : -1;
 }
