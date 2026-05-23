@@ -6,6 +6,7 @@ import { File, FileText, Loader2, Search, Upload, X } from "lucide-react";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { formatBytes, type LocalDocument } from "@/lib/local-documents";
 import { FileDirectory } from "@/components/shared/file-directory";
+import { selectTauriDocumentFiles } from "@/lib/tauri-client";
 
 interface AddDocumentsModalProps {
   open: boolean;
@@ -65,8 +66,7 @@ export function AddDocumentsModal({
 
   if (!open) return null;
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+  const addUploadedFiles = (files: File[]) => {
     if (!files.length) return;
     setUploading(true);
     const uploaded = addDocuments(files, projectId ?? null);
@@ -74,7 +74,21 @@ export function AddDocumentsModal({
       new Set([...Array.from(current), ...uploaded.map((doc) => doc.id)])
     );
     setUploading(false);
+  };
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    addUploadedFiles(Array.from(event.target.files || []));
     event.target.value = "";
+  };
+
+  const openFilePicker = async () => {
+    const tauriPaths = await selectTauriDocumentFiles().catch(() => null);
+    if (tauriPaths) {
+      addUploadedFiles(tauriPaths);
+      return;
+    }
+
+    fileInputRef.current?.click();
   };
 
   const handleConfirm = () => {
@@ -187,7 +201,7 @@ export function AddDocumentsModal({
             />
             <button
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={openFilePicker}
               disabled={uploading}
               className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--sidebar-bg)] disabled:opacity-50"
             >

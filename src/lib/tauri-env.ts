@@ -4,7 +4,6 @@ import path from "path";
 
 const APP_DATA_ENV = "VAULTR_APP_DATA_DIR";
 const API_KEYS_FILE = "api-keys.json";
-const TAURI_BUNDLE_DIR = "com.vaultr.app";
 
 export const API_KEY_NAMES = [
   "GROQ_API_KEY",
@@ -22,8 +21,7 @@ export function getVaultrDataDir() {
     return isVaultrDataDir(configuredDir) ? configuredDir : path.join(configuredDir, ".vaultr");
   }
 
-  const baseDir = getDefaultAppDataDir();
-  return path.join(baseDir, ".vaultr");
+  return path.join(getDefaultAppDataDir(), ".vaultr");
 }
 
 export function getVaultrDbPath() {
@@ -77,9 +75,7 @@ function getDefaultAppDataDir() {
   }
 
   const xdgDataHome = process.env.XDG_DATA_HOME || path.join(os.homedir(), ".local", "share");
-  return process.env.VAULTR_DESKTOP === "1"
-    ? path.join(xdgDataHome, TAURI_BUNDLE_DIR)
-    : path.join(xdgDataHome, "Vaultr");
+  return path.join(xdgDataHome, "Vaultr");
 }
 
 function isVaultrDataDir(dir: string) {
