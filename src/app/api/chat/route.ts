@@ -635,6 +635,10 @@ function flushSseToken(
         thinkStripState: createThinkStripState(),
       };
       const visibleToken = stripThinkFromStreamChunk(token, state.thinkStripState);
+      if (state.thinkStripState.strippedContent) {
+        controller.enqueue(encoder.encode(`0:${JSON.stringify("")}\n`));
+        state.thinkStripState.strippedContent = false;
+      }
       state.buffer += visibleToken;
       const now = Date.now();
       if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
