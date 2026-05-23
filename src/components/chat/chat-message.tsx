@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
+import { IconFileText } from "@tabler/icons-react";
 import { ChevronRight, Edit3, File, FileText, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
@@ -54,14 +55,11 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
 
   const cleanContent = useMemo(() => stripAssistantMarkup(message.content), [message.content]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
-  const renderedWordCount = useMemo(
-    () => cleanContent.split(/\s+/).filter(Boolean).length,
-    [cleanContent]
-  );
+  const firstSentenceRendered = /[.!?]/.test(cleanContent);
   const shouldRenderThinking = Boolean(
-    message.role === "assistant" && (isCurrentlyStreaming || renderedWordCount < 2)
+    message.role === "assistant" && (isCurrentlyStreaming || !firstSentenceRendered)
   );
-  const thinkingVisible = isCurrentlyStreaming && renderedWordCount < 2;
+  const thinkingVisible = isCurrentlyStreaming && !firstSentenceRendered;
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchSources = useMemo(() => {
@@ -313,8 +311,9 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
               {timestamp && <div>{timestamp}</div>}
               {documentAnalyzed.map((match) => (
-                <div key={match[1]}>
-                  <span className="text-[11px]">📄</span> {match[1]} analyzed
+                <div key={match[1]} className="flex items-center gap-1">
+                  <IconFileText className="h-3.5 w-3.5 text-[var(--text-muted)]" stroke={1.8} />
+                  <span>{match[1]} analyzed</span>
                 </div>
               ))}
             </div>

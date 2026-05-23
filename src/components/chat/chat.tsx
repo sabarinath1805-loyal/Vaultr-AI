@@ -139,10 +139,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const lastMessage = messages[messages.length - 1];
   const lastAssistantContent =
     lastMessage?.role === "assistant" ? lastMessage.content.trim() : "";
-  const assistantVisibleContentLength = stripAssistantMarkup(lastAssistantContent).length;
-  const assistantHasDisplayableContent = assistantVisibleContentLength > 30;
-  const localThinkingComplete = assistantVisibleContentLength > 30;
-  const thinkingVisible = thinkingPhase !== "idle" && assistantVisibleContentLength <= 30;
+  const assistantVisibleContent = stripAssistantMarkup(lastAssistantContent);
+  const firstSentenceRendered = /[.!?]/.test(assistantVisibleContent);
+  const localThinkingComplete = firstSentenceRendered;
+  const thinkingVisible = thinkingPhase !== "idle" && !firstSentenceRendered;
 
   React.useEffect(() => {
     if (thinkingPhase === "idle" || !localThinkingComplete) return;
