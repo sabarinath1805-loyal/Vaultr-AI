@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { FileText, FolderOpen, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -26,7 +26,8 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "scans", label: "Contract Scans" },
 ];
 
-export default function MatterDetailPage({ params }: { params: { id: string } }) {
+export default function MatterDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
   const [matter, setMatter] = useState<Matter | null>(null);
   const [links, setLinks] = useState<MatterLinks>({ documents: [], chats: [], scans: [] });
@@ -41,9 +42,9 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
 
   useEffect(() => {
     const matters = readMatters();
-    setMatter(matters.find((item) => item.id === params.id) || null);
-    setLinks(readMatterLinks(params.id));
-  }, [params.id]);
+    setMatter(matters.find((item) => item.id === id) || null);
+    setLinks(readMatterLinks(id));
+  }, [id]);
 
   useEffect(() => {
     loadChats().catch(() => undefined);
@@ -66,7 +67,7 @@ export default function MatterDetailPage({ params }: { params: { id: string } })
 
   const persistLinks = (next: MatterLinks) => {
     setLinks(next);
-    writeMatterLinks(params.id, next);
+    writeMatterLinks(id, next);
   };
 
   const unlinkChat = (chatId: string) => {

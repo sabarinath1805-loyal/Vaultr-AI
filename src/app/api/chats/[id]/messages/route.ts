@@ -8,8 +8,9 @@ export const runtime = "nodejs";
 
 export async function POST(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const body = await req.json();
 
   if (body.role !== "user" && body.role !== "assistant") {
@@ -24,7 +25,7 @@ export async function POST(
   }
 
   try {
-    const message = addMessage(params.id, {
+    const message = addMessage(id, {
       id: body.id,
       role: body.role,
       content: body.content,
@@ -47,8 +48,9 @@ export async function POST(
 
 export async function PUT(
   req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
   const body = await req.json();
 
   if (!Array.isArray(body.messages)) {
@@ -70,7 +72,7 @@ export async function PUT(
 
   try {
     const messages = replaceMessages(
-      params.id,
+      id,
       body.messages.map(
         (message: {
           id?: string;
