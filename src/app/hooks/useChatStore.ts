@@ -203,7 +203,7 @@ const useChatStore = create<State & Actions>()(
           currentChatId: null,
           pendingComposerText: null,
           pendingAttachedDocumentIds: [],
-          pendingWorkflow: null,
+          pendingWorkflow: state.pendingWorkflow,
           composerResetToken: state.composerResetToken + 1,
         })),
       setSelectedModel: (selectedModel) =>
@@ -465,6 +465,7 @@ const useChatStore = create<State & Actions>()(
         scanStartedAt: state.scanStartedAt,
         modelDownloads: state.modelDownloads,
         customWorkflows: state.customWorkflows,
+        pendingWorkflow: state.pendingWorkflow,
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<State>;
@@ -538,6 +539,7 @@ const useChatStore = create<State & Actions>()(
           customWorkflows: Array.isArray(persisted.customWorkflows)
             ? persisted.customWorkflows
             : currentState.customWorkflows,
+          pendingWorkflow: persisted.pendingWorkflow || currentState.pendingWorkflow,
           thinkingModeDefault:
             typeof persisted.thinkingModeDefault === "boolean"
               ? persisted.thinkingModeDefault

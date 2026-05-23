@@ -78,14 +78,14 @@ export default function ContractScannerPage() {
     if (!reportId) return;
 
     const loadReport = async () => {
-      const response = await fetch("/api/scan-reports");
+      const response = await fetch(`/api/scan-reports?id=${encodeURIComponent(reportId)}`);
       if (!response.ok) {
         setError("Saved report could not be loaded.");
         return;
       }
 
-      const data = (await response.json()) as { reports?: ScanReportEntry[] };
-      const report = (data.reports || []).find((entry) => entry.id === reportId);
+      const data = (await response.json()) as { report?: ScanReportEntry };
+      const report = data.report;
       if (!report) {
         setError("Saved report not found.");
         return;
