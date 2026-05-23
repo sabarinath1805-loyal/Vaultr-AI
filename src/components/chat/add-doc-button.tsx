@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import type { LocalDocument } from "@/lib/local-documents";
+import { selectTauriDocumentFiles } from "@/lib/tauri-client";
 
 interface AddDocButtonProps {
   onSelectDoc: (doc: LocalDocument) => void;
@@ -27,13 +28,26 @@ export function AddDocButton({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addDocuments = useLocalVaultStore((state) => state.addDocuments);
 
-  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
+  const addUploadedFiles = (files: File[]) => {
     if (!files.length) return;
     setUploading(true);
     addDocuments(files).forEach(onSelectDoc);
     setUploading(false);
+  };
+
+  const handleUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    addUploadedFiles(Array.from(event.target.files || []));
     event.target.value = "";
+  };
+
+  const openFilePicker = async () => {
+    const tauriPaths = await selectTauriDocumentFiles().catch(() => null);
+    if (tauriPaths) {
+      addUploadedFiles(tauriPaths);
+      return;
+    }
+
+    fileInputRef.current?.click();
   };
 
   return (
@@ -78,7 +92,7 @@ export function AddDocButton({
             disabled={uploading}
             onSelect={(event) => {
               event.preventDefault();
-              fileInputRef.current?.click();
+              openFilePicker();
             }}
           >
             {uploading ? (

@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Upload, X } from "lucide-react";
 import { FileDirectory } from "@/components/shared/file-directory";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
+import { selectTauriDocumentFiles } from "@/lib/tauri-client";
 
 interface NewVaultModalProps {
   open: boolean;
@@ -31,6 +32,18 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
   }, [open]);
 
   if (!open) return null;
+
+  const openFilePicker = async () => {
+    const tauriPaths = await selectTauriDocumentFiles().catch(() => null);
+    if (tauriPaths) {
+      if (tauriPaths.length > 0) {
+        setPendingFiles(tauriPaths);
+      }
+      return;
+    }
+
+    fileInputRef.current?.click();
+  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -105,7 +118,7 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
               />
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
+                onClick={openFilePicker}
                 className="flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--sidebar-bg)]"
               >
                 <Upload className="h-3.5 w-3.5" />
