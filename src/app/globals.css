@@ -249,3 +249,13 @@ html[data-theme="dark"] {
 .lex-thinking-dots span:nth-child(3) {
   animation-delay: 0.4s;
 }
+
+/* Enable paste in Tauri webview */
+* {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+input, textarea, [contenteditable] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
