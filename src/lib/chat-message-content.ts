@@ -7,6 +7,7 @@ const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
 export interface ThinkStripState {
   insideThink: boolean;
   pending: string;
+  strippedContent: boolean;
 }
 
 export function extractThinkContent(content: string) {
@@ -31,7 +32,7 @@ export function stripAssistantMarkup(content: string) {
 }
 
 export function createThinkStripState(): ThinkStripState {
-  return { insideThink: false, pending: "" };
+  return { insideThink: false, pending: "", strippedContent: false };
 }
 
 export function stripThinkFromStreamChunk(
@@ -48,8 +49,10 @@ export function stripThinkFromStreamChunk(
       if (closeIndex === -1) {
         const possibleCloseTagStart = getTrailingTagPrefixLength(input, "</think>");
         state.pending = possibleCloseTagStart > 0 ? input.slice(-possibleCloseTagStart) : "";
+        state.strippedContent = true;
         return output;
       }
+      state.strippedContent = true;
       input = input.slice(closeIndex + "</think>".length);
       state.insideThink = false;
       continue;
@@ -69,6 +72,7 @@ export function stripThinkFromStreamChunk(
     }
 
     output += input.slice(0, openIndex);
+    state.strippedContent = true;
     const openEnd = input.indexOf(">", openIndex);
     if (openEnd === -1) {
       state.pending = input.slice(openIndex);
