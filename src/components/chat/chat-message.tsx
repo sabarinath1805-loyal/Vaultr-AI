@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
-import { ReasoningTimeline, SourcesFooter } from "@/components/chat/reasoning-timeline";
+import { SourcesFooter } from "@/components/chat/reasoning-timeline";
 
 function LexAvatar() {
   return (
@@ -29,10 +29,6 @@ function LexAvatar() {
       </svg>
     </div>
   );
-}
-
-export function LexThinkingIndicator() {
-  return <ReasoningTimeline visible />;
 }
 
 export type ChatMessageProps = {
@@ -55,11 +51,6 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
 
   const cleanContent = useMemo(() => stripAssistantMarkup(message.content), [message.content]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
-  const firstSentenceRendered = /[.!?]/.test(cleanContent);
-  const shouldRenderThinking = Boolean(
-    message.role === "assistant" && isCurrentlyStreaming
-  );
-  const thinkingVisible = isCurrentlyStreaming && !firstSentenceRendered;
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
   const webSearchSources = useMemo(() => {
@@ -282,9 +273,6 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
       {message.role === "assistant" ? (
         <div className="w-full">
           <div className="min-w-0 text-[15px] leading-[1.75]">
-            {shouldRenderThinking && (
-              <ReasoningTimeline visible={thinkingVisible} />
-            )}
             {message.experimental_attachments?.some((attachment) =>
               attachment.contentType?.startsWith("image/")
             ) && (
