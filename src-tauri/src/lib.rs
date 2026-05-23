@@ -1,11 +1,6 @@
 use std::{collections::HashMap, fs};
 use tauri::Manager;
 
-#[cfg(target_os = "macos")]
-use objc2::{msg_send, runtime::AnyObject};
-#[cfg(target_os = "macos")]
-use objc2_foundation::{NSNumber, NSString};
-
 const API_KEY_NAMES: [&str; 4] = [
     "GROQ_API_KEY",
     "SERPER_API_KEY",
@@ -121,20 +116,6 @@ pub fn run() {
         .setup(|app| {
             if let Ok(app_data_dir) = app.path().app_data_dir() {
                 std::env::set_var("VAULTR_APP_DATA_DIR", app_data_dir.join(".vaultr"));
-            }
-
-            #[cfg(target_os = "macos")]
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.with_webview(|webview| unsafe {
-                    let view = webview.inner() as *mut AnyObject;
-                    let configuration: *mut AnyObject = msg_send![view, configuration];
-                    let preferences: *mut AnyObject = msg_send![configuration, preferences];
-                    let key = NSString::from_str("allowFileAccessFromFileURLs");
-                    let value = NSNumber::new_bool(true);
-                    let _: () = msg_send![preferences, setValue: &*value, forKey: &*key];
-                    let _: () = msg_send![view, setEditable: true];
-                    let _: () = msg_send![view, setAllowsBackForwardNavigationGestures: true];
-                });
             }
 
             if cfg!(debug_assertions) {
