@@ -139,15 +139,15 @@ export function Sidebar() {
 
   return (
     <aside className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ease-in-out ${collapsed ? "w-10" : "w-[var(--sidebar-w)]"}`}>
-      <div className={`flex items-center ${collapsed ? "justify-center px-1" : "justify-between pl-[76px] pr-4"} py-[14px]`}>
+      <div className={`flex items-center ${collapsed ? "justify-center px-1" : "justify-between pl-[76px] pr-4"} pb-[14px] pt-[22px]`}>
         <Link
           href="/"
           className="flex items-center gap-2 text-[var(--text)]"
           title="Vaultr"
           onClick={() => resetComposerState()}
         >
-          <span className="text-[18px] leading-none text-[var(--text)]">✳</span>
-          {!collapsed && <span className="text-[15px] font-medium">Vaultr</span>}
+          <span className="text-[19px] font-medium leading-none text-[var(--text)]">✳</span>
+          {!collapsed && <span className="text-[18px] font-medium leading-none">Vaultr</span>}
         </Link>
         <button
           type="button"

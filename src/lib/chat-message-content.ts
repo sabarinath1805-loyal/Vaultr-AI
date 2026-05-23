@@ -3,7 +3,7 @@ const THINK_TAG_REGEX = /<\/?think\b[^>]*>/gi;
 const DANGLING_THINK_TAG_REGEX = /<\/?think\b[^>]*$/i;
 const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
-const SEARCH_PREAMBLE_REGEX = /^(?:\s*(?:Fetching(?:\s+current\s+time)?(?:\.\.\.)?|Search(?:ing)?(?:\s+(?:for|the web for|query:|results(?:\s+fetched)?))?|Search query:|Search results(?:\s+fetched)?|I(?:'ll| will)\s+search(?:\s+the\s+web)?\s+for|Let me search(?:\s+the\s+web)?\s+for)[\s\S]*?(?:\n{2,}|(?<=[.!?])\s+))+/i;
+const SEARCH_PREAMBLE_REGEX = /^(?:\s*(?:Fetching[^\n]*(?:\n|$)|Search query:[^\n]*(?:\n|$)|Search results(?:\s+fetched)?[^\n]*(?:\n|$)|Search(?:ing)?(?:\s+(?:for|the web for|query:|results(?:\s+fetched)?))?[^\n]*(?:\n|$)|I(?:'ll| will)\s+search(?:\s+the\s+web)?[^\n]*(?:\n|$)|Let me search(?:\s+the\s+web)?[^\n]*(?:\n|$)))+/i;
 
 export interface ThinkStripState {
   insideThink: boolean;
@@ -169,6 +169,10 @@ function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripStat
   return buffer.slice(boundary).replace(/^\s+/, "");
 }
 
+function isOnlySearchProcessLine(buffer: string) {
+  return /^\s*(?:Fetching[^\n]*|Search(?:ing)?[^\n]*|Search query:[^\n]*|Search results(?:\s+fetched)?[^\n]*)\s*$/i.test(buffer);
+}
+
 function getSearchPreambleBoundary(buffer: string) {
   const lower = buffer.toLowerCase();
   const answerMarkers = [
@@ -194,6 +198,5 @@ function getSearchPreambleBoundary(buffer: string) {
   const lineMatch = buffer.match(/\n(?!\s*(?:fetching|search(?:ing)?|search query|search results)\b)/i);
   if (lineMatch?.index !== undefined) return lineMatch.index + 1;
 
-  const sentenceEnd = buffer.search(/[.!?](?:\s|$)/);
-  return sentenceEnd >= 0 ? sentenceEnd + 1 : -1;
+  return isOnlySearchProcessLine(buffer) ? buffer.length : -1;
 }

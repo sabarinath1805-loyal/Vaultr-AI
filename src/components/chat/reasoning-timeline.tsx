@@ -1,31 +1,5 @@
 "use client";
 
-import React from "react";
-
-interface ReasoningTimelineProps {
-  visible: boolean;
-}
-
-export function ReasoningTimeline({ visible }: ReasoningTimelineProps) {
-  return (
-    <div
-      className={`lex-thinking-indicator mb-3 flex items-center gap-1.5 text-[13px] text-[var(--text-muted)] ${
-        visible ? "lex-thinking-visible" : "lex-thinking-hidden"
-      }`}
-      data-testid="lex-thinking-indicator"
-    >
-      <span className="text-[15px] leading-none text-[var(--text-primary)]">✳</span>
-      <span aria-hidden="true" className="w-1" />
-      <span className="text-[14px] text-[var(--text-primary)]">Lex is thinking</span>
-      <span className="lex-thinking-dots" aria-hidden="true">
-        <span>●</span>
-        <span>●</span>
-        <span>●</span>
-      </span>
-    </div>
-  );
-}
-
 export function SourcesFooter({ domains, urls }: { domains: string[]; urls?: Record<string, string> }) {
   if (domains.length === 0) return null;
   const safeUrls = urls || {};
