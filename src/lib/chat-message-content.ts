@@ -3,11 +3,14 @@ const THINK_TAG_REGEX = /<\/?think\b[^>]*>/gi;
 const DANGLING_THINK_TAG_REGEX = /<\/?think\b[^>]*$/i;
 const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
+const SEARCH_PREAMBLE_REGEX = /^(?:\s*(?:Search(?:ing)?\s+(?:for|the web for)|I(?:'ll| will)\s+search(?:\s+the\s+web)?\s+for|Let me search(?:\s+the\s+web)?\s+for)[\s\S]*?(?:\n{2,}|(?<=[.!?])\s+))+/i;
 
 export interface ThinkStripState {
   insideThink: boolean;
   pending: string;
   strippedContent: boolean;
+  searchPreambleBuffer: string;
+  searchPreambleComplete: boolean;
 }
 
 export function extractThinkContent(content: string) {
@@ -28,11 +31,18 @@ export function stripAssistantMarkup(content: string) {
     .replace(DANGLING_THINK_TAG_REGEX, "")
     .replace(WEB_SEARCH_MARKER_REGEX, "")
     .replace(DOCUMENT_ANALYZED_MARKER_REGEX, "")
+    .replace(SEARCH_PREAMBLE_REGEX, "")
     .trim();
 }
 
 export function createThinkStripState(): ThinkStripState {
-  return { insideThink: false, pending: "", strippedContent: false };
+  return {
+    insideThink: false,
+    pending: "",
+    strippedContent: false,
+    searchPreambleBuffer: "",
+    searchPreambleComplete: false,
+  };
 }
 
 export function stripThinkFromStreamChunk(
@@ -85,10 +95,19 @@ export function stripThinkFromStreamChunk(
   return output;
 }
 
+export function stripAssistantStreamChunk(chunk: string, state: ThinkStripState) {
+  return stripSearchPreambleFromStreamChunk(
+    stripThinkFromStreamChunk(chunk, state),
+    state
+  );
+}
+
 export function flushThinkStripState(state: ThinkStripState) {
-  const output = state.insideThink ? "" : state.pending;
+  const output = state.insideThink ? "" : state.pending + state.searchPreambleBuffer;
   state.pending = "";
   state.insideThink = false;
+  state.searchPreambleBuffer = "";
+  state.searchPreambleComplete = true;
   return output;
 }
 
@@ -110,4 +129,47 @@ function getTrailingTagPrefixLength(input: string, tag: string) {
     if (tag.startsWith(lower.slice(-length))) return length;
   }
   return 0;
+}
+
+function stripSearchPreambleFromStreamChunk(chunk: string, state: ThinkStripState) {
+  if (state.searchPreambleComplete || chunk.length === 0) return chunk;
+
+  state.searchPreambleBuffer += chunk;
+  const buffer = state.searchPreambleBuffer;
+  const trimmedStart = buffer.trimStart().toLowerCase();
+  const looksLikeSearchPreamble =
+    trimmedStart.startsWith("search for") ||
+    trimmedStart.startsWith("searching for") ||
+    trimmedStart.startsWith("search the web for") ||
+    trimmedStart.startsWith("searching the web for") ||
+    trimmedStart.startsWith("i'll search") ||
+    trimmedStart.startsWith("i will search") ||
+    trimmedStart.startsWith("let me search");
+
+  if (!looksLikeSearchPreamble) {
+    state.searchPreambleComplete = true;
+    const output = state.searchPreambleBuffer;
+    state.searchPreambleBuffer = "";
+    return output;
+  }
+
+  const sentenceEnd = buffer.search(/[.!?](?:\s|$)/);
+  const paragraphBreak = buffer.search(/\n{2,}/);
+  const paragraphMatch = paragraphBreak >= 0 ? buffer.match(/\n{2,}/) : null;
+  const boundary =
+    paragraphBreak >= 0 && paragraphMatch
+      ? paragraphBreak + paragraphMatch[0].length
+      : sentenceEnd >= 0
+        ? sentenceEnd + 1
+        : -1;
+
+  if (boundary < 0) {
+    state.strippedContent = true;
+    return "";
+  }
+
+  state.searchPreambleComplete = true;
+  state.strippedContent = true;
+  state.searchPreambleBuffer = "";
+  return buffer.slice(boundary).replace(/^\s+/, "");
 }

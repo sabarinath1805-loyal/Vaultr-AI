@@ -137,9 +137,24 @@ function toClientReport(row: ScanReportRow): ScanReportEntry {
   };
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  const requestedId = new URL(req.url).searchParams.get("id")?.trim();
   const sqlite = openScanReportsDb();
   try {
+    if (requestedId) {
+      const row = sqlite
+        .prepare(
+          `SELECT ${SCAN_REPORT_SELECT}
+           FROM scan_reports
+           WHERE id = ?`
+        )
+        .get(requestedId) as ScanReportRow | undefined;
+
+      return row
+        ? NextResponse.json({ report: toClientReport(row) })
+        : NextResponse.json({ error: "Report not found" }, { status: 404 });
+    }
+
     const rows = sqlite
       .prepare(
         `SELECT ${SCAN_REPORT_SELECT}
