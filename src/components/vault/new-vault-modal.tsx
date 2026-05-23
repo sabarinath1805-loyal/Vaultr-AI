@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Upload, X } from "lucide-react";
 import { FileDirectory } from "@/components/shared/file-directory";
-import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
+import useLocalVaultStore, { rehydrateLocalVaultSafely } from "@/app/hooks/useLocalVaultStore";
 import { selectTauriDocumentFiles } from "@/lib/tauri-client";
 
 interface NewVaultModalProps {
@@ -29,6 +29,7 @@ export function NewVaultModal({ open, onClose }: NewVaultModalProps) {
     setCmNumber("");
     setSelectedDocIds(new Set());
     setPendingFiles([]);
+    rehydrateLocalVaultSafely();
   }, [open]);
 
   if (!open) return null;
