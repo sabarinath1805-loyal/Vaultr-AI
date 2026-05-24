@@ -86,7 +86,7 @@ export default function MattersPage() {
         {matters.length === 0 ? (
           <div className="flex flex-col items-center rounded-[var(--radius-md)] border border-[var(--border)] p-12 text-center">
             <Briefcase className="h-8 w-8 text-[var(--text-faint)]" />
-            <p className="mt-3 text-[28px] font-normal text-[var(--text)]">No matters yet</p>
+            <p className="mt-3 text-[28px] font-normal text-[var(--text)]" style={{ fontFamily: "var(--font-body)" }}>No matters yet</p>
             <button
               type="button"
               onClick={openCreateModal}

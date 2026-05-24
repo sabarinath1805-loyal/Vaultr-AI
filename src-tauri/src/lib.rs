@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs};
+use std::{collections::HashMap, fs, path::PathBuf};
 use tauri::Manager;
 
 const API_KEY_NAMES: [&str; 4] = [
@@ -74,11 +74,34 @@ fn api_keys_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
         .join("api-keys.json"))
 }
 
+#[derive(serde::Serialize)]
+struct FilePayload {
+    filename: String,
+    bytes: Vec<u8>,
+}
+
+#[tauri::command]
+fn read_files(paths: Vec<String>) -> Result<Vec<FilePayload>, String> {
+    paths
+        .into_iter()
+        .map(|p| {
+            let path = PathBuf::from(&p);
+            let filename = path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| p.clone());
+            let bytes = fs::read(&path).map_err(|e| format!("Failed to read {}: {}", p, e))?;
+            Ok(FilePayload { filename, bytes })
+        })
+        .collect()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .enable_macos_default_menu(false)
-        .invoke_handler(tauri::generate_handler![get_api_key_status, save_api_keys])
+        .invoke_handler(tauri::generate_handler![get_api_key_status, save_api_keys, read_files])
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {
