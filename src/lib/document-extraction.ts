@@ -31,18 +31,23 @@ export async function extractDocumentText(document: DocumentForExtraction) {
 
   if (!buffer.length) return "";
 
-  if (typeof File !== "undefined") {
-    return (await extractFileContent(fileFromDocument(document))).trim();
-  }
+  try {
+    if (fileType === "pdf" || filename.endsWith(".pdf")) {
+      return (await extractPdfText(buffer)).trim();
+    }
 
-  if (fileType === "pdf" || filename.endsWith(".pdf")) {
-    return (await extractPdfText(buffer)).trim();
-  }
+    if (fileType === "docx" || filename.endsWith(".docx")) {
+      const result = await mammoth.extractRawText({ buffer });
+      return result.value.trim();
+    }
 
-  if (fileType === "docx" || filename.endsWith(".docx")) {
-    const result = await mammoth.extractRawText({ buffer });
-    return result.value.trim();
-  }
+    if (typeof File !== "undefined") {
+      return (await extractFileContent(fileFromDocument(document))).trim();
+    }
 
-  return buffer.toString("utf8").trim();
+    return buffer.toString("utf8").trim();
+  } catch (error) {
+    console.error(`Document extraction failed for ${document.filename}:`, error);
+    return "";
+  }
 }

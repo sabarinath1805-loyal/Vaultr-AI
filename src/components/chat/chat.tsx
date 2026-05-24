@@ -625,7 +625,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   className="greeting-heading flex items-center justify-center gap-3 font-normal leading-none text-[var(--text)]"
                   style={{ fontSize: "52px", marginBottom: "28px" }}
                 >
-                  <span style={{ fontSize: '3.5rem', fontFamily: 'serif', lineHeight: 1 }}>✳</span>
+                  <span style={{ fontSize: '4rem', fontFamily: 'serif', lineHeight: 1 }}>✳</span>
                   {homeGreeting}
                 </h1>
               )}
