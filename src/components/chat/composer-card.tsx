@@ -5,6 +5,7 @@ import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
 import { ArrowRight, Check, File, FileText, FolderOpen, Library, Square, X } from "lucide-react";
 import { IconCloud, IconLock } from "@tabler/icons-react";
+import { useSearchParams } from "next/navigation";
 import { ModelSelector } from "@/components/chat/model-selector";
 import { WorkflowsModal } from "@/components/workflows/workflows-modal";
 import { AddDocButton } from "@/components/chat/add-doc-button";
@@ -94,6 +95,7 @@ export function ComposerCard({
   const modePopoverRef = React.useRef<HTMLDivElement>(null);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
+  const searchParams = useSearchParams();
   const pendingAttachedDocumentIds = useChatStore((state) => state.pendingAttachedDocumentIds);
   const setPendingAttachedDocumentIds = useChatStore((state) => state.setPendingAttachedDocumentIds);
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
@@ -110,17 +112,26 @@ export function ComposerCard({
   }, []);
 
   React.useEffect(() => {
-    if (pendingAttachedDocumentIds.length === 0) return;
-    const pendingDocuments = documents.filter((doc) => pendingAttachedDocumentIds.includes(doc.id));
+    const urlParam = searchParams.get("attachDoc");
+    const urlDocIds = urlParam ? urlParam.split(",").filter(Boolean) : [];
+    const allPendingIds = Array.from(new Set([...pendingAttachedDocumentIds, ...urlDocIds]));
+    if (allPendingIds.length === 0) return;
+    if (documents.length === 0) return;
+    const pendingDocuments = documents.filter((doc) => allPendingIds.includes(doc.id));
     if (pendingDocuments.length > 0) {
       setAttachedDocuments((current) => {
         const existing = new Set(current.map((doc) => doc.id));
         const nextDocuments = pendingDocuments.filter((doc) => !existing.has(doc.id));
         return nextDocuments.length > 0 ? [...current, ...nextDocuments] : current;
       });
+      setPendingAttachedDocumentIds([]);
+      if (urlParam) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("attachDoc");
+        window.history.replaceState({}, "", url.toString());
+      }
     }
-    setPendingAttachedDocumentIds([]);
-  }, [documents, pendingAttachedDocumentIds, setPendingAttachedDocumentIds]);
+  }, [documents, pendingAttachedDocumentIds, setPendingAttachedDocumentIds, searchParams]);
 
   React.useEffect(() => {
     if (!pendingWorkflow) return;

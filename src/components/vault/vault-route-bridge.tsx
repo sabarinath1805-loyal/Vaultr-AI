@@ -12,6 +12,8 @@ export function useReturnDocumentsToComposer() {
 
   return (documentIds: string[], destination?: string) => {
     setPendingAttachedDocumentIds(documentIds);
-    router.push(destination || (currentChatId ? `/c/${currentChatId}` : "/"));
+    const base = destination || (currentChatId ? `/c/${currentChatId}` : "/");
+    const sep = base.includes("?") ? "&" : "?";
+    router.push(`${base}${sep}attachDoc=${documentIds.join(",")}`);
   };
 }
