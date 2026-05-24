@@ -663,7 +663,7 @@ function flushVisibleToken(
     preambleDone: false,
     preambleAccum: "",
   };
-  const visibleToken = stripToken(stripAssistantStreamChunk(token, state.thinkStripState));
+  const visibleToken = token ? stripToken(stripAssistantStreamChunk(token, state.thinkStripState)) : "";
   if (state.thinkStripState.strippedContent) {
     controller.enqueue(encoder.encode(`0:${JSON.stringify("")}\n`));
     state.thinkStripState.strippedContent = false;
