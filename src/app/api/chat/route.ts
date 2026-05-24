@@ -150,7 +150,12 @@ export async function POST(req: Request) {
             content?: string;
             dataUrl?: string;
           }) => {
-            const extractedText = await extractDocumentText(document);
+            let extractedText = "";
+            try {
+              extractedText = await extractDocumentText(document);
+            } catch (error) {
+              console.error(`Failed to extract text from ${document.filename}:`, error);
+            }
             if (!extractedText) return "";
             return `\n\nThe user has attached a document titled '${document.filename}'. Here is the full content:\n\n---BEGIN DOCUMENT---\n${extractedText}\n---END DOCUMENT---\n\nAnswer the user's question based on this document. If they say "analyse this" or similar, provide a thorough analysis of the document content above.`;
           }
