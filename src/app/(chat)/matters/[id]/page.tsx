@@ -372,7 +372,7 @@ function MatterEmptyState({
   return (
     <div className="flex min-h-[280px] flex-col items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] text-center">
       {icon || <FileText className="h-8 w-8 text-[var(--text-faint)]" />}
-      <p className="mt-3 text-sm text-[var(--text-muted)]">{title}</p>
+      <p className="mt-3 text-sm text-[var(--text-muted)]" style={{ fontFamily: "var(--font-body)" }}>{title}</p>
       <button
         type="button"
         onClick={onClick}
