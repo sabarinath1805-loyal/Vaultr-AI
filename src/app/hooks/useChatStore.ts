@@ -591,21 +591,35 @@ export default useChatStore;
 const safeLocalStorage = {
   getItem: (name: string) => {
     if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(name);
+    try {
+      return window.localStorage.getItem(name);
+    } catch {
+      return null;
+    }
   },
   setItem: (name: string, value: string) => {
     if (typeof window === "undefined") return;
     try {
       window.localStorage.setItem(name, value);
     } catch (error) {
-      if (!isQuotaExceededError(error)) throw error;
-      window.localStorage.removeItem(name);
-      window.dispatchEvent(new Event("vaultr-local-storage-quota-cleared"));
+      if (!isQuotaExceededError(error)) return; // non-quota errors: silent fail
+      // Quota exceeded — clear the key and retry once
+      try {
+        window.localStorage.removeItem(name);
+        window.dispatchEvent(new Event("vaultr-local-storage-quota-cleared"));
+        window.localStorage.setItem(name, value);
+      } catch {
+        /* silent fail — storage genuinely unavailable */
+      }
     }
   },
   removeItem: (name: string) => {
     if (typeof window === "undefined") return;
-    window.localStorage.removeItem(name);
+    try {
+      window.localStorage.removeItem(name);
+    } catch {
+      /* silent fail */
+    }
   },
 };
 

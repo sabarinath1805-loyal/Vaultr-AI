@@ -5,6 +5,10 @@ const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
 const SEARCH_PREAMBLE_REGEX = /^(?:\s*[\(\["“']?\s*(?:Will perform web search[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Fetching[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search query:[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search results(?:\s+fetched)?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search(?:ing|\.\.\.)?(?:\s+(?:for|the web for|query:|results(?:\s+fetched)?))?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|I(?:'ll| will)\s+(?:simulate\s+)?search(?:\s+the\s+web)?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|I'll simulate[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Let me search(?:\s+the\s+web)?[^\n]*(?:[\)\]"”']?\s*(?:\n|$))))+/i;
 const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*(?:Open with a direct one-sentence verdict[^\n]*(?:\n|$)|Break into clearly labelled sections[^\n]*(?:\n|$)|End with a ["“]?Recommended Next Steps["”]? section[^\n]*(?:\n|$)|Simple questions and greetings[^\n]*(?:\n|$)|Complex legal analysis[^\n]*(?:\n|$)|You are Lex, a private AI legal assistant built into Vaultr[^\n]*(?:\n|$)|PERSONALITY:\s*(?:\n|$)|RESPONSE STYLE:\s*(?:\n|$))+/gi;
+// Strips inline search-process phrases that survive the preamble filter —
+// e.g. "Will perform web search", "(I'll simulate searching)", "Fetching…"
+// appearing mid-response or wrapped in parentheses/brackets.
+const INLINE_SEARCH_PROCESS_REGEX = /[\(\[]?\s*(?:Will perform web search[^\n.!?]*|I['\u2019]ll simulate(?:\s+search(?:ing)?(?:\s+the\s+web)?)?[^\n.!?]*|\(I['\u2019]ll simulate[^)]*\)|Fetching[^\n.!?]*(?:results?|data|information)?[^\n.!?]*|Search(?:ing)? query\s*:[^\n]*|Search results?(?:\s+fetched)?[^\n]*)\s*[\)\]]?\n?/gi;
 
 export interface ThinkStripState {
   insideThink: boolean;
@@ -34,6 +38,7 @@ export function stripAssistantMarkup(content: string) {
     .replace(DOCUMENT_ANALYZED_MARKER_REGEX, "")
     .replace(SYSTEM_PROMPT_LEAK_REGEX, "")
     .replace(SEARCH_PREAMBLE_REGEX, "")
+    .replace(INLINE_SEARCH_PROCESS_REGEX, "")
     .trim();
 }
 
