@@ -24,8 +24,8 @@ export interface GroqModel {
 }
 
 export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+export const GEMINI_ULTRA_MODEL = "gemini-2.5-flash-preview-05-20";
 export const GEMINI_MAX_MODEL = "gemini-3-flash-preview";
-export const OLLAMA_CLOUD_MAX_MODEL = "gpt-oss:120b";
 
 export const GROQ_MODELS: GroqModel[] = [
   {
@@ -47,22 +47,22 @@ export const GROQ_MODELS: GroqModel[] = [
     description: "Deep reasoning. Chain-of-thought for complex analysis.",
   },
   {
-    id: "gemini-max",
+    id: "gemini-ultra",
     name: "Lex Ultra",
-    groqId: GEMINI_MAX_MODEL,
+    groqId: GEMINI_ULTRA_MODEL,
     provider: "gemini",
     badge: "Ultra",
     color: "#9A6BFF",
-    description: "Google Gemini reasoning for long contract analysis.",
+    description: "Gemini 2.5 Flash — fast reasoning for contract analysis.",
   },
   {
-    id: "ollama-cloud-max",
+    id: "gemini-max",
     name: "Lex Max",
-    groqId: OLLAMA_CLOUD_MAX_MODEL,
-    provider: "ollama-cloud",
+    groqId: GEMINI_MAX_MODEL,
+    provider: "gemini",
     badge: "Max",
-    color: "#1a1916",
-    description: "Ollama Cloud reasoning for very large legal analysis.",
+    color: "#C9A84C",
+    description: "Gemini 3 Flash — most powerful. Deep legal analysis.",
   },
 ];
 
@@ -139,10 +139,8 @@ export function isGeminiModel(modelId: string | null | undefined): boolean {
   );
 }
 
-export function isOllamaCloudModel(modelId: string | null | undefined): boolean {
-  return !!modelId && GROQ_MODELS.some(
-    (model) => model.provider === "ollama-cloud" && model.groqId === modelId
-  );
+export function isOllamaCloudModel(_modelId: string | null | undefined): boolean {
+  return false;
 }
 
 export function groqIdToLexName(groqId: string): string {

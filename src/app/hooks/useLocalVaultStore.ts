@@ -214,7 +214,7 @@ const sqliteVaultStorage = {
   },
   removeItem: async (name: string) => {
     if (typeof window === "undefined") return;
-    window.localStorage.removeItem(name);
+    try { window.localStorage.removeItem(name); } catch { /* quota or access error */ }
     await fetch("/api/local-vault", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -224,7 +224,8 @@ const sqliteVaultStorage = {
 };
 
 function migrateLegacyLocalStorageVault(name: string) {
-  const legacyValue = window.localStorage.getItem(name);
+  let legacyValue: string | null = null;
+  try { legacyValue = window.localStorage.getItem(name); } catch { return null; }
   if (!legacyValue) return null;
 
   try {
@@ -236,10 +237,10 @@ function migrateLegacyLocalStorageVault(name: string) {
     const projects = Array.isArray(parsed.state?.projects) ? parsed.state.projects : [];
     const nextValue = JSON.stringify({ state: { documents, projects }, version: 1 });
     void sqliteVaultStorage.setItem(name, nextValue);
-    window.localStorage.removeItem(name);
+    try { window.localStorage.removeItem(name); } catch { /* silent */ }
     return nextValue;
   } catch {
-    window.localStorage.removeItem(name);
+    try { window.localStorage.removeItem(name); } catch { /* silent */ }
     return emptyPersistedVault;
   }
 }

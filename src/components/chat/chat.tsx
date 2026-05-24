@@ -9,7 +9,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { GROQ_DEFAULT_MODEL, OLLAMA_CLOUD_MAX_MODEL, isLexModel } from "@/lib/models";
+import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
@@ -110,8 +110,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const pathname = usePathname();
   const isOpenEmptyChat = pathname.startsWith("/c/");
   const usePrivacyMode = !cloudMode;
-  const shouldDirectStreamLexMax =
-    !usePrivacyMode && (selectedModel || GROQ_DEFAULT_MODEL) === OLLAMA_CLOUD_MAX_MODEL;
+  const shouldDirectStreamLexMax = false;
 
   React.useEffect(() => {
     const nextChatId = isOpenEmptyChat ? id : null;
