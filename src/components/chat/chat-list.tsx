@@ -39,35 +39,39 @@ export default function ChatList({
   }, [isNearBottom, messages.length, lastMessageContent, thinkingVisible]);
 
   return (
-    <div
-      ref={scrollContainerRef}
-      onScroll={() => {
-        const element = scrollContainerRef.current;
-        if (!element) return;
-        const distanceFromBottom =
-          element.scrollHeight - element.scrollTop - element.clientHeight;
-        setIsNearBottom(distanceFromBottom < 100);
-      }}
-      className="h-full min-h-0 overflow-y-auto px-6 pb-[120px] pt-20"
-    >
-      <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
-        <div className="flex flex-col">
-          {messages.map((message, index) => (
-            <ChatMessage
-              key={message.id || index}
-              message={message}
-              isLast={index === messages.length - 1}
-              isLoading={isLoading}
-              onEditMessage={onEditMessage}
-              reload={reload}
-            />
-          ))}
-          {showStandaloneThinking && (
-            <div className="message animate-message-in mb-10 w-full max-w-4xl text-left">
-              <ThinkingIndicator visible />
-            </div>
-          )}
-          <div ref={bottomRef} />
+    <div className="relative flex h-full min-h-0 flex-col">
+      {showStandaloneThinking && (
+        <div className="sticky top-0 z-10 mx-auto w-full max-w-4xl px-6 pt-4">
+          <div className="message animate-message-in w-full text-left">
+            <ThinkingIndicator visible />
+          </div>
+        </div>
+      )}
+      <div
+        ref={scrollContainerRef}
+        onScroll={() => {
+          const element = scrollContainerRef.current;
+          if (!element) return;
+          const distanceFromBottom =
+            element.scrollHeight - element.scrollTop - element.clientHeight;
+          setIsNearBottom(distanceFromBottom < 100);
+        }}
+        className="min-h-0 flex-1 overflow-y-auto px-6 pb-[120px] pt-20"
+      >
+        <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
+          <div className="flex flex-col">
+            {messages.map((message, index) => (
+              <ChatMessage
+                key={message.id || index}
+                message={message}
+                isLast={index === messages.length - 1}
+                isLoading={isLoading}
+                onEditMessage={onEditMessage}
+                reload={reload}
+              />
+            ))}
+            <div ref={bottomRef} />
+          </div>
         </div>
       </div>
     </div>

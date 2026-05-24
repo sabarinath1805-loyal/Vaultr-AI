@@ -4,7 +4,7 @@ import "../globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/components/app-shell";
 
-const sora = Sora({ subsets: ["latin"] });
+const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
 
 export const metadata: Metadata = {
   title: "Vaultr",
@@ -31,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={sora.className} suppressHydrationWarning>
+    <html lang="en" className={`${sora.variable} ${sora.className}`} suppressHydrationWarning>
       <head>
         <link rel="icon" href="/favicon-32.png" />
       </head>
