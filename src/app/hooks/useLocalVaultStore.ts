@@ -25,6 +25,8 @@ const emptyPersistedVault = JSON.stringify({
   version: 1,
 });
 
+let vaultHasHydrated = false;
+
 const useLocalVaultStore = create<LocalVaultState>()(
   persist(
     (set, get) => ({
@@ -153,6 +155,8 @@ export async function rehydrateLocalVaultSafely() {
     await useLocalVaultStore.persist.rehydrate();
   } catch {
     await resetLocalVaultPersistence();
+  } finally {
+    vaultHasHydrated = true;
   }
 }
 
@@ -191,6 +195,7 @@ const sqliteVaultStorage = {
   },
   setItem: async (_name: string, value: string) => {
     if (typeof window === "undefined") return;
+    if (!vaultHasHydrated) return;
     try {
       const parsed = JSON.parse(value) as {
         state?: { documents?: LocalDocument[]; projects?: LocalProject[] };

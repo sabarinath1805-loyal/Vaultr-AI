@@ -99,7 +99,7 @@ fn read_files(paths: Vec<String>) -> Result<Vec<FilePayload>, String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .enable_macos_default_menu(false)
+        .enable_macos_default_menu(true)
         .invoke_handler(tauri::generate_handler![get_api_key_status, save_api_keys, read_files])
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
