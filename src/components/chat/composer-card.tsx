@@ -46,6 +46,34 @@ function extractClientDocumentText(doc: LocalDocument) {
   return decodeBase64Text(base64);
 }
 
+async function extractServerDocumentText(doc: LocalDocument): Promise<string> {
+  const fileType = doc.fileType?.toLowerCase();
+  const filename = doc.filename.toLowerCase();
+  const needsServerExtraction =
+    fileType === "pdf" || fileType === "docx" ||
+    filename.endsWith(".pdf") || filename.endsWith(".docx");
+  if (!needsServerExtraction) return "";
+  if (!doc.content && !doc.dataUrl) return "";
+
+  try {
+    const response = await fetch("/api/extract-document", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: doc.filename,
+        fileType: doc.fileType,
+        content: doc.content,
+        dataUrl: doc.dataUrl,
+      }),
+    });
+    if (!response.ok) return "";
+    const data = await response.json();
+    return typeof data.extractedText === "string" ? data.extractedText : "";
+  } catch {
+    return "";
+  }
+}
+
 export function ComposerCard({
   input,
   handleInputChange,
@@ -191,16 +219,21 @@ export function ComposerCard({
   ) => {
     event.preventDefault();
     const documentsWithContent = await waitForDocumentContent(attachedDocuments);
-    const documentsWithExtractedText = documentsWithContent.map((doc) => {
-      const extractedText = extractClientDocumentText(doc);
-      if (extractedText) {
-        console.log("📄 DOCUMENT CONTENT:", extractedText.substring(0, 200));
-      }
-      return {
-        ...doc,
-        extractedText,
-      };
-    });
+    const documentsWithExtractedText = await Promise.all(
+      documentsWithContent.map(async (doc) => {
+        let extractedText = extractClientDocumentText(doc);
+        if (!extractedText) {
+          extractedText = await extractServerDocumentText(doc);
+        }
+        if (extractedText) {
+          console.log("📄 DOCUMENT CONTENT:", extractedText.substring(0, 200));
+        }
+        return {
+          ...doc,
+          extractedText,
+        };
+      })
+    );
     const activeWorkflow = selectedWorkflow || pendingWorkflow;
     const jurisdictionPrompt = buildJurisdictionPrompt(selectedSources);
     const metadata = {
