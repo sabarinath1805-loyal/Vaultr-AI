@@ -563,7 +563,13 @@ function parseGeminiChunk(chunk: unknown) {
 function getGeminiVisibleText(chunk: unknown) {
   const structuredText = extractGeminiText(chunk, false);
   if (structuredText) return structuredText;
-  if (isGeminiResponseWithText(chunk)) return chunk.text();
+  if (isGeminiResponseWithText(chunk)) {
+    try {
+      return chunk.text();
+    } catch {
+      return "";
+    }
+  }
   return "";
 }
 
@@ -654,12 +660,41 @@ function flushVisibleToken(
     buffer: "",
     lastFlush: Date.now(),
     thinkStripState: createThinkStripState(),
+    preambleDone: false,
+    preambleAccum: "",
   };
-  const visibleToken = stripAssistantStreamChunk(token, state.thinkStripState);
+  const visibleToken = stripToken(stripAssistantStreamChunk(token, state.thinkStripState));
   if (state.thinkStripState.strippedContent) {
     controller.enqueue(encoder.encode(`0:${JSON.stringify("")}\n`));
     state.thinkStripState.strippedContent = false;
   }
+
+  // --- Server-side search-process preamble stripping ---
+  if (!state.preambleDone) {
+    state.preambleAccum += visibleToken;
+    const stripped = stripSearchPreambleAccum(state.preambleAccum);
+    if (stripped !== null) {
+      // Found real content boundary — emit whatever survives the strip
+      state.preambleDone = true;
+      state.preambleAccum = "";
+      if (stripped.length > 0) {
+        state.buffer += stripped;
+      }
+    }
+    // Haven't found boundary yet — keep accumulating (emit nothing)
+    tokenFlushState.set(controller, state);
+    if (state.preambleDone && state.buffer.length > 0) {
+      const now = Date.now();
+      if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
+        controller.enqueue(encoder.encode(`0:${JSON.stringify(state.buffer)}\n`));
+        state.buffer = "";
+        state.lastFlush = now;
+      }
+    }
+    return;
+  }
+  // --- End preamble stripping ---
+
   state.buffer += visibleToken;
   const now = Date.now();
   if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
@@ -668,6 +703,55 @@ function flushVisibleToken(
     state.lastFlush = now;
   }
   tokenFlushState.set(controller, state);
+}
+
+// Per-token strip patterns for search-process noise that appears inline.
+const STRIP_PATTERNS: RegExp[] = [
+  /Will perform web search[^\n]*/gi,
+  /Search query:[^\n]*/gi,
+  /Search results[^\n]*/gi,
+  /Fetching[^\n]*/gi,
+  /I'll simulate[^\n]*/gi,
+  /\.search[^\n]*/gi,
+];
+
+function stripToken(text: string): string {
+  let clean = text;
+  for (const pattern of STRIP_PATTERNS) {
+    clean = clean.replace(pattern, "");
+  }
+  return clean;
+}
+
+// Accumulation-based pattern for multi-token preamble stripping.
+// Used by stripSearchPreambleAccum below.
+const SERVER_SEARCH_PREAMBLE_RE = /^[\s\S]*?(?:will perform web search|search(?:ing)?(?: web| query| results)?\.{0,3}|search\s*:|search query\s*:|\.search|i['']ll simulate(?:\s+search(?:ing)?)?)[^\n]*\n?/i;
+
+function stripSearchPreambleAccum(accum: string): string | null {
+  // If we have a paragraph break or ≥120 chars, make a decision
+  const hasParagraphBreak = /\n\n/.test(accum);
+  const longEnough = accum.length >= 120;
+
+  if (!hasParagraphBreak && !longEnough) {
+    // Still too short — keep accumulating unless it already looks clean
+    const trimmed = accum.trimStart().toLowerCase();
+    const looksClean =
+      !trimmed.startsWith("search") &&
+      !trimmed.startsWith("will perform") &&
+      !trimmed.startsWith("i'll simulate") &&
+      !trimmed.startsWith("i\u2019ll simulate") &&
+      !trimmed.startsWith(".search") &&
+      !trimmed.startsWith("searching");
+    if (looksClean && accum.length >= 4) {
+      // Starts with real content — emit immediately
+      return accum;
+    }
+    return null; // keep accumulating
+  }
+
+  // Strip the search preamble then return whatever remains
+  const afterStrip = accum.replace(SERVER_SEARCH_PREAMBLE_RE, "").trimStart();
+  return afterStrip;
 }
 
 function isChatMessage(
@@ -695,7 +779,13 @@ function shouldUseWebSearch(message: string) {
 
 const tokenFlushState: WeakMap<
   ReadableStreamDefaultController<Uint8Array>,
-  { buffer: string; lastFlush: number; thinkStripState: ReturnType<typeof createThinkStripState> }
+  {
+    buffer: string;
+    lastFlush: number;
+    thinkStripState: ReturnType<typeof createThinkStripState>;
+    preambleDone: boolean;
+    preambleAccum: string;
+  }
 > = new WeakMap();
 
 async function getWebSearchContext(query: string): Promise<{ context: string; sources: WebSearchSource[] }> {

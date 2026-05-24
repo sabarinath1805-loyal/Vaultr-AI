@@ -2,6 +2,7 @@ import React, { memo, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkBreaks from "remark-breaks";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
@@ -291,7 +292,7 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
               </div>
             )}
             <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
-              <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{cleanContent}</Markdown>
+              <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
             {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
