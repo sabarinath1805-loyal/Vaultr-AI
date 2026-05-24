@@ -1,7 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Sora:wght@400;500;600&display=swap');
 
 *, *::before, *::after {
-  font-family: 'Sora', -apple-system, sans-serif !important;
+  font-family: var(--font-sora, 'Sora'), -apple-system, sans-serif !important;
   -webkit-user-select: text !important;
   user-select: text !important;
 }
@@ -16,7 +16,7 @@ h1, h2, h3, .font-display, .greeting-heading {
 @tailwind utilities;
 
 :root {
-  --font-body: 'Sora', -apple-system, sans-serif;
+  --font-body: var(--font-sora, 'Sora'), -apple-system, sans-serif;
   --font-display: 'Instrument Serif', Georgia, serif;
   --bg-primary: #ffffff;
   --bg-secondary: #f9f9f8;
