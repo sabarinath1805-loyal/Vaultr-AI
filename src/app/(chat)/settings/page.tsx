@@ -1,24 +1,27 @@
 "use client";
 
-import { useState } from "react";
-import { Check, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Eye, EyeOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
+import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { GROQ_DEFAULT_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
 
-type Tab = "general" | "ollama" | "privacy";
+type Tab = "account" | "appearance" | "lex" | "private-mode" | "data";
 
 const tabs: { id: Tab; label: string }[] = [
-  { id: "general", label: "General" },
-  { id: "ollama", label: "Ollama Settings" },
-  { id: "privacy", label: "Privacy" },
+  { id: "account", label: "Account" },
+  { id: "appearance", label: "Appearance" },
+  { id: "lex", label: "Lex" },
+  { id: "private-mode", label: "Private Mode" },
+  { id: "data", label: "Data" },
 ];
 
 const fieldClass =
   "flex h-9 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] px-3 py-1 text-sm text-[var(--text)] outline-none transition-colors placeholder:text-[var(--text-faint)] focus:border-[var(--text-muted)]";
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("general");
+  const [activeTab, setActiveTab] = useState<Tab>("account");
   const router = useRouter();
 
   return (
@@ -60,9 +63,11 @@ export default function SettingsPage() {
           </nav>
 
           <div className="min-w-0">
-            {activeTab === "general" && <GeneralSettings />}
-            {activeTab === "ollama" && <OllamaSettings />}
-            {activeTab === "privacy" && <PrivacySettings />}
+            {activeTab === "account" && <AccountSettings />}
+            {activeTab === "appearance" && <AppearanceSettings />}
+            {activeTab === "lex" && <LexSettings />}
+            {activeTab === "private-mode" && <PrivateModeSettings />}
+            {activeTab === "data" && <DataSettings />}
           </div>
         </div>
       </div>
@@ -70,83 +75,127 @@ export default function SettingsPage() {
   );
 }
 
-function GeneralSettings() {
-  const userName = useChatStore((state) => state.userName);
-  const setUserName = useChatStore((state) => state.setUserName);
-  const organisation = useChatStore((state) => state.organisation);
-  const setOrganisation = useChatStore((state) => state.setOrganisation);
-  const clearAllChats = useChatStore((state) => state.clearAllChats);
-  const themePreference = useChatStore((state) => state.themePreference);
-  const setThemePreference = useChatStore((state) => state.setThemePreference);
-  const [displayName, setDisplayName] = useState(userName);
-  const [orgDraft, setOrgDraft] = useState(organisation);
-  const [nameSaved, setNameSaved] = useState(false);
-  const [orgSaved, setOrgSaved] = useState(false);
-  const [clearAllOpen, setClearAllOpen] = useState(false);
+function AccountSettings() {
+  const [groqKey, setGroqKey] = useState("");
+  const [serperKey, setSerperKey] = useState("");
+  const [showGroq, setShowGroq] = useState(false);
+  const [showSerper, setShowSerper] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        const status = await invoke<Record<string, boolean>>("get_api_key_status");
+        if (status.GROQ_API_KEY) setGroqKey("••••••••");
+        if (status.SERPER_API_KEY) setSerperKey("••••••••");
+      } catch {
+        /* not in Tauri */
+      }
+    })();
+  }, []);
+
+  const saveKeys = async () => {
+    try {
+      const keys: Record<string, string> = {};
+      if (groqKey && groqKey !== "••••••••") keys.GROQ_API_KEY = groqKey;
+      if (serperKey && serperKey !== "••••••••") keys.SERPER_API_KEY = serperKey;
+      if (Object.keys(keys).length === 0) return;
+      const { invoke } = await import("@tauri-apps/api/core");
+      await invoke("save_api_keys", { keys });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 1600);
+    } catch {
+      /* not in Tauri */
+    }
+  };
 
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Profile</h2>
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">API Keys</h2>
         <div className="max-w-xl space-y-4">
           <div>
-            <label className="mb-2 block text-sm text-[var(--text-muted)]">
-              Display Name
-            </label>
-            <div className="flex gap-2">
+            <label className="mb-2 block text-sm text-[var(--text-muted)]">Groq API Key</label>
+            <div className="relative">
               <input
-                value={displayName}
-                onChange={(event) => setDisplayName(event.target.value)}
+                type={showGroq ? "text" : "password"}
+                value={groqKey}
+                onChange={(e) => setGroqKey(e.target.value)}
                 className={fieldClass}
-                placeholder="Local User"
+                placeholder="gsk_..."
               />
-              <SaveButton
-                saved={nameSaved}
-                disabled={!displayName.trim()}
-                onClick={() => {
-                  setUserName(displayName.trim());
-                  setNameSaved(true);
-                  setTimeout(() => setNameSaved(false), 1600);
-                }}
-              />
+              <button
+                type="button"
+                onClick={() => setShowGroq(!showGroq)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--text)]"
+              >
+                {showGroq ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
           </div>
           <div>
-            <label className="mb-2 block text-sm text-[var(--text-muted)]">
-              Organisation
-            </label>
-            <div className="flex gap-2">
+            <label className="mb-2 block text-sm text-[var(--text-muted)]">Serper API Key</label>
+            <div className="relative">
               <input
-                value={orgDraft}
-                onChange={(event) => setOrgDraft(event.target.value)}
+                type={showSerper ? "text" : "password"}
+                value={serperKey}
+                onChange={(e) => setSerperKey(e.target.value)}
                 className={fieldClass}
-                placeholder="Optional"
+                placeholder="Enter Serper key..."
               />
-              <SaveButton
-                saved={orgSaved}
-                onClick={() => {
-                  setOrganisation(orgDraft.trim());
-                  setOrgSaved(true);
-                  setTimeout(() => setOrgSaved(false), 1600);
-                }}
-              />
+              <button
+                type="button"
+                onClick={() => setShowSerper(!showSerper)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--text)]"
+              >
+                {showSerper ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={saveKeys}
+            className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80"
+          >
+            {saved ? "Saved" : "Save Keys"}
+          </button>
         </div>
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-2 text-[28px] font-normal text-[var(--text)]">Usage Plan</h2>
+        <h2 className="mb-2 text-[28px] font-normal text-[var(--text)]">Current Plan</h2>
         <p className="text-sm text-[var(--text-muted)]">
-          Solo ·{" "}
-          <button type="button" className="underline underline-offset-2">
-            Upgrade to Enterprise
-          </button>
+          Solo · <span className="underline underline-offset-2">Upgrade to Enterprise</span>
         </p>
       </section>
+    </div>
+  );
+}
 
-      <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Appearance</h2>
+function AppearanceSettings() {
+  const themePreference = useChatStore((state) => state.themePreference);
+  const setThemePreference = useChatStore((state) => state.setThemePreference);
+  const [fontSize, setFontSize] = useState<"small" | "medium" | "large">("medium");
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("vaultr-font-size");
+    if (saved === "small" || saved === "medium" || saved === "large") setFontSize(saved);
+  }, []);
+
+  const changeFontSize = (size: "small" | "medium" | "large") => {
+    setFontSize(size);
+    window.localStorage.setItem("vaultr-font-size", size);
+    const root = document.documentElement;
+    if (size === "small") root.style.fontSize = "14px";
+    else if (size === "large") root.style.fontSize = "18px";
+    else root.style.fontSize = "16px";
+  };
+
+  return (
+    <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Theme</h2>
         <div className="inline-flex rounded-[8px] bg-[var(--surface-muted)] p-1">
           {(["light", "dark", "system"] as const).map((theme) => (
             <button
@@ -166,44 +215,33 @@ function GeneralSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-2 text-[28px] font-normal text-[var(--text)]">Danger Zone</h2>
-        <p className="mb-4 text-sm text-[var(--text-muted)]">
-          Permanently delete all local Vaultr conversations.
-        </p>
-        <button
-          type="button"
-          onClick={() => setClearAllOpen(true)}
-          className="rounded-[var(--radius-sm)] border border-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-bg)]"
-        >
-          Clear all conversations
-        </button>
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Font Size</h2>
+        <div className="inline-flex rounded-[8px] bg-[var(--surface-muted)] p-1">
+          {(["small", "medium", "large"] as const).map((size) => (
+            <button
+              key={size}
+              type="button"
+              onClick={() => changeFontSize(size)}
+              className={`rounded-[6px] px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                fontSize === size
+                  ? "bg-[var(--accent)] text-[var(--bg-primary)]"
+                  : "bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              }`}
+            >
+              {size}
+            </button>
+          ))}
+        </div>
       </section>
-      {clearAllOpen && (
-        <ConfirmDeleteModal
-          name="all conversations"
-          onClose={() => setClearAllOpen(false)}
-          onDelete={async () => {
-            await clearAllChats();
-            setClearAllOpen(false);
-          }}
-        />
-      )}
     </div>
   );
 }
 
-function OllamaSettings() {
-  const ollamaUrl = useChatStore((state) => state.ollamaUrl);
-  const setOllamaUrl = useChatStore((state) => state.setOllamaUrl);
+function LexSettings() {
   const cloudMode = useChatStore((state) => state.cloudMode);
-  const setCloudMode = useChatStore((state) => state.setCloudMode);
-  const thinkingModeDefault = useChatStore((state) => state.thinkingModeDefault);
-  const setThinkingModeDefault = useChatStore((state) => state.setThinkingModeDefault);
   const defaultModelPreference = useChatStore((state) => state.defaultModelPreference);
   const setDefaultModelPreference = useChatStore((state) => state.setDefaultModelPreference);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
-  const [ollamaDraft, setOllamaDraft] = useState(ollamaUrl);
-  const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "down">("idle");
 
   const defaultModelOptions = !cloudMode
     ? LEX_MODELS
@@ -213,6 +251,7 @@ function OllamaSettings() {
         )
         .map((model) => ({ value: model.ollamaId, label: model.name }))
     : GROQ_MODELS.map((model) => ({ value: model.groqId, label: model.name }));
+
   const defaultModelValue = defaultModelOptions.some(
     (option) => option.value === defaultModelPreference
   )
@@ -221,136 +260,14 @@ function OllamaSettings() {
     ? defaultModelOptions[0]?.value || ""
     : GROQ_DEFAULT_MODEL;
 
-  const exportConversations = async () => {
-    const response = await fetch("/api/chats", { cache: "no-store" });
-    const data: { chats?: Record<string, unknown> } = await response.json();
-    const chats = Object.values(data.chats || {});
-    const blob = new Blob([JSON.stringify(chats, null, 2)], {
-      type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const date = new Date().toISOString().slice(0, 10);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `vaultr-export-${date}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Inference</h2>
-        <button
-          type="button"
-          onClick={() => setCloudMode(!cloudMode)}
-          className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left"
-        >
-          <span>
-            <span className="block text-sm font-medium text-[var(--text)]">
-              Cloud Mode
-            </span>
-            <span className="mt-1 block text-sm text-[var(--text-muted)]">
-              Use Groq for fast, smart responses. Switch off for local Ollama inference.
-            </span>
-            <span className="mt-2 block text-[13px] text-[var(--text-muted)]">
-              {cloudMode
-                ? "Using Groq cloud inference. Fast and smart."
-                : "Private Mode active. Responses run locally and may be slower."}
-            </span>
-          </span>
-          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${cloudMode ? "bg-[#378ADD]" : "bg-[#3B6D11]"}`}>
-            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${cloudMode ? "translate-x-4" : "translate-x-0"}`} />
-          </span>
-        </button>
-      </section>
-
-      <section className="pb-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">
-          Ollama Connection
-        </h2>
-        <div className="max-w-xl">
-          <label className="mb-2 block text-sm text-[var(--text-muted)]">
-            Ollama URL
-          </label>
-          <div className="flex gap-2">
-            <input
-              value={ollamaDraft}
-              onChange={(event) => setOllamaDraft(event.target.value)}
-              className={fieldClass}
-              placeholder="http://localhost:11434"
-            />
-            <button
-              type="button"
-              onClick={async () => {
-                setOllamaUrl(ollamaDraft.trim() || "http://localhost:11434");
-                try {
-                  const response = await fetch("/api/tags", { cache: "no-store" });
-                  setConnectionStatus(response.ok ? "connected" : "down");
-                } catch {
-                  setConnectionStatus("down");
-                }
-              }}
-              className="min-w-[128px] rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80"
-            >
-              Test Connection
-            </button>
-          </div>
-          {connectionStatus !== "idle" && (
-            <p
-              className={`mt-2 flex items-center gap-1 text-sm ${
-                connectionStatus === "connected"
-                  ? "text-[var(--success)]"
-                  : "text-[var(--danger)]"
-              }`}
-            >
-              {connectionStatus === "connected" ? (
-                <>
-                  <Check className="h-4 w-4" /> Connected
-                </>
-              ) : (
-                <>
-                  <X className="h-4 w-4" /> Not running
-                </>
-              )}
-            </p>
-          )}
-        </div>
-      </section>
-
-      <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Thinking Mode</h2>
-        <button
-          type="button"
-          disabled={cloudMode}
-          title={cloudMode ? "Thinking mode is only available in Private Mode with qwen3" : undefined}
-          onClick={() => {
-            if (!cloudMode) setThinkingModeDefault(!thinkingModeDefault);
-          }}
-          className={`flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left ${
-            cloudMode ? "cursor-not-allowed opacity-45 grayscale" : ""
-          }`}
-        >
-          <span>
-            <span className="block text-sm font-medium text-[var(--text)]">
-              Enable thinking mode by default
-            </span>
-            <span className="mt-1 block text-sm text-[var(--text-muted)]">
-              Shows Lex&apos;s reasoning process. Works with Lex Nano, Core, Pro, Elite and Max.
-            </span>
-          </span>
-          <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${thinkingModeDefault && !cloudMode ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
-            <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${thinkingModeDefault ? "translate-x-4" : "translate-x-0"}`} />
-          </span>
-        </button>
-      </section>
-
-      <section className="border-t border-[var(--border)] py-6">
         <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Default Model</h2>
-        <div className="max-w-xl space-y-4">
+        <div className="max-w-xl">
           <label className="block">
-            <span className="mb-2 block text-sm text-[var(--text-primary)]">
-              Default Lex model
+            <span className="mb-2 block text-sm text-[var(--text-muted)]">
+              Select the default Lex model
             </span>
             <select
               value={defaultModelValue}
@@ -371,147 +288,195 @@ function OllamaSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Data</h2>
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Default Jurisdiction</h2>
         <div className="max-w-xl">
-          <div className="text-sm text-[var(--text-primary)]">Export conversations</div>
-          <p className="mt-1 text-[13px] text-[var(--text-secondary)]">
-            Download all conversations as a JSON file.
-          </p>
-          <button
-            type="button"
-            onClick={exportConversations}
-            className="mt-3 rounded-[6px] border border-[var(--text-primary)] px-4 py-[7px] text-[13px] font-medium text-[var(--text-primary)] transition-colors hover:bg-[var(--surface-muted)]"
-          >
-            Export
-          </button>
+          <label className="block">
+            <span className="mb-2 block text-sm text-[var(--text-muted)]">
+              Jurisdiction for web search context
+            </span>
+            <select className={fieldClass} defaultValue="us">
+              <option value="us">United States</option>
+              <option value="uk">United Kingdom</option>
+              <option value="au">Australia</option>
+              <option value="ca">Canada</option>
+              <option value="in">India</option>
+              <option value="eu">European Union</option>
+            </select>
+          </label>
         </div>
       </section>
     </div>
   );
 }
 
-function PrivacySettings() {
-  const autoCleanupConversations = useChatStore((state) => state.autoCleanupConversations);
-  const setAutoCleanupConversations = useChatStore(
-    (state) => state.setAutoCleanupConversations
-  );
+function PrivateModeSettings() {
+  const ollamaUrl = useChatStore((state) => state.ollamaUrl);
+  const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "down">("idle");
+
+  const checkOllama = async () => {
+    try {
+      const response = await fetch(`${ollamaUrl}/api/tags`, { cache: "no-store" });
+      setConnectionStatus(response.ok ? "connected" : "down");
+    } catch {
+      setConnectionStatus("down");
+    }
+  };
+
+  useEffect(() => {
+    checkOllama();
+  }, []);
 
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">
-          Data Storage
-        </h2>
-        <div className="space-y-1 text-[13px] leading-[1.6] text-[var(--text-secondary)]">
-          <p>All conversations and documents are stored locally on your device.</p>
-          <p>
-            Location: <span className="mono">~/Library/Application Support/Vaultr</span>
-          </p>
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Ollama Status</h2>
+        <div className="max-w-xl space-y-3">
+          <div className="flex items-center gap-3 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3">
+            <span
+              className={`h-3 w-3 rounded-full ${
+                connectionStatus === "connected"
+                  ? "bg-green-500"
+                  : connectionStatus === "down"
+                  ? "bg-red-500"
+                  : "bg-yellow-500"
+              }`}
+            />
+            <span className="text-sm text-[var(--text)]">
+              {connectionStatus === "connected"
+                ? "Ollama is running"
+                : connectionStatus === "down"
+                ? "Ollama is not running"
+                : "Checking..."}
+            </span>
+            <span className="ml-auto text-xs text-[var(--text-faint)]">{ollamaUrl}</span>
+          </div>
+          <button
+            type="button"
+            onClick={checkOllama}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
+          >
+            Refresh Status
+          </button>
         </div>
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">
-          Auto-cleanup
-        </h2>
-        <ToggleRow
-          label="Auto-delete conversations older than 30 days"
-          enabled={autoCleanupConversations}
-          onClick={() => setAutoCleanupConversations(!autoCleanupConversations)}
-        />
-      </section>
-
-      <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">
-          Security
-        </h2>
-        <ToggleRow
-          label="Require password on launch"
-          enabled={false}
-          disabled
-          onClick={() => undefined}
-        />
-        <p className="mt-2 text-[13px] text-[var(--text-faint)]">
-          Coming in Enterprise plan
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Install Guide</h2>
+        <p className="text-sm text-[var(--text-muted)]">
+          To use Private Mode, install Ollama on your machine:
         </p>
+        <a
+          href="https://ollama.com/download"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-block rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
+        >
+          Download Ollama →
+        </a>
       </section>
     </div>
   );
 }
 
-function ToggleRow({
-  label,
-  enabled,
-  disabled,
-  onClick,
-}: {
-  label: string;
-  enabled: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className="flex max-w-xl items-center justify-between gap-4 rounded-[var(--radius-md)] border border-[var(--border)] px-4 py-3 text-left disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      <span className="text-sm font-medium text-[var(--text)]">{label}</span>
-      <span className={`flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition-colors ${enabled ? "bg-[var(--text)]" : "bg-[var(--border)]"}`}>
-        <span className={`h-4 w-4 rounded-full bg-[var(--bg)] transition-transform ${enabled ? "translate-x-4" : "translate-x-0"}`} />
-      </span>
-    </button>
-  );
-}
+function DataSettings() {
+  const clearAllChats = useChatStore((state) => state.clearAllChats);
+  const [clearChatsConfirm, setClearChatsConfirm] = useState(false);
+  const [clearVaultConfirm, setClearVaultConfirm] = useState(false);
 
-function ConfirmDeleteModal({
-  name,
-  onClose,
-  onDelete,
-}: {
-  name: string;
-  onClose: () => void;
-  onDelete: () => void | Promise<void>;
-}) {
+  const exportConversations = async () => {
+    const response = await fetch("/api/chats", { cache: "no-store" });
+    const data: { chats?: Record<string, unknown> } = await response.json();
+    const chats = Object.values(data.chats || {});
+    const blob = new Blob([JSON.stringify(chats, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const date = new Date().toISOString().slice(0, 10);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `vaultr-export-${date}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const clearVault = () => {
+    useLocalVaultStore.setState({ documents: [], projects: [] });
+    setClearVaultConfirm(false);
+  };
+
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
-      <div
-        className="w-[400px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <h2 className="text-[28px] font-normal">Delete {name}?</h2>
-        <p className="mt-2 text-sm text-[var(--text-secondary)]">This cannot be undone.</p>
-        <div className="mt-6 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
-            Cancel
+    <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Chat History</h2>
+        {!clearChatsConfirm ? (
+          <button
+            type="button"
+            onClick={() => setClearChatsConfirm(true)}
+            className="rounded-[var(--radius-sm)] border border-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-bg)]"
+          >
+            Clear all conversations
           </button>
-          <button type="button" onClick={onDelete} className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-4 py-2 text-[13px] font-medium text-[var(--white)] hover:bg-[var(--danger-hover)]">
-            Delete
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-[var(--text-muted)]">Are you sure?</span>
+            <button
+              type="button"
+              onClick={async () => { await clearAllChats(); setClearChatsConfirm(false); }}
+              className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-3 py-1.5 text-sm font-medium text-[var(--white)] hover:bg-[var(--danger-hover)]"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={() => setClearChatsConfirm(false)}
+              className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm text-[var(--text-muted)] hover:bg-[var(--surface)]"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Vault</h2>
+        {!clearVaultConfirm ? (
+          <button
+            type="button"
+            onClick={() => setClearVaultConfirm(true)}
+            className="rounded-[var(--radius-sm)] border border-[var(--danger)] px-4 py-2 text-sm font-medium text-[var(--danger)] transition-colors hover:bg-[var(--danger-bg)]"
+          >
+            Clear Vault
           </button>
-        </div>
-      </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-[var(--text-muted)]">Are you sure? All documents will be deleted.</span>
+            <button
+              type="button"
+              onClick={clearVault}
+              className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-3 py-1.5 text-sm font-medium text-[var(--white)] hover:bg-[var(--danger-hover)]"
+            >
+              Confirm
+            </button>
+            <button
+              type="button"
+              onClick={() => setClearVaultConfirm(false)}
+              className="rounded-[var(--radius-sm)] px-3 py-1.5 text-sm text-[var(--text-muted)] hover:bg-[var(--surface)]"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Export</h2>
+        <p className="mb-3 text-sm text-[var(--text-muted)]">Download all conversations as a JSON file.</p>
+        <button
+          type="button"
+          onClick={exportConversations}
+          className="rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface)]"
+        >
+          Export All Data
+        </button>
+      </section>
     </div>
-  );
-}
-
-function SaveButton({
-  saved,
-  disabled,
-  onClick,
-}: {
-  saved: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled || saved}
-      onClick={onClick}
-      className="min-w-[80px] rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-60"
-    >
-      {saved ? "Saved" : "Save"}
-    </button>
   );
 }
