@@ -528,8 +528,8 @@ function VaultDetail({
       {documents.length === 0 ? (
         <div className="flex min-h-[320px] flex-col items-center justify-center rounded-[var(--radius-md)] border border-[var(--border)] text-center">
           <FolderOpen className="h-8 w-8 text-[var(--text-faint)]" />
-          <p className="mt-3 text-[28px] font-normal text-[var(--text)]">No documents yet</p>
-          <p className="mt-1 text-[13px] text-[var(--text-faint)]">
+          <p className="mt-3 text-[28px] font-normal text-[var(--text)]" style={{ fontFamily: "var(--font-body)" }}>No documents yet</p>
+          <p className="mt-1 text-[13px] text-[var(--text-faint)]" style={{ fontFamily: "var(--font-body)" }}>
             Add documents to get started
           </p>
           <button
