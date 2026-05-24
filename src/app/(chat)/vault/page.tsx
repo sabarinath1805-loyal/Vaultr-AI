@@ -276,9 +276,6 @@ export default function VaultPage() {
                   <p className="text-[28px] font-normal text-[var(--text)]">
                     Vault
                   </p>
-                  <p className="mt-1 max-w-xs text-xs text-[var(--text-faint)]">
-                    Store and organise your contracts, scan reports, and legal documents. Everything saved here is private to your device.
-                  </p>
                   <button
                     type="button"
                     onClick={() => setNewVaultOpen(true)}

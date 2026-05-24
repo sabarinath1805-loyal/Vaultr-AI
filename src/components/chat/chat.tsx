@@ -13,7 +13,7 @@ import { GROQ_DEFAULT_MODEL, OLLAMA_CLOUD_MAX_MODEL, isLexModel } from "@/lib/mo
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
-const TYPEWRITER_CHARS_PER_SECOND = 150;
+const TYPEWRITER_CHARS_PER_SECOND = 200;
 const THINKING_FADE_MS = 150;
 
 function parseDataStreamLine(line: string) {
@@ -173,12 +173,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
   const finishResponseFlowAfterFade = React.useCallback(() => {
     if (thinkingFadeTimerRef.current) clearTimeout(thinkingFadeTimerRef.current);
-    setResponseFlowState("done");
-    thinkingFadeTimerRef.current = setTimeout(() => {
-      setResponseFlowState("idle");
-      setThinkingMessageId(null);
-      thinkingFadeTimerRef.current = null;
-    }, THINKING_FADE_MS);
+    thinkingFadeTimerRef.current = null;
+    setResponseFlowState("idle");
+    setThinkingMessageId(null);
   }, []);
 
   const startTypewriter = React.useCallback(
@@ -355,6 +352,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             );
             bufferedAssistantContentRef.current = nextContent;
 
+            // Dismiss the thinking indicator the moment the first real token
+            // arrives — applies to both directStream and typewriter paths.
+            if (nextContent.length > 0 && !streamStartedRef.current) {
+              streamStartedRef.current = true;
+              setResponseFlowState("idle");
+            }
+
             if (!directStream || nextContent.length === 0) continue;
 
             const visibleAssistantMessage: Message = {
@@ -362,9 +366,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               content: nextContent,
             };
             activeAssistantMessageRef.current = visibleAssistantMessage;
-            if (!streamStartedRef.current) {
-              streamStartedRef.current = true;
-              setResponseFlowState("streaming");
+            if (!directStreamingActive) {
               setDirectStreamingActive(true);
             }
             setMessages([...requestMessages, visibleAssistantMessage]);
@@ -608,7 +610,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               {isOpenEmptyChat ? (
                 <>
                   <h1 className="flex items-center justify-center gap-3 text-[28px] font-normal text-[var(--text)]">
-                    <SnowflakeIcon size={28} className="shrink-0 text-[var(--text)]" />
+                    <span style={{ fontSize: '28px', fontFamily: 'serif', lineHeight: 1 }}>✳</span>
                     Hey, I&apos;m Lex — your private legal AI.
                   </h1>
                   <p className="mt-2 text-[13px] text-[var(--text-muted)]">
@@ -620,7 +622,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   className="greeting-heading flex items-center justify-center gap-3 font-normal leading-none text-[var(--text)]"
                   style={{ fontSize: "52px", marginBottom: "28px" }}
                 >
-                  <SnowflakeIcon size={32} className="shrink-0 text-[var(--text)]" />
+                  <span style={{ fontSize: '3.5rem', fontFamily: 'serif', lineHeight: 1 }}>✳</span>
                   {homeGreeting}
                 </h1>
               )}
