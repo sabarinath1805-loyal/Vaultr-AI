@@ -174,7 +174,7 @@ export function FileDirectory({
             {expanded && (
               <div className="pl-5">
                 {documents.length === 0 ? (
-                  <p className="px-2 py-2 text-xs text-[var(--text-faint)]">No documents</p>
+                  <p className="px-2 py-2 text-xs text-[var(--text-faint)]" style={{ fontFamily: "var(--font-body)" }}>No documents</p>
                 ) : (
                   documents.map(renderDoc)
                 )}

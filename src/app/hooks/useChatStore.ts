@@ -202,7 +202,7 @@ const useChatStore = create<State & Actions>()(
           base64Images: null,
           currentChatId: null,
           pendingComposerText: null,
-          pendingAttachedDocumentIds: [],
+          pendingAttachedDocumentIds: state.pendingAttachedDocumentIds,
           pendingWorkflow: state.pendingWorkflow,
           composerResetToken: state.composerResetToken + 1,
         })),

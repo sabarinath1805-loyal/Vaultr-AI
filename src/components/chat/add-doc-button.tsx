@@ -8,7 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
+import useLocalVaultStore, { rehydrateLocalVaultSafely } from "@/app/hooks/useLocalVaultStore";
 import type { LocalDocument } from "@/lib/local-documents";
 import { selectTauriDocumentFiles } from "@/lib/tauri-client";
 
@@ -60,7 +60,7 @@ export function AddDocButton({
         className="hidden"
         onChange={handleUpload}
       />
-      <DropdownMenu onOpenChange={setIsOpen}>
+      <DropdownMenu onOpenChange={(open) => { setIsOpen(open); if (open) rehydrateLocalVaultSafely(); }}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
