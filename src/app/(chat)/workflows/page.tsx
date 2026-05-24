@@ -154,7 +154,7 @@ export default function WorkflowsPage() {
                 key={workflow.id}
                 type="button"
                 onClick={() => setSelected(workflow)}
-                className={`grid w-full grid-cols-[40px_360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-[14px] text-left transition-colors hover:bg-[#f9f9f8] ${
+                className={`grid w-full grid-cols-[40px_360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-[14px] text-left transition-colors hover:bg-[var(--bg-tertiary)] ${
                   selected?.id === workflow.id ? "bg-[var(--sidebar-bg)]" : ""
                 }`}
               >

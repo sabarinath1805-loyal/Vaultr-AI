@@ -251,7 +251,9 @@ html[data-theme="dark"] {
 }
 
 /* Markdown prose spacing */
+.prose h2 { font-size: 1rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; }
+.prose h3 { font-size: 0.9rem; font-weight: 600; margin-top: 1rem; margin-bottom: 0.4rem; }
 .prose p { margin-bottom: 0.75rem; }
 .prose ul { margin-bottom: 0.75rem; padding-left: 1.5rem; }
-.prose li { margin-bottom: 0.25rem; }
-.prose h3 { margin-top: 1rem; margin-bottom: 0.5rem; }
+.prose li { margin-bottom: 0.3rem; }
+.prose strong { font-weight: 600; }
