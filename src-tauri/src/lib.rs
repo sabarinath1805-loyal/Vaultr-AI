@@ -102,6 +102,7 @@ pub fn run() {
         .enable_macos_default_menu(true)
         .invoke_handler(tauri::generate_handler![get_api_key_status, save_api_keys, read_files])
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             if let Some(window) = app.get_webview_window("main") {

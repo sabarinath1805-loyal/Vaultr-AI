@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Eye, EyeOff, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
@@ -76,98 +75,15 @@ export default function SettingsPage() {
 }
 
 function AccountSettings() {
-  const [groqKey, setGroqKey] = useState("");
-  const [serperKey, setSerperKey] = useState("");
-  const [showGroq, setShowGroq] = useState(false);
-  const [showSerper, setShowSerper] = useState(false);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const status = await invoke<Record<string, boolean>>("get_api_key_status");
-        if (status.GROQ_API_KEY) setGroqKey("••••••••");
-        if (status.SERPER_API_KEY) setSerperKey("••••••••");
-      } catch {
-        /* not in Tauri */
-      }
-    })();
-  }, []);
-
-  const saveKeys = async () => {
-    try {
-      const keys: Record<string, string> = {};
-      if (groqKey && groqKey !== "••••••••") keys.GROQ_API_KEY = groqKey;
-      if (serperKey && serperKey !== "••••••••") keys.SERPER_API_KEY = serperKey;
-      if (Object.keys(keys).length === 0) return;
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("save_api_keys", { keys });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 1600);
-    } catch {
-      /* not in Tauri */
-    }
-  };
-
   return (
     <div className="space-y-4">
       <section className="pb-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">API Keys</h2>
-        <div className="max-w-xl space-y-4">
-          <div>
-            <label className="mb-2 block text-sm text-[var(--text-muted)]">Groq API Key</label>
-            <div className="relative">
-              <input
-                type={showGroq ? "text" : "password"}
-                value={groqKey}
-                onChange={(e) => setGroqKey(e.target.value)}
-                className={fieldClass}
-                placeholder="gsk_..."
-              />
-              <button
-                type="button"
-                onClick={() => setShowGroq(!showGroq)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--text)]"
-              >
-                {showGroq ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="mb-2 block text-sm text-[var(--text-muted)]">Serper API Key</label>
-            <div className="relative">
-              <input
-                type={showSerper ? "text" : "password"}
-                value={serperKey}
-                onChange={(e) => setSerperKey(e.target.value)}
-                className={fieldClass}
-                placeholder="Enter Serper key..."
-              />
-              <button
-                type="button"
-                onClick={() => setShowSerper(!showSerper)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-[var(--text-muted)] hover:text-[var(--text)]"
-              >
-                {showSerper ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={saveKeys}
-            className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80"
-          >
-            {saved ? "Saved" : "Save Keys"}
-          </button>
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Account</h2>
+        <div className="max-w-xl rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-6 py-5">
+          <p className="text-sm text-[var(--text)]">
+            Vaultr Beta — Thank you for being an early access member.
+          </p>
         </div>
-      </section>
-
-      <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-2 text-[28px] font-normal text-[var(--text)]">Current Plan</h2>
-        <p className="text-sm text-[var(--text-muted)]">
-          Solo · <span className="underline underline-offset-2">Upgrade to Enterprise</span>
-        </p>
       </section>
     </div>
   );
@@ -365,14 +281,20 @@ function PrivateModeSettings() {
         <p className="text-sm text-[var(--text-muted)]">
           To use Private Mode, install Ollama on your machine:
         </p>
-        <a
-          href="https://ollama.com/download"
-          target="_blank"
-          rel="noopener noreferrer"
+        <button
+          type="button"
+          onClick={async () => {
+            try {
+              const { open } = await import("@tauri-apps/plugin-shell");
+              await open("https://ollama.com");
+            } catch {
+              window.open("https://ollama.com", "_blank");
+            }
+          }}
           className="mt-3 inline-block rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface)]"
         >
           Download Ollama →
-        </a>
+        </button>
       </section>
     </div>
   );
