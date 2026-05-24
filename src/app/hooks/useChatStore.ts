@@ -135,7 +135,7 @@ const useChatStore = create<State & Actions>()(
       organisation: "",
       ollamaUrl: "http://localhost:11434",
       thinkingModeDefault: false,
-      themePreference: "light",
+      themePreference: "dark",
       defaultModelPreference: GROQ_DEFAULT_MODEL,
       autoCleanupConversations: false,
       isDownloading: false,

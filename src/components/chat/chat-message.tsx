@@ -82,17 +82,17 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
 
   const markdownComponents: Components = {
     h1: ({ children }) => (
-      <h1 className="mb-3 mt-5 text-[22px] font-semibold leading-tight text-[var(--text-primary)]">
+      <h1 className="text-lg font-bold mt-4 mb-2 text-[var(--text-primary)]">
         {children}
       </h1>
     ),
     h2: ({ children }) => (
-      <h2 className="mb-2 mt-5 text-[18px] font-semibold leading-tight text-[var(--text-primary)]">
+      <h2 className="text-base font-semibold mt-4 mb-2 text-[var(--text-primary)]">
         {children}
       </h2>
     ),
     h3: ({ children }) => (
-      <h3 className="mb-2 mt-4 text-[15px] font-semibold leading-tight text-[var(--text-primary)]">
+      <h3 className="text-sm font-semibold mt-3 mb-1 text-[var(--text-primary)]">
         {children}
       </h3>
     ),
