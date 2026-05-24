@@ -347,6 +347,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             if (parsed.type === "error") throw new Error(parsed.value);
             if (parsed.type !== "text") continue;
 
+            if (typeof parsed.value !== "string") continue;
+            if (bufferedAssistantContentRef.current == null) continue;
+
             const nextContent = stripAssistantMarkup(
               bufferedAssistantContentRef.current + parsed.value
             );
@@ -375,7 +378,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
         if (lineBuffer.trim()) {
           const parsed = parseDataStreamLine(lineBuffer);
-          if (parsed?.type === "text") {
+          if (parsed?.type === "text" && typeof parsed.value === "string") {
             bufferedAssistantContentRef.current = stripAssistantMarkup(
               bufferedAssistantContentRef.current + parsed.value
             );
