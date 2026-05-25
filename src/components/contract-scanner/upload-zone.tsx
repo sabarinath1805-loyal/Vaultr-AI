@@ -147,7 +147,7 @@ export function UploadZone({
               <div className="text-[13px] text-[var(--text-muted)]">{scanningMessage}</div>
               <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface)]">
                 <div
-                  className="h-full rounded-full bg-[#1a1916] transition-[width] duration-500 ease-out"
+                  className="h-full rounded-full bg-[#C9A84C] transition-[width] duration-500 ease-out"
                   style={{ width: `${scanProgress}%` }}
                 />
               </div>
