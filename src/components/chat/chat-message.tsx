@@ -13,6 +13,7 @@ import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import { SourcesFooter } from "@/components/chat/reasoning-timeline";
+import { ThinkingIndicator } from "./thinking-indicator";
 
 function LexAvatar() {
   return (
@@ -38,13 +39,14 @@ export type ChatMessageProps = {
   };
   isLast: boolean;
   isLoading: boolean | undefined;
+  showThinking?: boolean;
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
   onEditMessage: (messageId: string, content: string) => void;
 };
 
-function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: ChatMessageProps) {
+function ChatMessage({ message, isLast, isLoading, showThinking, reload, onEditMessage }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [editing, setEditing] = useState(false);
   const [draftContent, setDraftContent] = useState(message.content);
@@ -291,6 +293,7 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
                   ))}
               </div>
             )}
+            {showThinking && <ThinkingIndicator visible />}
             <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
@@ -342,6 +345,7 @@ function ChatMessage({ message, isLast, isLoading, reload, onEditMessage }: Chat
 export default memo(ChatMessage, (prevProps, nextProps) =>
   prevProps.isLast === nextProps.isLast &&
   prevProps.isLoading === nextProps.isLoading &&
+  prevProps.showThinking === nextProps.showThinking &&
   prevProps.message.content === nextProps.message.content &&
   prevProps.message.id === nextProps.message.id
 );
