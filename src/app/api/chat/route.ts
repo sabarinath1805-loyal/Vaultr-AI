@@ -56,7 +56,7 @@ const NO_SEARCH_TRIGGERS = [
   "settled law",
 ];
 
-const GEMINI_MODELS = ["gemini-2.5-flash-preview-05-20", "gemini-3-flash-preview"];
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-3-flash-preview"];
 
 const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*[\(\["“']?\s*(?:Open with a direct one-sentence verdict[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Break into clearly labelled sections[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|End with a ["“]?Recommended Next Steps["”]? section[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Simple questions and greetings[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Complex legal analysis[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Will perform web search[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search query:[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search results[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|I'll simulate[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Searching\.\.\.[^\n]*(?:[\)\]"”']?\s*(?:\n|$)))/gi;
 const LEX_IDENTITY_LEAK_REGEX = /(?:^|\n)\s*(?:You are Lex, a private AI legal assistant built into Vaultr[^\n]*(?:\n|$)|PERSONALITY:\s*(?:\n|$)|RESPONSE STYLE:\s*(?:\n|$))/gi;
