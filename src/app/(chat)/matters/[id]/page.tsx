@@ -22,7 +22,7 @@ type Tab = "documents" | "chats" | "scans";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "documents", label: "Documents" },
-  { id: "chats", label: "Chats" },
+  { id: "chats", label: "Threads" },
   { id: "scans", label: "Contract Scans" },
 ];
 
@@ -157,7 +157,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
                 }}
                 className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] text-[var(--bg-primary)] hover:opacity-80"
               >
-                Start new chat
+                Start new thread
               </button>
               <button
                 type="button"
