@@ -24,7 +24,7 @@ const navItems = [
   { href: "/models", label: "Models", icon: Grid2X2 },
   { href: "/contract-scanner", label: "Contract Scanner", icon: Shield },
   { href: "/workflows", label: "Workflows", icon: BarChart3 },
-  { href: "/history", label: "History", icon: Clock },
+  { href: "/history", label: "Threads", icon: Clock },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -133,7 +133,7 @@ export function Sidebar() {
             className="mt-4 flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-[7px] text-[13px] text-[var(--text)] transition-colors hover:bg-[var(--bg-tertiary)]"
           >
             <Edit3 className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-            New Chat
+            New Thread
           </button>
         )}
       </div>

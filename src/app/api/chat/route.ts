@@ -7,7 +7,6 @@ import {
   isCloudModel,
   isGeminiModel,
   isLexModel,
-  isOllamaCloudModel,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
 import {
@@ -57,7 +56,7 @@ const NO_SEARCH_TRIGGERS = [
   "settled law",
 ];
 
-const GEMINI_MODELS = ["gemini-3-flash-preview"];
+const GEMINI_MODELS = ["gemini-2.5-flash-preview-05-20", "gemini-3-flash-preview"];
 
 const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*[\(\["“']?\s*(?:Open with a direct one-sentence verdict[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Break into clearly labelled sections[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|End with a ["“]?Recommended Next Steps["”]? section[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Simple questions and greetings[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Complex legal analysis[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Will perform web search[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search query:[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search results[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|I'll simulate[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Searching\.\.\.[^\n]*(?:[\)\]"”']?\s*(?:\n|$)))/gi;
 const LEX_IDENTITY_LEAK_REGEX = /(?:^|\n)\s*(?:You are Lex, a private AI legal assistant built into Vaultr[^\n]*(?:\n|$)|PERSONALITY:\s*(?:\n|$)|RESPONSE STYLE:\s*(?:\n|$))/gi;
@@ -124,9 +123,7 @@ export async function POST(req: Request) {
   const geminiModel = GEMINI_MODELS.includes(activeModel || "") && isGeminiModel(activeModel)
     ? activeModel
     : null;
-  const ollamaCloudModel = !privacyMode && isOllamaCloudModel(activeModel)
-    ? activeModel
-    : null;
+
   const conversationMessages = Array.isArray(messages) ? messages : [];
   const initialMessages = sanitizeChatMessages(conversationMessages.slice(0, -1));
   const currentMessage = conversationMessages[conversationMessages.length - 1];
@@ -203,22 +200,6 @@ export async function POST(req: Request) {
         searchSources: webSearch.sources,
         activeModel,
         attachedDocuments,
-      });
-      clearTimeout(timeout);
-      return response;
-    }
-
-    if (ollamaCloudModel) {
-      const response = await streamOllamaCloudResponse({
-        model: ollamaCloudModel,
-        systemMessage,
-        initialMessages,
-        userMessage,
-        shouldSearch,
-        searchSources: webSearch.sources,
-        activeModel,
-        attachedDocuments,
-        abortSignal: abortController.signal,
       });
       clearTimeout(timeout);
       return response;

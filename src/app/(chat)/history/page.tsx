@@ -28,7 +28,7 @@ export default function HistoryPage() {
     <main className="flex h-screen flex-col overflow-y-auto bg-[var(--bg)]">
       <header className="mx-auto flex h-16 w-full max-w-3xl shrink-0 items-end px-6 pb-2 md:h-24 md:pb-4">
         <div className="flex w-full items-baseline justify-between">
-          <h1 className="text-[28px] font-normal text-[var(--text)]">Chat History</h1>
+          <h1 className="text-[28px] font-normal text-[var(--text)]">Threads</h1>
           {sortedChats.length > 0 && (
             !confirmClearAll ? (
               <button
@@ -64,9 +64,9 @@ export default function HistoryPage() {
         {sortedChats.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center font-[family-name:var(--font-sans)]">
             <MessageSquare className="mb-4 h-10 w-10 text-[var(--text-faint)]" />
-            <p className="text-[28px] font-normal text-[var(--text)]">No conversations yet</p>
+            <p className="text-[28px] font-normal text-[var(--text)]">No threads yet</p>
             <p className="mt-2 text-sm text-[var(--text-muted)]">
-              Start a new chat with Lex to see your history here.
+              Start a new thread with Lex to see your history here.
             </p>
           </div>
         ) : (
@@ -101,7 +101,7 @@ export default function HistoryPage() {
                       type="button"
                       onClick={() => setMenuOpenId(menuOpenId === id ? null : id)}
                       className="hidden h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] hover:bg-[var(--surface)] hover:text-[var(--text)] group-hover:flex"
-                      aria-label="Chat options"
+                      aria-label="Thread options"
                     >
                       <MoreHorizontal className="h-4 w-4" />
                     </button>
