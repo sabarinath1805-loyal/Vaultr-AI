@@ -706,6 +706,11 @@ function stripToken(text: string): string {
   for (const pattern of STRIP_PATTERNS) {
     clean = clean.replace(pattern, "");
   }
+  // Strip raw <function...>...</function> tags that leak from tool calls
+  clean = clean.replace(/<function[^>]*>[\s\S]*?<\/function>/gi, "");
+  clean = clean.replace(/<function[^>]*\/>/gi, "");
+  // Strip any line starting with <function
+  clean = clean.replace(/^<function[^\n]*$/gm, "");
   return clean;
 }
 
