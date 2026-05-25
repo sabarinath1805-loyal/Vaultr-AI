@@ -88,7 +88,7 @@ export default function HistoryPage() {
                     href={`/c/${id}`}
                     className="flex min-w-0 flex-1 items-center gap-3"
                   >
-                    <MessageSquare className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+                    <div style={{ width: '2px', height: '32px', borderRadius: '2px', background: '#2a2a2a', flexShrink: 0, marginTop: '2px' }} />
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-sm font-medium text-[var(--text)]">{title}</div>
                       <div className="mt-0.5 text-xs text-[var(--text-faint)]">
