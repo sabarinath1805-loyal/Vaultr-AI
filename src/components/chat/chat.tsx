@@ -13,7 +13,8 @@ import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
-const TYPEWRITER_CHARS_PER_SECOND = 200;
+const TYPEWRITER_CHARS_PER_SECOND = 500;
+const TYPEWRITER_CHARS_PER_TICK = 20;
 const THINKING_FADE_MS = 150;
 
 function parseDataStreamLine(line: string) {
@@ -220,12 +221,30 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       setResponseFlowState("typing");
       setMessages([...baseMessages, visibleAssistantMessage]);
 
-      const intervalMs = Math.max(1, Math.round(1000 / TYPEWRITER_CHARS_PER_SECOND));
+      const intervalMs = Math.max(1, Math.round(1000 / (TYPEWRITER_CHARS_PER_SECOND / TYPEWRITER_CHARS_PER_TICK)));
       const tick = () => {
         const state = typewriterStateRef.current;
         if (!state) return;
 
-        const nextIndex = Math.min(state.fullContent.length, state.index + 1);
+        if (!document.hasFocus()) {
+          typewriterStateRef.current = null;
+          typewriterTimerRef.current = null;
+          typewriterMessageIdRef.current = null;
+          activeResponseAbortRef.current = null;
+          activeAssistantMessageRef.current = null;
+          rawBufferedContentRef.current = "";
+          bufferedAssistantContentRef.current = "";
+          setMessages([
+            ...state.baseMessages,
+            state.finalAssistantMessage,
+          ]);
+          void saveMessages(id, [...state.baseMessages, state.finalAssistantMessage]);
+          if (!isOpenEmptyChat) router.replace(`/c/${id}`);
+          finishResponseFlowAfterFade();
+          return;
+        }
+
+        const nextIndex = Math.min(state.fullContent.length, state.index + TYPEWRITER_CHARS_PER_TICK);
         typewriterStateRef.current = { ...state, index: nextIndex };
         const partial = state.fullContent.slice(0, nextIndex);
         setMessages([
