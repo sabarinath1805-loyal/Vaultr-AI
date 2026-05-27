@@ -1,9 +1,9 @@
 <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <rect x="120" y="120" width="784" height="784" rx="240" fill="#000000"/>
-  <g transform="translate(512, 512)" stroke="white" stroke-width="50" stroke-linecap="round">
-    <line x1="0" y1="-300" x2="0" y2="300"/>
-    <line x1="-300" y1="0" x2="300" y2="0"/>
-    <line x1="-212" y1="-212" x2="212" y2="212"/>
-    <line x1="212" y1="-212" x2="-212" y2="212"/>
+  <rect x="160" y="160" width="704" height="704" rx="260" fill="#000000"/>
+  <g transform="translate(512, 512)" stroke="white" stroke-width="48" stroke-linecap="round">
+    <line x1="0" y1="-260" x2="0" y2="260"/>
+    <line x1="-260" y1="0" x2="260" y2="0"/>
+    <line x1="-184" y1="-184" x2="184" y2="184"/>
+    <line x1="184" y1="-184" x2="-184" y2="184"/>
   </g>
 </svg>

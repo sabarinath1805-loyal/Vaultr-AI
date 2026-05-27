@@ -300,7 +300,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     async (error: Error) => {
       clearResponseFlow();
       console.error(error.message);
-      console.error(error.cause);
+      if (error.cause) console.error(error.cause);
 
       const errorMessage: Message = {
         id: generateId(),

@@ -2,6 +2,7 @@ import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel } from "@/lib/models";
+import { get, set, del } from "idb-keyval";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -135,7 +136,7 @@ const useChatStore = create<State & Actions>()(
       organisation: "",
       ollamaUrl: "http://localhost:11434",
       thinkingModeDefault: false,
-      themePreference: "dark",
+      themePreference: "light",
       defaultModelPreference: GROQ_DEFAULT_MODEL,
       autoCleanupConversations: false,
       isDownloading: false,
@@ -447,7 +448,7 @@ const useChatStore = create<State & Actions>()(
     }),
     {
       name: "nextjs-ollama-ui-state",
-      storage: createJSONStorage(() => safeLocalStorage),
+      storage: createJSONStorage(() => indexedDBStorage),
       partialize: (state) => ({
         selectedModel: state.selectedModel,
         cloudMode: state.cloudMode,
@@ -587,6 +588,30 @@ const useChatStore = create<State & Actions>()(
 );
 
 export default useChatStore;
+
+const indexedDBStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      return (await get(name)) ?? null;
+    } catch {
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      await set(name, value);
+    } catch {
+      /* silent fail */
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try {
+      await del(name);
+    } catch {
+      /* silent fail */
+    }
+  },
+};
 
 const safeLocalStorage = {
   getItem: (name: string) => {
