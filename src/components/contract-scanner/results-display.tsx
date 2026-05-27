@@ -41,8 +41,8 @@ const riskClasses: Record<ContractRisk, { badge: string; border: string; text: s
 
 const filterClasses: Record<RiskFilter, { active: string; inactive: string }> = {
   all: {
-    active: "border-[#1a1916] bg-[#1a1916] text-white",
-    inactive: "border-[#1a1916] bg-transparent text-[#1a1916]",
+    active: "border-[var(--accent)] bg-[var(--accent)] text-[var(--user-bubble-text)]",
+    inactive: "border-[var(--accent)] bg-transparent text-[var(--accent)]",
   },
   high: {
     active: "border-[#A32D2D] bg-[#A32D2D] text-white",
