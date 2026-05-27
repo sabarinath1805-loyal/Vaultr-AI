@@ -17,7 +17,7 @@ import { ThinkingIndicator } from "./thinking-indicator";
 
 function LexAvatar() {
   return (
-    <div className="lex-thinking-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1a1916]">
+    <div className="lex-thinking-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--accent)]">
       <svg
         width="16"
         height="16"
@@ -165,7 +165,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, reload, onEditM
             <textarea
               value={draftContent}
               onChange={(event) => setDraftContent(event.target.value)}
-              className="min-h-[96px] w-full resize-y rounded-[20px] bg-[#3d3b38] px-4 py-3 text-sm leading-[1.6] text-white outline-none ring-1 ring-white/20 focus:ring-white/40"
+              className="min-h-[96px] w-full resize-y rounded-[20px] bg-[var(--user-bubble)] px-4 py-3 text-sm leading-[1.6] text-[var(--user-bubble-text)] outline-none ring-1 ring-black/10 focus:ring-black/20"
               autoFocus
             />
             <div className="mt-1 flex justify-end gap-2">
@@ -192,8 +192,8 @@ function ChatMessage({ message, isLast, isLoading, showThinking, reload, onEditM
             data-testid="user-message"
             style={{
               borderRadius: "20px",
-              backgroundColor: "#3d3b38",
-              color: "#ffffff",
+              backgroundColor: "var(--user-bubble)",
+              color: "var(--user-bubble-text)",
               padding: "12px 16px",
               maxWidth: "70%",
               alignSelf: "flex-end",
