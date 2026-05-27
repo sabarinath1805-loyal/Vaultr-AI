@@ -18,14 +18,15 @@ h1, h2, h3, .font-display, .greeting-heading {
 :root {
   --font-body: var(--font-sora, 'Sora'), -apple-system, sans-serif;
   --font-display: 'Instrument Serif', Georgia, serif;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f9f9f8;
-  --bg-tertiary: #f3f2ef;
-  --text-primary: #1a1916;
-  --text-secondary: #8a8880;
-  --text-tertiary: #b8b6b0;
-  --border: #e8e6e1;
-  --accent: #1a1916;
+  --bg-primary: #f2ede6;
+  --bg-secondary: #e8e0d4;
+  --bg-tertiary: #ede8e0;
+  --text-primary: #2e2820;
+  --text-secondary: #7a7068;
+  --text-tertiary: #9a9088;
+  --border: #c4bab0;
+  --accent: #8c7c6a;
+  --accent-hover: #5c5248;
   --danger: #e53e3e;
   --danger-hover: #c53030;
   --danger-bg: #fff0f0;
@@ -39,7 +40,8 @@ h1, h2, h3, .font-display, .greeting-heading {
   --success-bg: #f0fff4;
   --blue: #3b82f6;
   --purple: #8b5cf6;
-  --user-bubble: #3d3b38;
+  --user-bubble: #8c7c6a;
+  --user-bubble-text: #f2ede6;
   --overlay: rgba(0, 0, 0, 0.3);
   --shadow-soft: rgba(0, 0, 0, 0.08);
   --shadow-modal: rgba(0, 0, 0, 0.12);
@@ -50,6 +52,8 @@ h1, h2, h3, .font-display, .greeting-heading {
   --color-text-secondary: var(--text-secondary);
   --color-border-primary: var(--border);
   --color-border-tertiary: var(--border);
+  --composer-bg: #e8e0d4;
+  --card-bg: #ede8e0;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -57,13 +61,13 @@ h1, h2, h3, .font-display, .greeting-heading {
   --sidebar-w: 220px;
   --transition: 160ms cubic-bezier(0.16, 1, 0.3, 1);
 
-  --bg: var(--bg-primary);
-  --sidebar-bg: var(--bg-secondary);
+  --bg: #f2ede6;
+  --sidebar-bg: #e8e0d4;
   --surface: var(--bg-tertiary);
   --surface-muted: var(--bg-tertiary);
-  --text: var(--text-primary);
-  --text-muted: var(--text-secondary);
-  --text-faint: var(--text-tertiary);
+  --text: #2e2820;
+  --text-muted: #7a7068;
+  --text-faint: #9a9088;
 }
 
 html.dark,
@@ -76,6 +80,11 @@ html[data-theme="dark"] {
   --text-tertiary: #5a5856;
   --border: #2a2826;
   --accent: #ffffff;
+  --accent-hover: #cccccc;
+  --user-bubble: #3d3b38;
+  --user-bubble-text: #f5f5f0;
+  --composer-bg: #1a1916;
+  --card-bg: #242220;
   --danger-bg: #2a1515;
   --warning-bg: #2a2415;
   --color-background-warning: var(--warning-bg);
@@ -83,6 +92,11 @@ html[data-theme="dark"] {
   --success-bg: #152419;
   --shadow-soft: rgba(0, 0, 0, 0.35);
   --shadow-modal: rgba(0, 0, 0, 0.45);
+  --bg: var(--bg-primary);
+  --sidebar-bg: var(--bg-secondary);
+  --text: var(--text-primary);
+  --text-muted: var(--text-secondary);
+  --text-faint: var(--text-tertiary);
 }
 
 @keyframes message-in {

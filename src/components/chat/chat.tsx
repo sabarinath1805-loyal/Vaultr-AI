@@ -13,7 +13,8 @@ import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 
 type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
-const TYPEWRITER_CHARS_PER_SECOND = 200;
+const TYPEWRITER_CHARS_PER_SECOND = 500;
+const TYPEWRITER_CHARS_PER_TICK = 20;
 const THINKING_FADE_MS = 150;
 
 function parseDataStreamLine(line: string) {
@@ -51,6 +52,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const thinkingFadeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const typewriterMessageIdRef = React.useRef<string | null>(null);
   const streamStartedRef = React.useRef(false);
+  const rawBufferedContentRef = React.useRef("");
   const bufferedAssistantContentRef = React.useRef("");
   const activeResponseAbortRef = React.useRef<AbortController | null>(null);
   const activeRequestMessagesRef = React.useRef<Message[]>(initialMessages);
@@ -148,6 +150,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     typewriterStateRef.current = null;
     activeResponseAbortRef.current = null;
     activeAssistantMessageRef.current = null;
+    rawBufferedContentRef.current = "";
     bufferedAssistantContentRef.current = "";
     streamStartedRef.current = false;
     setDirectStreamingActive(false);
@@ -162,6 +165,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     thinkingFadeTimerRef.current = null;
     typewriterStateRef.current = null;
     typewriterMessageIdRef.current = null;
+    rawBufferedContentRef.current = "";
     bufferedAssistantContentRef.current = "";
     activeAssistantMessageRef.current = null;
     streamStartedRef.current = false;
@@ -217,12 +221,30 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       setResponseFlowState("typing");
       setMessages([...baseMessages, visibleAssistantMessage]);
 
-      const intervalMs = Math.max(1, Math.round(1000 / TYPEWRITER_CHARS_PER_SECOND));
+      const intervalMs = Math.max(1, Math.round(1000 / (TYPEWRITER_CHARS_PER_SECOND / TYPEWRITER_CHARS_PER_TICK)));
       const tick = () => {
         const state = typewriterStateRef.current;
         if (!state) return;
 
-        const nextIndex = Math.min(state.fullContent.length, state.index + 1);
+        if (!document.hasFocus()) {
+          typewriterStateRef.current = null;
+          typewriterTimerRef.current = null;
+          typewriterMessageIdRef.current = null;
+          activeResponseAbortRef.current = null;
+          activeAssistantMessageRef.current = null;
+          rawBufferedContentRef.current = "";
+          bufferedAssistantContentRef.current = "";
+          setMessages([
+            ...state.baseMessages,
+            state.finalAssistantMessage,
+          ]);
+          void saveMessages(id, [...state.baseMessages, state.finalAssistantMessage]);
+          if (!isOpenEmptyChat) router.replace(`/c/${id}`);
+          finishResponseFlowAfterFade();
+          return;
+        }
+
+        const nextIndex = Math.min(state.fullContent.length, state.index + TYPEWRITER_CHARS_PER_TICK);
         typewriterStateRef.current = { ...state, index: nextIndex };
         const partial = state.fullContent.slice(0, nextIndex);
         setMessages([
@@ -240,6 +262,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         typewriterStateRef.current = null;
         activeResponseAbortRef.current = null;
         activeAssistantMessageRef.current = null;
+        rawBufferedContentRef.current = "";
         bufferedAssistantContentRef.current = "";
         void saveMessages(id, [...state.baseMessages, state.finalAssistantMessage]);
         if (!isOpenEmptyChat) router.replace(`/c/${id}`);
@@ -253,6 +276,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         if (!isOpenEmptyChat) router.replace(`/c/${id}`);
         activeResponseAbortRef.current = null;
         activeAssistantMessageRef.current = null;
+        rawBufferedContentRef.current = "";
         bufferedAssistantContentRef.current = "";
         finishResponseFlowAfterFade();
         return;
@@ -276,7 +300,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     async (error: Error) => {
       clearResponseFlow();
       console.error(error.message);
-      console.error(error.cause);
+      if (error.cause) console.error(error.cause);
 
       const errorMessage: Message = {
         id: generateId(),
@@ -306,6 +330,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       const abortController = new AbortController();
       activeResponseAbortRef.current = abortController;
       activeRequestMessagesRef.current = requestMessages;
+      rawBufferedContentRef.current = "";
       bufferedAssistantContentRef.current = "";
 
       const assistantMessage: Message = {
@@ -347,18 +372,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             if (parsed.type !== "text") continue;
 
             if (typeof parsed.value !== "string") continue;
-            if (bufferedAssistantContentRef.current == null) continue;
+            if (rawBufferedContentRef.current == null) continue;
 
-            const nextContent = stripAssistantMarkup(
-              bufferedAssistantContentRef.current + parsed.value
-            );
+            rawBufferedContentRef.current += parsed.value;
+            const nextContent = stripAssistantMarkup(rawBufferedContentRef.current);
             bufferedAssistantContentRef.current = nextContent;
 
-            // Dismiss the thinking indicator the moment the first real token
-            // arrives — applies to both directStream and typewriter paths.
             if (nextContent.length > 0 && !streamStartedRef.current) {
               streamStartedRef.current = true;
-              setResponseFlowState("idle");
             }
 
             if (!directStream || nextContent.length === 0) continue;
@@ -378,8 +399,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         if (lineBuffer.trim()) {
           const parsed = parseDataStreamLine(lineBuffer);
           if (parsed?.type === "text" && typeof parsed.value === "string") {
+            rawBufferedContentRef.current += parsed.value;
             bufferedAssistantContentRef.current = stripAssistantMarkup(
-              bufferedAssistantContentRef.current + parsed.value
+              rawBufferedContentRef.current
             );
           } else if (parsed?.type === "error") {
             throw new Error(parsed.value);
@@ -403,6 +425,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           setDirectStreamingActive(false);
           activeResponseAbortRef.current = null;
           activeAssistantMessageRef.current = null;
+          rawBufferedContentRef.current = "";
           bufferedAssistantContentRef.current = "";
           finishResponseFlowAfterFade();
           return;
@@ -412,6 +435,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       } catch (error) {
         activeResponseAbortRef.current = null;
         activeAssistantMessageRef.current = null;
+        rawBufferedContentRef.current = "";
         bufferedAssistantContentRef.current = "";
         setLoadingSubmit(false);
         if ((error as Error).name === "AbortError") return;
