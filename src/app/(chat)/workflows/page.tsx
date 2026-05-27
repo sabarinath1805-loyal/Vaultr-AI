@@ -5,7 +5,7 @@ import { Check, ChevronDown, MoreHorizontal, Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { SnowflakeIcon } from "@/components/icons/snowflake";
+
 import useChatStore from "@/app/hooks/useChatStore";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { BUILT_IN_WORKFLOWS } from "@/components/workflows/builtin-workflows";
@@ -139,8 +139,7 @@ export default function WorkflowsPage() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="grid grid-cols-[40px_360px_220px_160px_40px] border-b border-[var(--border)] px-8 py-2 text-xs font-medium text-[var(--text-muted)]">
-            <div><input type="checkbox" aria-label="Select workflows" /></div>
+          <div className="grid grid-cols-[360px_220px_160px_40px] border-b border-[var(--border)] px-8 py-2 text-xs font-medium text-[var(--text-muted)]">
             <div>Name</div>
             <div>Practice</div>
             <div>Source</div>
@@ -154,15 +153,13 @@ export default function WorkflowsPage() {
                 key={workflow.id}
                 type="button"
                 onClick={() => setSelected(workflow)}
-                className={`grid w-full grid-cols-[40px_360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-[14px] text-left transition-colors hover:bg-[var(--bg-tertiary)] ${
+                className={`grid w-full grid-cols-[360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-[14px] text-left transition-colors hover:bg-[var(--bg-tertiary)] ${
                   selected?.id === workflow.id ? "bg-[var(--sidebar-bg)]" : ""
                 }`}
               >
-                <div><input type="checkbox" onClick={(event) => event.stopPropagation()} aria-label={`Select ${workflow.title}`} /></div>
                 <div className="text-[14px] font-medium text-[var(--text)]">{workflow.title}</div>
                 <div className="text-[13px] text-[var(--text-muted)]">{workflow.practice}</div>
-                <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
-                  <SnowflakeIcon size={12} />
+                <div className="text-[13px] text-[var(--text-muted)]">
                   {workflow.source}
                 </div>
                 <div className="text-[var(--text-faint)]"><MoreHorizontal className="h-4 w-4" /></div>

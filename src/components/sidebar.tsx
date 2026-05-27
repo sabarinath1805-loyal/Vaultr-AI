@@ -4,28 +4,28 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  BarChart3,
-  Briefcase,
-  Clock,
-  Edit3,
-  Folder,
-  Grid2X2,
-  PanelLeft,
-  Settings,
-  Shield,
-  Square,
-} from "lucide-react";
+  IconMessage2,
+  IconFolder,
+  IconBriefcase,
+  IconScan,
+  IconChartBar,
+  IconHistory,
+  IconSettings,
+  IconPlus,
+  IconLayoutSidebar,
+} from "@tabler/icons-react";
+import { Grid2X2 } from "lucide-react";
 import useChatStore from "@/app/hooks/useChatStore";
 
 const navItems = [
-  { href: "/", label: "Lex", icon: Square },
-  { href: "/vault", label: "Vault", icon: Folder },
-  { href: "/matters", label: "Matters", icon: Briefcase },
+  { href: "/", label: "Lex", icon: IconMessage2 },
+  { href: "/vault", label: "Vault", icon: IconFolder },
+  { href: "/matters", label: "Matters", icon: IconBriefcase },
   { href: "/models", label: "Models", icon: Grid2X2 },
-  { href: "/contract-scanner", label: "Contract Scanner", icon: Shield },
-  { href: "/workflows", label: "Workflows", icon: BarChart3 },
-  { href: "/history", label: "Threads", icon: Clock },
-  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/contract-scanner", label: "Contract Scanner", icon: IconScan },
+  { href: "/workflows", label: "Workflows", icon: IconChartBar },
+  { href: "/history", label: "Threads", icon: IconHistory },
+  { href: "/settings", label: "Settings", icon: IconSettings },
 ];
 
 const navClass =
@@ -70,7 +70,7 @@ export function Sidebar() {
           title="Vaultr"
           onClick={() => resetComposerState()}
         >
-          <span style={{ fontSize: '22px', fontFamily: 'serif', lineHeight: 1 }}>✳</span>
+          <span style={{ fontSize: '36px', fontFamily: 'serif', lineHeight: 1 }}>✳</span>
           {!collapsed && <span className="text-[18px] font-medium leading-none">Vaultr</span>}
         </Link>
         <button
@@ -79,7 +79,7 @@ export function Sidebar() {
           className={`${collapsed ? "hidden" : "flex"} h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]`}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <PanelLeft size={16} />
+          <IconLayoutSidebar size={16} />
         </button>
       </div>
 
@@ -90,7 +90,7 @@ export function Sidebar() {
           className="mx-auto mb-2 flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]"
           aria-label="Expand sidebar"
         >
-          <PanelLeft size={16} />
+          <IconLayoutSidebar size={16} />
         </button>
       )}
 
@@ -132,7 +132,7 @@ export function Sidebar() {
             }}
             className="mt-4 flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-[7px] text-[13px] text-[var(--text)] transition-colors hover:bg-[var(--bg-tertiary)]"
           >
-            <Edit3 className="h-3.5 w-3.5 text-[var(--text-muted)]" />
+            <IconPlus className="h-3.5 w-3.5 text-[var(--text-muted)]" />
             New Thread
           </button>
         )}
