@@ -301,7 +301,7 @@ export default function ContractScannerPage() {
                     onClick={() => setScannerMode(option.id)}
                     className={`rounded-[var(--radius-md)] border p-4 text-left transition-colors ${
                       active
-                        ? "border-[#1a1916] bg-[var(--bg)]"
+                        ? "border-[var(--accent)] bg-[var(--bg)]"
                         : "border-[var(--border)] bg-transparent hover:bg-[var(--surface)]"
                     }`}
                     aria-pressed={active}

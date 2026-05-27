@@ -147,7 +147,7 @@ export function UploadZone({
               <div className="text-[13px] text-[var(--text-muted)]">{scanningMessage}</div>
               <div className="h-1.5 overflow-hidden rounded-full bg-[var(--surface)]">
                 <div
-                  className="h-full rounded-full bg-[#C9A84C] transition-[width] duration-500 ease-out"
+                  className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-500 ease-out"
                   style={{ width: `${scanProgress}%` }}
                 />
               </div>
@@ -158,7 +158,7 @@ export function UploadZone({
               type="button"
               onClick={onScan}
               disabled={isScanning}
-              className="inline-flex items-center rounded-[8px] bg-[#1a1916] px-6 py-2.5 text-[14px] font-medium text-[#ffffff] transition-[background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-70"
+              className="inline-flex items-center rounded-[8px] bg-[var(--accent)] px-6 py-2.5 text-[14px] font-medium text-[var(--user-bubble-text)] transition-[background-color] duration-150 hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-70"
             >
               {isScanning ? (
                 <>
