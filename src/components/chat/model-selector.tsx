@@ -129,7 +129,8 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
             onClick={() => setOpen(false)}
           />
           <div
-            className={`absolute right-0 z-50 min-w-[360px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-1.5 text-[var(--text)] shadow-[0_4px_16px_var(--shadow-soft)] ${menuPosition}`}
+            className={`absolute right-0 z-50 min-w-[360px] rounded-[var(--radius-md)] border border-[var(--border)] p-1.5 shadow-[0_4px_16px_var(--shadow-soft)] ${menuPosition}`}
+            style={{ backgroundColor: 'var(--card-bg)', color: 'var(--text)' }}
           >
             {!cloudMode && !isOllamaRunning ? (
               <div className="px-3 py-2 text-[13px] text-[var(--text-muted)]">
@@ -161,24 +162,24 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                         setSelectedModel(modelId);
                         setOpen(false);
                       }}
-                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-[var(--surface)]"
+                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-black/5"
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
                         <span className="flex min-w-0 flex-1 flex-col">
-                          <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
+                          <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
                             {metadata.name}
                           </span>
-                          <span className="truncate text-[11px] text-[var(--text-muted)]">
+                          <span className="truncate" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                             {metadata.modelId} · {metadata.provider}
                           </span>
                         </span>
-                        {modelId === selectedModel && <Check size={14} />}
+                        {modelId === selectedModel && <Check size={14} style={{ color: 'var(--accent)' }} />}
                       </div>
                     </button>
                   );
                 })}
                 {!cloudMode && availableModels.length > 0 && (
-                  <div style={{ borderTop: "1px solid #e0ded8", margin: "4px 0" }} />
+                  <div style={{ borderTop: "1px solid var(--border)", margin: "4px 0" }} />
                 )}
                 {cloudMode && GROQ_MODELS.map((model) => {
                   const modelId = model.groqId;
@@ -191,24 +192,24 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                         setSelectedModel(modelId);
                         setOpen(false);
                       }}
-                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-[var(--surface)]"
+                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-black/5"
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
                         <span className="flex min-w-0 flex-1 flex-col">
-                          <span style={{ fontSize: "13px", fontWeight: 500, color: "#1a1916" }}>
+                          <span style={{ fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>
                             {metadata.name}
                           </span>
-                          <span className="truncate text-[11px] text-[var(--text-muted)]">
+                          <span className="truncate" style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                             {metadata.modelId} · {metadata.provider}
                           </span>
                         </span>
-                        {modelId === selectedModel && <Check size={14} />}
+                        {modelId === selectedModel && <Check size={14} style={{ color: 'var(--accent)' }} />}
                       </div>
                     </button>
                   );
                 })}
                 {!cloudMode && (
-                <div style={{ borderTop: "1px solid #e0ded8", marginTop: "4px", paddingTop: "4px" }}>
+                <div style={{ borderTop: "1px solid var(--border)", marginTop: "4px", paddingTop: "4px" }}>
                   <div
                     onClick={() => {
                       setOpen(false);

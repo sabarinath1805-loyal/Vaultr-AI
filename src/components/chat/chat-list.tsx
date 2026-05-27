@@ -29,9 +29,16 @@ export default function ChatList({
   const lastMessageContent = messages[messages.length - 1]?.content || "";
   const latestUserMessageId =
     [...messages].reverse().find((message) => message.role === "user")?.id || null;
+  const lastMessage = messages[messages.length - 1];
+  const lastIsAssistant = lastMessage?.role === "assistant";
   const showStandaloneThinking =
     thinkingVisible &&
-    thinkingMessageId === latestUserMessageId;
+    thinkingMessageId === latestUserMessageId &&
+    !lastIsAssistant;
+  const showInlineThinking =
+    thinkingVisible &&
+    thinkingMessageId === latestUserMessageId &&
+    lastIsAssistant;
 
   useEffect(() => {
     if (!isNearBottom) return;
@@ -58,6 +65,7 @@ export default function ChatList({
               message={message}
               isLast={index === messages.length - 1}
               isLoading={isLoading}
+              showThinking={showInlineThinking && index === messages.length - 1 && message.role === "assistant"}
               onEditMessage={onEditMessage}
               reload={reload}
             />
