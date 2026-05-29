@@ -181,6 +181,31 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setThinkingMessageId(null);
   }, []);
 
+  React.useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        const state = typewriterStateRef.current;
+        if (state) {
+          if (typewriterTimerRef.current) clearTimeout(typewriterTimerRef.current);
+          typewriterTimerRef.current = null;
+          typewriterMessageIdRef.current = null;
+          typewriterStateRef.current = null;
+          activeResponseAbortRef.current = null;
+          activeAssistantMessageRef.current = null;
+          rawBufferedContentRef.current = "";
+          bufferedAssistantContentRef.current = "";
+          setMessages([...state.baseMessages, state.finalAssistantMessage]);
+          void saveMessages(id, [...state.baseMessages, state.finalAssistantMessage]);
+          finishResponseFlowAfterFade();
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [id, finishResponseFlowAfterFade, saveMessages, setMessages]);
+
   const startTypewriter = React.useCallback(
     async (
       assistantMessage: Message,
