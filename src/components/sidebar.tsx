@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { safeStorage } from "@/lib/safe-storage";
 import {
   IconMessage2,
   IconFolder,
@@ -39,7 +40,7 @@ export function Sidebar() {
   const cloudMode = useChatStore((state) => state.cloudMode);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("vaultr-sidebar-collapsed");
+    const saved = safeStorage.getItem("vaultr-sidebar-collapsed");
     setCollapsed(saved === "true");
   }, []);
 
@@ -49,7 +50,7 @@ export function Sidebar() {
 
   const toggleCollapsed = () => {
     setCollapsed((value) => {
-      window.localStorage.setItem("vaultr-sidebar-collapsed", String(!value));
+      safeStorage.setItem("vaultr-sidebar-collapsed", String(!value));
       return !value;
     });
   };
