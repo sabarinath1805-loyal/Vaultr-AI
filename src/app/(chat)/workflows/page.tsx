@@ -74,17 +74,7 @@ export default function WorkflowsPage() {
     resetComposerState();
     requestAnimationFrame(() => {
       setPendingWorkflow(nextWorkflow);
-      if (typeof window !== "undefined") {
-        const storedState = safeStorage.getItem("nextjs-ollama-ui-state");
-        if (storedState) {
-          try {
-            const parsed = JSON.parse(storedState);
-            parsed.state = { ...(parsed.state || {}), pendingWorkflow: nextWorkflow };
-            safeStorage.setItem("nextjs-ollama-ui-state", JSON.stringify(parsed));
-          } catch {
-          }
-        }
-      }
+
       router.push("/");
     });
   };
