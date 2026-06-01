@@ -140,7 +140,7 @@ export async function POST(req: Request) {
     typeof workflowPrompt === "string" && workflowPrompt.trim()
       ? workflowPrompt.trim()
       : workflow?.prompt || "";
-  const documentContexts = Array.isArray(attachedDocuments)
+  const documentContexts = Array.isArray(attachedDocuments) && attachedDocuments.length > 0
     ? await Promise.all(
         attachedDocuments.map(
           async (document: {
@@ -156,13 +156,20 @@ export async function POST(req: Request) {
             } catch (error) {
               console.error(`Failed to extract text from ${document.filename}:`, error);
             }
-            if (!extractedText) return "";
-            return `\n\nThe user has attached a document titled '${document.filename}'. Here is the full content:\n\n---BEGIN DOCUMENT---\n${extractedText}\n---END DOCUMENT---\n\nAnswer the user's question based on this document. If they say "analyse this" or similar, provide a thorough analysis of the document content above.`;
+            if (!extractedText) {
+              console.warn(`[Document] No text extracted for ${document.filename} (extractedText: ${!!document.extractedText}, content: ${!!document.content}, dataUrl: ${!!document.dataUrl})`);
+              return "";
+            }
+            console.log(`[Document] Extracted ${extractedText.length} chars from ${document.filename}`);
+            return `\n\n--- ATTACHED DOCUMENT: ${document.filename} ---\n${extractedText}\n--- END DOCUMENT ---`;
           }
         )
       )
     : [];
   const documentContext = documentContexts.filter(Boolean).join("");
+  const documentPreamble = documentContext
+    ? "\n\nDOCUMENT CONTEXT:\nThe lawyer has attached the following document(s) for you to analyse. Read them carefully and answer the user's question based on their content. If they say \"analyse this\" or similar, provide a thorough analysis of the document content." + documentContext
+    : "";
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
   let usesCloudReasoning = !privacyMode && activeModel === "openai/gpt-oss-120b";
@@ -187,7 +194,10 @@ export async function POST(req: Request) {
   const legalResults = await legalSearchPromise;
   const legalContext = formatCasesForContext(legalResults.cases);
 
-  let systemMessage = `${finalSystemPrompt}${documentContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}`;
+  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}`;
+  if (documentPreamble) {
+    console.log(`[Chat] Document context injected: ${documentPreamble.length} chars`);
+  }
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },
@@ -219,12 +229,106 @@ export async function POST(req: Request) {
         clearTimeout(timeout);
         return geminiResponse;
       }
-      // Gemini 503/timeout — fall back to Lex Pro via Groq
+      // Gemini 503/timeout — fall back to Lex Pro via Z.ai
       const failedTierName = geminiModel === GEMINI_MAX_MODEL ? "Lex Max" : "Lex Ultra";
-      console.log(`[Gemini] ${failedTierName} unavailable, falling back to Lex Pro (Groq)`);
-      activeModel = "openai/gpt-oss-120b";
-      usesCloudReasoning = true;
+      console.log(`[Gemini] ${failedTierName} unavailable, falling back to Lex Pro (Z.ai)`);
+      activeModel = "glm-4-plus";
+      usesCloudReasoning = false;
       geminiToGroqFallbackTier = failedTierName;
+    }
+
+    // Z.ai provider (GLM-4 Plus) — OpenAI-compatible API
+    if (!privacyMode && activeModel === "glm-4-plus") {
+      const zaiApiKey = getConfiguredApiKey("ZAI_API_KEY");
+      if (!zaiApiKey) throw new Error("Missing ZAI_API_KEY");
+
+      const zaiResponse = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${zaiApiKey}`,
+        },
+        signal: abortController.signal,
+        body: JSON.stringify({
+          model: "glm-4-plus",
+          stream: true,
+          max_tokens: 4096,
+          messages: [
+            { role: "system", content: systemMessage },
+            ...initialMessages,
+            { role: "user", content: userContent },
+          ],
+        }),
+      });
+
+      clearTimeout(timeout);
+
+      if (!zaiResponse.ok || !zaiResponse.body) {
+        throw new Error(`Z.ai request failed: ${zaiResponse.status}`);
+      }
+
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      let zaiBuffer = "";
+      const zaiStream = new ReadableStream({
+        async start(controller) {
+          const reader = zaiResponse.body!.getReader();
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              zaiBuffer += decoder.decode(value, { stream: true });
+              const lines = zaiBuffer.split("\n");
+              zaiBuffer = lines.pop() || "";
+              for (const line of lines) {
+                flushSseToken(line, controller, encoder);
+              }
+            }
+            if (zaiBuffer.trim()) {
+              flushSseToken(zaiBuffer, controller, encoder);
+            }
+            if (shouldSearch) {
+              const state = tokenFlushState.get(controller);
+              const marker = formatWebSearchMarker(activeModel, webSearch.sources);
+              if (state) { state.buffer += `\n\n${marker}`; tokenFlushState.set(controller, state); }
+              else { controller.enqueue(encoder.encode(`0:${JSON.stringify(marker)}\n`)); }
+            }
+            if (Array.isArray(attachedDocuments)) {
+              const state = tokenFlushState.get(controller);
+              const markers = attachedDocuments.filter((d) => d?.filename).map((d) => `<document-analyzed filename="${d.filename}" />`).join("\n\n");
+              if (markers && state) { state.buffer += `\n\n${markers}`; tokenFlushState.set(controller, state); }
+              else if (markers) { controller.enqueue(encoder.encode(`0:${JSON.stringify(markers)}\n`)); }
+            }
+            {
+              const legalMarker = formatLegalSourcesMarker(legalResults);
+              if (legalMarker) {
+                const state = tokenFlushState.get(controller);
+                if (state) { state.buffer += `\n\n${legalMarker}`; tokenFlushState.set(controller, state); }
+                else { controller.enqueue(encoder.encode(`0:${JSON.stringify(legalMarker)}\n`)); }
+              }
+            }
+            const remaining = tokenFlushState.get(controller);
+            if (remaining) { remaining.buffer += flushThinkStripState(remaining.thinkStripState); }
+            if (remaining?.buffer) { controller.enqueue(encoder.encode(`0:${JSON.stringify(remaining.buffer)}\n`)); }
+            tokenFlushState.delete(controller);
+            controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: "stop", usage: { promptTokens: 0, completionTokens: 0 } })}\n`));
+            controller.close();
+          } catch (error) {
+            controller.error(error);
+          } finally {
+            reader.releaseLock();
+          }
+        },
+      });
+
+      const zaiHeaders: Record<string, string> = {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Vercel-AI-Data-Stream": "v1",
+      };
+      if (geminiToGroqFallbackTier) {
+        zaiHeaders["X-Gemini-Fallback"] = geminiToGroqFallbackTier;
+      }
+      return new Response(zaiStream, { headers: zaiHeaders });
     }
 
     const response = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
