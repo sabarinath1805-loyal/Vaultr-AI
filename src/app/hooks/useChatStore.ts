@@ -2,6 +2,7 @@ import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel } from "@/lib/models";
+import { safeStorage } from "@/lib/safe-storage";
 import { get, set, del } from "idb-keyval";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
@@ -156,15 +157,15 @@ const useChatStore = create<State & Actions>()(
       setOllamaUrl: (ollamaUrl) => set({ ollamaUrl }),
       setThinkingModeDefault: (enabled) => set({ thinkingModeDefault: enabled }),
       setThemePreference: (theme) => {
-        window.localStorage.setItem("vaultr-theme", theme);
+        safeStorage.setItem("vaultr-theme", theme);
         set({ themePreference: theme });
       },
       setDefaultModelPreference: (modelId) => {
-        window.localStorage.setItem("vaultr-default-model", modelId);
+        safeStorage.setItem("vaultr-default-model", modelId);
         set({ defaultModelPreference: modelId });
       },
       setAutoCleanupConversations: (enabled) => {
-        window.localStorage.setItem("vaultr-auto-cleanup", String(enabled));
+        safeStorage.setItem("vaultr-auto-cleanup", String(enabled));
         set({ autoCleanupConversations: enabled });
       },
 
@@ -212,8 +213,8 @@ const useChatStore = create<State & Actions>()(
           state.selectedModel === selectedModel ? state : { selectedModel }
         ),
       setCloudMode: (enabled, privateModel) => {
-        window.localStorage.setItem("vaultr-cloud-mode", String(enabled));
-        window.localStorage.setItem("vaultr-privacy-mode", String(!enabled));
+        safeStorage.setItem("vaultr-cloud-mode", String(enabled));
+        safeStorage.setItem("vaultr-privacy-mode", String(!enabled));
         set((state) => {
           const selectedModel = enabled
             ? GROQ_DEFAULT_MODEL
@@ -240,8 +241,8 @@ const useChatStore = create<State & Actions>()(
         });
       },
       setUsePrivacyMode: (enabled) => {
-        window.localStorage.setItem("vaultr-privacy-mode", String(enabled));
-        window.localStorage.setItem("vaultr-cloud-mode", String(!enabled));
+        safeStorage.setItem("vaultr-privacy-mode", String(enabled));
+        safeStorage.setItem("vaultr-cloud-mode", String(!enabled));
         set((state) => {
           const selectedModel = enabled ? state.selectedModel : GROQ_DEFAULT_MODEL;
           const defaultModelPreference = enabled
@@ -475,9 +476,9 @@ const useChatStore = create<State & Actions>()(
           ...currentState,
           cloudMode: (() => {
             if (typeof window !== "undefined") {
-              const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+              const savedCloudMode = safeStorage.getItem("vaultr-cloud-mode");
               if (savedCloudMode !== null) return savedCloudMode === "true";
-              const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+              const savedPrivacyMode = safeStorage.getItem("vaultr-privacy-mode");
               if (savedPrivacyMode !== null) return savedPrivacyMode !== "true";
             }
             if (typeof persisted.cloudMode === "boolean") return persisted.cloudMode;
@@ -486,9 +487,9 @@ const useChatStore = create<State & Actions>()(
           })(),
           usePrivacyMode: (() => {
             if (typeof window !== "undefined") {
-              const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+              const savedCloudMode = safeStorage.getItem("vaultr-cloud-mode");
               if (savedCloudMode !== null) return savedCloudMode !== "true";
-              const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+              const savedPrivacyMode = safeStorage.getItem("vaultr-privacy-mode");
               if (savedPrivacyMode !== null) return savedPrivacyMode === "true";
             }
             if (typeof persisted.cloudMode === "boolean") return !persisted.cloudMode;
@@ -498,9 +499,9 @@ const useChatStore = create<State & Actions>()(
           selectedModel: (() => {
             const cloudMode = (() => {
               if (typeof window !== "undefined") {
-                const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+                const savedCloudMode = safeStorage.getItem("vaultr-cloud-mode");
                 if (savedCloudMode !== null) return savedCloudMode === "true";
-                const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+                const savedPrivacyMode = safeStorage.getItem("vaultr-privacy-mode");
                 if (savedPrivacyMode !== null) return savedPrivacyMode !== "true";
               }
               if (typeof persisted.cloudMode === "boolean") return persisted.cloudMode;
@@ -547,7 +548,7 @@ const useChatStore = create<State & Actions>()(
               : currentState.thinkingModeDefault,
           themePreference:
             (typeof window !== "undefined" &&
-              (window.localStorage.getItem("vaultr-theme") as
+              (safeStorage.getItem("vaultr-theme") as
                 | "light"
                 | "dark"
                 | "system"
@@ -557,9 +558,9 @@ const useChatStore = create<State & Actions>()(
           defaultModelPreference: (() => {
             const cloudMode = (() => {
               if (typeof window !== "undefined") {
-                const savedCloudMode = window.localStorage.getItem("vaultr-cloud-mode");
+                const savedCloudMode = safeStorage.getItem("vaultr-cloud-mode");
                 if (savedCloudMode !== null) return savedCloudMode === "true";
-                const savedPrivacyMode = window.localStorage.getItem("vaultr-privacy-mode");
+                const savedPrivacyMode = safeStorage.getItem("vaultr-privacy-mode");
                 if (savedPrivacyMode !== null) return savedPrivacyMode !== "true";
               }
               if (typeof persisted.cloudMode === "boolean") return persisted.cloudMode;
@@ -569,15 +570,15 @@ const useChatStore = create<State & Actions>()(
             if (cloudMode) return GROQ_DEFAULT_MODEL;
             const model =
               (typeof window !== "undefined" &&
-                window.localStorage.getItem("vaultr-default-model")) ||
+                safeStorage.getItem("vaultr-default-model")) ||
               persisted.defaultModelPreference ||
               currentState.defaultModelPreference;
             return isLexModel(model) ? model : currentState.defaultModelPreference;
           })(),
           autoCleanupConversations:
             typeof window !== "undefined" &&
-            window.localStorage.getItem("vaultr-auto-cleanup") !== null
-              ? window.localStorage.getItem("vaultr-auto-cleanup") === "true"
+            safeStorage.getItem("vaultr-auto-cleanup") !== null
+              ? safeStorage.getItem("vaultr-auto-cleanup") === "true"
               : typeof persisted.autoCleanupConversations === "boolean"
               ? persisted.autoCleanupConversations
               : currentState.autoCleanupConversations,
@@ -612,5 +613,3 @@ const indexedDBStorage = {
     }
   },
 };
-
-export { safeStorage } from "@/lib/safe-storage";
