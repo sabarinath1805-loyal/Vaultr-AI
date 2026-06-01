@@ -13,6 +13,8 @@ import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import { SourcesFooter } from "@/components/chat/reasoning-timeline";
+import { LegalSourcesPanel } from "@/components/legal-sources-panel";
+import type { LegalSearchResult } from "@/lib/legal-search";
 import { ThinkingIndicator } from "./thinking-indicator";
 
 function LexAvatar() {
@@ -40,13 +42,15 @@ export type ChatMessageProps = {
   isLast: boolean;
   isLoading: boolean | undefined;
   showThinking?: boolean;
+  legalSources?: LegalSearchResult | null;
+  isSearchingLegal?: boolean;
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
   onEditMessage: (messageId: string, content: string) => void;
 };
 
-function ChatMessage({ message, isLast, isLoading, showThinking, reload, onEditMessage }: ChatMessageProps) {
+function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, isSearchingLegal, reload, onEditMessage }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [editing, setEditing] = useState(false);
   const [draftContent, setDraftContent] = useState(message.content);
@@ -300,6 +304,12 @@ function ChatMessage({ message, isLast, isLoading, showThinking, reload, onEditM
             {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
             )}
+            {!isCurrentlyStreaming && (legalSources || isSearchingLegal) && (
+              <LegalSourcesPanel
+                searchResult={legalSources || null}
+                isLoading={isSearchingLegal || false}
+              />
+            )}
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
               {timestamp && <div>{timestamp}</div>}
               {documentAnalyzed.map((match) => (
@@ -346,6 +356,8 @@ export default memo(ChatMessage, (prevProps, nextProps) =>
   prevProps.isLast === nextProps.isLast &&
   prevProps.isLoading === nextProps.isLoading &&
   prevProps.showThinking === nextProps.showThinking &&
+  prevProps.legalSources === nextProps.legalSources &&
+  prevProps.isSearchingLegal === nextProps.isSearchingLegal &&
   prevProps.message.content === nextProps.message.content &&
   prevProps.message.id === nextProps.message.id
 );
