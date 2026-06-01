@@ -13,6 +13,9 @@ import {
   sortModelsByLexOrder,
 } from "@/lib/models";
 import useChatStore from "@/app/hooks/useChatStore";
+import { toast } from "sonner";
+
+let privateWarningShown = false;
 
 interface ModelSelectorProps {
   disabled?: boolean;
@@ -161,6 +164,10 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                       onClick={() => {
                         setSelectedModel(modelId);
                         setOpen(false);
+                        if (!privateWarningShown) {
+                          privateWarningShown = true;
+                          toast("Private Mode runs entirely on your device. Responses may be slower depending on your machine.", { duration: 6000 });
+                        }
                       }}
                       className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-black/5"
                     >
