@@ -25,7 +25,7 @@ export interface GroqModel {
 
 export const GROQ_DEFAULT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 export const GEMINI_ULTRA_MODEL = "gemini-2.5-flash";
-export const GEMINI_MAX_MODEL = "gemini-3.5-flash";
+export const GEMINI_MAX_MODEL = "gemini-3.0-flash";
 
 export const GROQ_MODELS: GroqModel[] = [
   {

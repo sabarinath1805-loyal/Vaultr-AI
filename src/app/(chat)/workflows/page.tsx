@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Check, ChevronDown, MoreHorizontal, Plus, Search } from "lucide-react";
+import { useMemo, useRef, useState, useEffect } from "react";
+import { Check, ChevronDown, Copy, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 import useChatStore from "@/app/hooks/useChatStore";
-import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
+import type { AttachedWorkflow, CustomWorkflow } from "@/app/hooks/useChatStore";
 import { safeStorage } from "@/lib/safe-storage";
 import { BUILT_IN_WORKFLOWS } from "@/components/workflows/builtin-workflows";
 
@@ -34,6 +34,8 @@ export default function WorkflowsPage() {
   }));
   const [selected, setSelected] = useState<WorkflowRow | null>(builtInRows[0]);
   const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const deleteCustomWorkflow = useChatStore((state) => state.deleteCustomWorkflow);
   const router = useRouter();
   const setPendingWorkflow = useChatStore((state) => state.setPendingWorkflow);
   const resetComposerState = useChatStore((state) => state.resetComposerState);
@@ -89,7 +91,7 @@ export default function WorkflowsPage() {
 
   return (
     <main className="flex h-screen overflow-hidden bg-[var(--bg)]">
-      <section className="flex min-w-0 flex-1 flex-col">
+      <section className="flex min-w-0 flex-1 flex-col" onClick={() => {/* close any open menus via document click */}}>
         <div className="flex items-center justify-between px-8 py-4">
           <h1 className="text-[28px] font-normal text-[var(--text)]">Workflows</h1>
           <div className="flex items-center gap-2">
@@ -150,11 +152,13 @@ export default function WorkflowsPage() {
             <div className="px-8 py-12 text-center text-[28px] font-normal text-[var(--text)]">No workflows found</div>
           ) : (
             filtered.map((workflow) => (
-              <button
+              <div
                 key={workflow.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setSelected(workflow)}
-                className={`grid w-full grid-cols-[360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-[14px] text-left transition-colors hover:bg-[var(--bg-tertiary)] ${
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setSelected(workflow); }}
+                className={`grid w-full cursor-pointer grid-cols-[360px_220px_160px_40px] items-center border-b border-[var(--border)] px-8 py-[14px] text-left transition-colors hover:bg-[var(--bg-tertiary)] ${
                   selected?.id === workflow.id ? "bg-[var(--sidebar-bg)]" : ""
                 }`}
               >
@@ -163,8 +167,17 @@ export default function WorkflowsPage() {
                 <div className="text-[13px] text-[var(--text-muted)]">
                   {workflow.source}
                 </div>
-                <div className="text-[var(--text-faint)]"><MoreHorizontal className="h-4 w-4" /></div>
-              </button>
+                <WorkflowMenu
+                  workflow={workflow}
+                  onView={() => setSelected(workflow)}
+                  onDuplicate={() => {
+                    const saved = addCustomWorkflow({ title: `Copy of ${workflow.title}`, prompt: workflow.prompt, requireDocumentUpload: workflow.requireDocumentUpload });
+                    setSelected({ ...saved, practice: "Custom", source: "Custom" });
+                    setActiveTab("custom");
+                  }}
+                  onDelete={() => setConfirmDeleteId(workflow.id)}
+                />
+              </div>
             ))
           )}
         </div>
@@ -199,6 +212,30 @@ export default function WorkflowsPage() {
             </button>
           </div>
         </aside>
+      )}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={() => setConfirmDeleteId(null)}>
+          <div className="w-[380px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 shadow-[0_8px_32px_var(--shadow-modal)]" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-medium text-[var(--text)]">Delete Workflow</h2>
+            <p className="mt-2 text-sm text-[var(--text-muted)]">Are you sure you want to delete this workflow? This cannot be undone.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={() => setConfirmDeleteId(null)} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteCustomWorkflow(confirmDeleteId);
+                  if (selected?.id === confirmDeleteId) setSelected(null);
+                  setConfirmDeleteId(null);
+                }}
+                className="rounded-[var(--radius-sm)] bg-[var(--danger)] px-4 py-2 text-[13px] font-medium text-white hover:opacity-90"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {newWorkflowOpen && (
         <NewWorkflowModal
@@ -277,6 +314,73 @@ function NewWorkflowModal({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function WorkflowMenu({
+  workflow,
+  onView,
+  onDuplicate,
+  onDelete,
+}: {
+  workflow: WorkflowRow;
+  onView: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const isBuiltIn = workflow.source === "Vaultr";
+
+  return (
+    <div ref={menuRef} className="relative" onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((prev) => !prev); }}
+        className="text-[var(--text-faint)] hover:text-[var(--text-muted)]"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
+      {open && (
+        <div className="absolute right-0 top-6 z-50 min-w-[140px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onView(); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+          >
+            <Eye className="h-3.5 w-3.5" /> View
+          </button>
+          {!isBuiltIn && (
+            <>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onDuplicate(); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+              >
+                <Copy className="h-3.5 w-3.5" /> Duplicate
+              </button>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onDelete(); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--danger)] hover:bg-[var(--danger-bg)]"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
