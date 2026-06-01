@@ -613,47 +613,4 @@ const indexedDBStorage = {
   },
 };
 
-const safeLocalStorage = {
-  getItem: (name: string) => {
-    if (typeof window === "undefined") return null;
-    try {
-      return window.localStorage.getItem(name);
-    } catch {
-      return null;
-    }
-  },
-  setItem: (name: string, value: string) => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem(name, value);
-    } catch (error) {
-      if (!isQuotaExceededError(error)) return; // non-quota errors: silent fail
-      // Quota exceeded — clear the key and retry once
-      try {
-        window.localStorage.removeItem(name);
-        window.dispatchEvent(new Event("vaultr-local-storage-quota-cleared"));
-        window.localStorage.setItem(name, value);
-      } catch {
-        /* silent fail — storage genuinely unavailable */
-      }
-    }
-  },
-  removeItem: (name: string) => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.removeItem(name);
-    } catch {
-      /* silent fail */
-    }
-  },
-};
-
-function isQuotaExceededError(error: unknown) {
-  return (
-    error instanceof DOMException &&
-    (error.name === "QuotaExceededError" ||
-      error.name === "NS_ERROR_DOM_QUOTA_REACHED" ||
-      error.code === 22 ||
-      error.code === 1014)
-  );
-}
+export { safeStorage } from "@/lib/safe-storage";
