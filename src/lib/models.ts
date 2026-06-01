@@ -25,7 +25,7 @@ export interface GroqModel {
 
 export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
 export const GEMINI_ULTRA_MODEL = "gemini-2.5-flash";
-export const GEMINI_MAX_MODEL = "gemini-2.0-flash";
+export const GEMINI_MAX_MODEL = "gemini-2.5-flash-preview-05-20";
 
 export const GROQ_MODELS: GroqModel[] = [
   {
@@ -62,7 +62,7 @@ export const GROQ_MODELS: GroqModel[] = [
     provider: "gemini",
     badge: "Max",
     color: "#C9A84C",
-    description: "Gemini 2.0 Flash — most powerful. Deep legal analysis.",
+    description: "Gemini 2.5 Flash Preview — most powerful. Deep legal analysis.",
   },
 ];
 
