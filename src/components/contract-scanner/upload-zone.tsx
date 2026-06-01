@@ -98,7 +98,7 @@ export function UploadZone({
             Drop your contract here or click to upload
           </div>
           <div className="mt-1 text-xs text-[var(--text-faint)]">
-            PDF, DOCX, TXT · Max 10MB · Stays on your device
+            PDF, DOCX, TXT · Max 50MB · Stays on your device
           </div>
           <div className="mt-3 flex items-center justify-center gap-1.5">
             {[

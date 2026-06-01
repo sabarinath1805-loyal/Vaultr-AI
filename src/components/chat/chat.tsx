@@ -106,6 +106,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const setBase64Images = useChatStore((state) => state.setBase64Images);
   const selectedModel = useChatStore((state) => state.selectedModel);
   const cloudMode = useChatStore((state) => state.cloudMode);
+  const defaultJurisdiction = useChatStore((state) => state.defaultJurisdiction);
   const pendingWorkflow = useChatStore((state) => state.pendingWorkflow);
   const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
   const pendingComposerText = useChatStore((state) => state.pendingComposerText);
@@ -582,6 +583,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       ollamaUrl: requestBody?.ollamaUrl,
       jurisdictionPrompt: requestBody?.jurisdictionPrompt,
       selectedSources: requestBody?.selectedSources,
+      defaultJurisdiction,
       directStream: shouldDirectStreamLexMax,
       ...(base64Images ? { data: { images: base64Images } } : {}),
     };
