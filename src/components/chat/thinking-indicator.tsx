@@ -14,7 +14,7 @@ export function ThinkingIndicator({ visible }: ThinkingIndicatorProps) {
       }`}
       data-testid="lex-thinking-indicator"
     >
-      <span className="font-semibold leading-none" style={{ fontSize: '20px' }}>✳</span>
+      <span className="font-semibold leading-none" style={{ fontSize: '24px' }}>✳</span>
       <span aria-hidden="true" className="w-2" />
       <span className="font-semibold leading-none" style={{ fontSize: '14px' }}>Lex is thinking</span>
       <span aria-hidden="true" className="w-2" />
