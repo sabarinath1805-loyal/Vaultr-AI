@@ -418,8 +418,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           createdAt: assistantMessage.createdAt,
         };
 
-        // Extract legal sources marker from raw stream content
-        const legalSourcesMatch = rawBufferedContentRef.current.match(/<legal-sources\s+data="([^"]+)"\s*\/>/);
+        // Extract legal sources marker from raw stream content (check both raw and buffered)
+        const rawContent = rawBufferedContentRef.current + (lineBuffer || "");
+        const legalSourcesMatch = rawContent.match(/<legal-sources\s+data="([^"]*?)"\s*\/>/);
         if (legalSourcesMatch) {
           try {
             const legalData = JSON.parse(decodeURIComponent(legalSourcesMatch[1])) as LegalSearchResult;
@@ -429,8 +430,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 [finalAssistantMessage.id]: legalData,
               }));
             }
-          } catch {
-            // Ignore parse errors
+          } catch (e) {
+            console.error("Failed to parse legal sources:", e);
           }
         }
         setSearchingLegalMessageId(null);

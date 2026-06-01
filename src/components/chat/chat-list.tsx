@@ -60,7 +60,7 @@ export default function ChatList({
           element.scrollHeight - element.scrollTop - element.clientHeight;
         setIsNearBottom(distanceFromBottom < 100);
       }}
-      className="h-full overflow-y-auto px-6 pb-[120px] pt-20"
+      className="h-full overflow-y-auto px-6 pb-[140px] pt-20"
     >
       <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
         <div className="flex flex-col">

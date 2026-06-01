@@ -57,7 +57,7 @@ const NO_SEARCH_TRIGGERS = [
   "settled law",
 ];
 
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-3.5-flash"];
 
 const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*[\(\["“']?\s*(?:Open with a direct one-sentence verdict[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Break into clearly labelled sections[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|End with a ["“]?Recommended Next Steps["”]? section[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Simple questions and greetings[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Complex legal analysis[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Will perform web search[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search query:[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Search results[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|I'll simulate[^\n]*(?:[\)\]"”']?\s*(?:\n|$))|Searching\.\.\.[^\n]*(?:[\)\]"”']?\s*(?:\n|$)))/gi;
 const LEX_IDENTITY_LEAK_REGEX = /(?:^|\n)\s*(?:You are Lex, a private AI legal assistant built into Vaultr[^\n]*(?:\n|$)|PERSONALITY:\s*(?:\n|$)|RESPONSE STYLE:\s*(?:\n|$))/gi;
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
   const cloudModel = isCloudModel(requestedModel)
     ? requestedModel
     : process.env.GROQ_DEFAULT_MODEL || GROQ_DEFAULT_MODEL;
-  const activeModel = privacyMode ? requestedModel : cloudModel;
+  let activeModel = privacyMode ? requestedModel : cloudModel;
   const geminiModel = GEMINI_MODELS.includes(activeModel || "") && isGeminiModel(activeModel)
     ? activeModel
     : null;
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
   const documentContext = documentContexts.filter(Boolean).join("");
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
-  const usesCloudReasoning = !privacyMode && activeModel === "qwen/qwen3-32b";
+  let usesCloudReasoning = !privacyMode && activeModel === "qwen/qwen3-32b";
   const recentDataFallback =
     "\n\nIf asked about recent events or news and you don't have real-time data, respond in one sentence: \"I don't have real-time data on that — want me to search?\" Do not write a long explanation about your training cutoff.";
   const baseSystemPrompt =
@@ -185,7 +185,7 @@ export async function POST(req: Request) {
   const legalResults = await legalSearchPromise;
   const legalContext = formatCasesForContext(legalResults.cases);
 
-  const systemMessage = `${finalSystemPrompt}${documentContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}`;
+  let systemMessage = `${finalSystemPrompt}${documentContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}`;
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },
@@ -201,7 +201,7 @@ export async function POST(req: Request) {
 
   try {
     if (!privacyMode && geminiModel) {
-      const response = await streamGeminiResponse({
+      const geminiResponse = await streamGeminiResponse({
         model: geminiModel,
         systemMessage,
         initialMessages,
@@ -212,8 +212,15 @@ export async function POST(req: Request) {
         attachedDocuments,
         legalResults,
       });
-      clearTimeout(timeout);
-      return response;
+      if (geminiResponse.status !== 503) {
+        clearTimeout(timeout);
+        return geminiResponse;
+      }
+      // Gemini 503 — fall back to Lex Pro via Groq
+      console.log("[Gemini 503] Falling back to Lex Pro (Groq)");
+      activeModel = "qwen/qwen3-32b";
+      usesCloudReasoning = true;
+      systemMessage = "⚠️ Lex Max is busy — responded with Lex Pro instead.\n\n" + systemMessage;
     }
 
     const response = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
@@ -411,25 +418,16 @@ async function streamGeminiResponse({
   } catch (err: unknown) {
     const status = (err as { status?: number })?.status ?? (err as { httpStatusCode?: number })?.httpStatusCode;
     if (status === 503) {
-      console.error("[Gemini 503] First attempt failed, retrying in 2s…", err);
-      await new Promise((r) => setTimeout(r, 2000));
+      console.error("[Gemini 503] First attempt failed, retrying in 500ms…", err);
+      await new Promise((r) => setTimeout(r, 500));
       try {
         result = await attemptStream();
       } catch (retryErr) {
-        console.error("[Gemini 503] Retry also failed:", retryErr);
-        const encoder = new TextEncoder();
-        return new Response(
-          new ReadableStream({
-            start(controller) {
-              const msg = "Lex Max is temporarily unavailable. Please try Lex Pro or try again in a moment.";
-              flushVisibleToken(msg, controller, encoder);
-              flushSseToken(null, controller, encoder);
-              controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: "stop", usage: { promptTokens: 0, completionTokens: 0 } })}\n`));
-              controller.close();
-            },
-          }),
-          { headers: { "Content-Type": "text/plain; charset=utf-8", "X-Vercel-AI-Data-Stream": "v1" } }
-        );
+        console.error("[Gemini 503] Retry also failed, signalling fallback", retryErr);
+        return new Response(JSON.stringify({ gemini503Fallback: true }), {
+          status: 503,
+          headers: { "Content-Type": "application/json" },
+        });
       }
     } else {
       throw err;
