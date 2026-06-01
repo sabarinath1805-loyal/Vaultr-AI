@@ -1,3 +1,5 @@
+import { safeStorage } from "@/lib/safe-storage";
+
 export interface Matter {
   id: string;
   name: string;
@@ -28,7 +30,7 @@ export interface MatterLinks {
 
 export function readMatters(): Matter[] {
   try {
-    const saved = window.localStorage.getItem(MATTERS_STORAGE_KEY);
+    const saved = safeStorage.getItem(MATTERS_STORAGE_KEY);
     return saved ? JSON.parse(saved) : [];
   } catch {
     return [];
@@ -36,12 +38,12 @@ export function readMatters(): Matter[] {
 }
 
 export function writeMatters(matters: Matter[]) {
-  window.localStorage.setItem(MATTERS_STORAGE_KEY, JSON.stringify(matters));
+  safeStorage.setItem(MATTERS_STORAGE_KEY, JSON.stringify(matters));
 }
 
 export function readMatterLinks(matterId: string): MatterLinks {
   try {
-    const saved = window.localStorage.getItem(MATTER_LINKS_STORAGE_KEY);
+    const saved = safeStorage.getItem(MATTER_LINKS_STORAGE_KEY);
     const allLinks = saved ? JSON.parse(saved) : {};
     return allLinks[matterId] || { documents: [], chats: [], scans: [] };
   } catch {
@@ -50,9 +52,9 @@ export function readMatterLinks(matterId: string): MatterLinks {
 }
 
 export function writeMatterLinks(matterId: string, links: MatterLinks) {
-  const saved = window.localStorage.getItem(MATTER_LINKS_STORAGE_KEY);
+  const saved = safeStorage.getItem(MATTER_LINKS_STORAGE_KEY);
   const allLinks = saved ? JSON.parse(saved) : {};
-  window.localStorage.setItem(
+  safeStorage.setItem(
     MATTER_LINKS_STORAGE_KEY,
     JSON.stringify({ ...allLinks, [matterId]: links })
   );

@@ -8,6 +8,7 @@ import remarkGfm from "remark-gfm";
 
 import useChatStore from "@/app/hooks/useChatStore";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
+import { safeStorage } from "@/lib/safe-storage";
 import { BUILT_IN_WORKFLOWS } from "@/components/workflows/builtin-workflows";
 
 type Tab = "all" | "builtin" | "custom";
@@ -72,12 +73,12 @@ export default function WorkflowsPage() {
     requestAnimationFrame(() => {
       setPendingWorkflow(nextWorkflow);
       if (typeof window !== "undefined") {
-        const storedState = window.localStorage.getItem("nextjs-ollama-ui-state");
+        const storedState = safeStorage.getItem("nextjs-ollama-ui-state");
         if (storedState) {
           try {
             const parsed = JSON.parse(storedState);
             parsed.state = { ...(parsed.state || {}), pendingWorkflow: nextWorkflow };
-            window.localStorage.setItem("nextjs-ollama-ui-state", JSON.stringify(parsed));
+            safeStorage.setItem("nextjs-ollama-ui-state", JSON.stringify(parsed));
           } catch {
           }
         }
