@@ -10,6 +10,7 @@ export const API_KEY_NAMES = [
   "SERPER_API_KEY",
   "GEMINI_API_KEY",
   "OLLAMA_API_KEY",
+  "ZAI_API_KEY",
 ] as const;
 
 export type ApiKeyName = (typeof API_KEY_NAMES)[number];

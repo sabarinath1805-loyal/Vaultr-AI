@@ -17,7 +17,7 @@ export interface GroqModel {
   id: string;
   name: string;
   groqId: string;
-  provider: "groq" | "gemini" | "ollama-cloud";
+  provider: "groq" | "gemini" | "ollama-cloud" | "zai";
   badge: string;
   color: string;
   description: string;
@@ -40,11 +40,11 @@ export const GROQ_MODELS: GroqModel[] = [
   {
     id: "groq-pro",
     name: "Lex Pro",
-    groqId: "openai/gpt-oss-120b",
-    provider: "groq",
+    groqId: "glm-4-plus",
+    provider: "zai",
     badge: "Pro",
     color: "#7F77DD",
-    description: "GPT OSS 120B — deep reasoning for complex analysis.",
+    description: "Z.ai GLM-4 Plus — powerful analysis for complex legal work.",
   },
   {
     id: "gemini-ultra",
