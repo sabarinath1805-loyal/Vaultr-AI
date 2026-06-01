@@ -279,7 +279,7 @@ export default function ContractScannerPage() {
                   id: "cloud" as ScannerMode,
                   title: "Cloud Mode",
                   icon: IconCloud,
-                  description: "Uses Groq llama-3.3-70b-versatile for fast analysis.",
+                  description: "Uses Lex Core for fast analysis.",
                   time: "~15 seconds",
                   note: "Processed by Groq. Zero data retention.",
                 },
