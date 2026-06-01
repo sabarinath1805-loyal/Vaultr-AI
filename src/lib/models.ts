@@ -23,7 +23,7 @@ export interface GroqModel {
   description: string;
 }
 
-export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+export const GROQ_DEFAULT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 export const GEMINI_ULTRA_MODEL = "gemini-2.5-flash";
 export const GEMINI_MAX_MODEL = "gemini-3.5-flash";
 
@@ -35,16 +35,16 @@ export const GROQ_MODELS: GroqModel[] = [
     provider: "groq",
     badge: "Core",
     color: "#378ADD",
-    description: "Best all-round. Default for most legal work.",
+    description: "Llama 4 Scout — fast all-round. Default for most legal work.",
   },
   {
     id: "groq-pro",
     name: "Lex Pro",
-    groqId: "qwen/qwen3-32b",
+    groqId: "openai/gpt-oss-120b",
     provider: "groq",
     badge: "Pro",
     color: "#7F77DD",
-    description: "Deep reasoning. Chain-of-thought for complex analysis.",
+    description: "GPT OSS 120B — deep reasoning for complex analysis.",
   },
   {
     id: "gemini-ultra",
