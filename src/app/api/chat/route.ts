@@ -400,7 +400,42 @@ async function streamGeminiResponse({
     })),
     { role: "user", parts: [{ text: userMessage }] },
   ];
-  const result = await generativeModel.generateContentStream({ contents });
+
+  async function attemptStream() {
+    return generativeModel.generateContentStream({ contents });
+  }
+
+  let result: Awaited<ReturnType<typeof attemptStream>>;
+  try {
+    result = await attemptStream();
+  } catch (err: unknown) {
+    const status = (err as { status?: number })?.status ?? (err as { httpStatusCode?: number })?.httpStatusCode;
+    if (status === 503) {
+      console.error("[Gemini 503] First attempt failed, retrying in 2s…", err);
+      await new Promise((r) => setTimeout(r, 2000));
+      try {
+        result = await attemptStream();
+      } catch (retryErr) {
+        console.error("[Gemini 503] Retry also failed:", retryErr);
+        const encoder = new TextEncoder();
+        return new Response(
+          new ReadableStream({
+            start(controller) {
+              const msg = "Lex Max is temporarily unavailable. Please try Lex Pro or try again in a moment.";
+              flushVisibleToken(msg, controller, encoder);
+              flushSseToken(null, controller, encoder);
+              controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: "stop", usage: { promptTokens: 0, completionTokens: 0 } })}\n`));
+              controller.close();
+            },
+          }),
+          { headers: { "Content-Type": "text/plain; charset=utf-8", "X-Vercel-AI-Data-Stream": "v1" } }
+        );
+      }
+    } else {
+      throw err;
+    }
+  }
+
   const encoder = new TextEncoder();
 
   return new Response(
