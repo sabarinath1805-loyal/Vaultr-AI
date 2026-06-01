@@ -15,7 +15,12 @@ import {
 import useChatStore from "@/app/hooks/useChatStore";
 import { toast } from "sonner";
 
-let privateWarningShown = false;
+function hasShownPrivateWarning(): boolean {
+  try { return sessionStorage.getItem("private-mode-warned") === "true"; } catch { return false; }
+}
+function markPrivateWarningShown(): void {
+  try { sessionStorage.setItem("private-mode-warned", "true"); } catch { /* ignore */ }
+}
 
 interface ModelSelectorProps {
   disabled?: boolean;
@@ -164,8 +169,8 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                       onClick={() => {
                         setSelectedModel(modelId);
                         setOpen(false);
-                        if (!privateWarningShown) {
-                          privateWarningShown = true;
+                        if (!hasShownPrivateWarning()) {
+                          markPrivateWarningShown();
                           toast("Private Mode runs entirely on your device. Responses may be slower depending on your machine.", { duration: 6000 });
                         }
                       }}

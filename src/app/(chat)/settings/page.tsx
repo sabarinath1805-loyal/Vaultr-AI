@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { GROQ_DEFAULT_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
+import { safeStorage } from "@/lib/safe-storage";
 
 type Tab = "account" | "appearance" | "lex" | "private-mode" | "data";
 
@@ -95,13 +96,13 @@ function AppearanceSettings() {
   const [fontSize, setFontSize] = useState<"small" | "medium" | "large">("medium");
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("vaultr-font-size");
+    const saved = safeStorage.getItem("vaultr-font-size");
     if (saved === "small" || saved === "medium" || saved === "large") setFontSize(saved);
   }, []);
 
   const changeFontSize = (size: "small" | "medium" | "large") => {
     setFontSize(size);
-    window.localStorage.setItem("vaultr-font-size", size);
+    safeStorage.setItem("vaultr-font-size", size);
     const root = document.documentElement;
     if (size === "small") root.style.fontSize = "14px";
     else if (size === "large") root.style.fontSize = "18px";

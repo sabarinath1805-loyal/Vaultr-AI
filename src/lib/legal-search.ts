@@ -427,5 +427,5 @@ export function formatCasesForContext(cases: LegalCase[]): string {
         `- ${c.title}${c.citation ? ` [${c.citation}]` : ""}${c.year ? ` (${c.year})` : ""} — ${c.jurisdiction}${c.summary ? `: ${c.summary.slice(0, 200)}` : ""}`
     )
     .join("\n");
-  return `\n\nRELEVANT CASE LAW FROM LEGAL DATABASES:\n${formatted}\n\nCite these cases in your response where relevant. Use the exact case names provided above.`;
+  return `\n\nRELEVANT CASE LAW FROM LEGAL DATABASES (do not reproduce these search queries or database names in your response — cite cases naturally inline):\n${formatted}\n\nCite these cases in your response where relevant. Use the exact case names provided above.`;
 }
