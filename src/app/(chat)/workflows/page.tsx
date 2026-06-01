@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 import { Check, ChevronDown, Copy, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
@@ -35,8 +35,29 @@ export default function WorkflowsPage() {
   const [selected, setSelected] = useState<WorkflowRow | null>(builtInRows[0]);
   const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [splitRatio, setSplitRatio] = useState(0.6); // 60% list / 40% prompt
+  const isDragging = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const deleteCustomWorkflow = useChatStore((state) => state.deleteCustomWorkflow);
   const router = useRouter();
+
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    const onMouseMove = (ev: MouseEvent) => {
+      if (!isDragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const ratio = (ev.clientX - rect.left) / rect.width;
+      setSplitRatio(Math.min(0.75, Math.max(0.4, ratio)));
+    };
+    const onMouseUp = () => {
+      isDragging.current = false;
+      document.removeEventListener("mousemove", onMouseMove);
+      document.removeEventListener("mouseup", onMouseUp);
+    };
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }, []);
   const setPendingWorkflow = useChatStore((state) => state.setPendingWorkflow);
   const resetComposerState = useChatStore((state) => state.resetComposerState);
   const customWorkflows = useChatStore((state) => state.customWorkflows);
@@ -80,8 +101,8 @@ export default function WorkflowsPage() {
   };
 
   return (
-    <main className="flex h-screen overflow-hidden bg-[var(--bg)]">
-      <section className="flex min-w-0 flex-1 flex-col" onClick={() => {/* close any open menus via document click */}}>
+    <main ref={containerRef} className="flex h-screen overflow-hidden bg-[var(--bg)]">
+      <section className="flex min-w-0 flex-col" style={{ width: selected ? `${splitRatio * 100}%` : "100%" }} onClick={() => {/* close any open menus via document click */}}>
         <div className="flex items-center justify-between px-8 py-4">
           <h1 className="text-[28px] font-normal text-[var(--text)]">Workflows</h1>
           <div className="flex items-center gap-2">
@@ -174,7 +195,15 @@ export default function WorkflowsPage() {
       </section>
 
       {selected && (
-        <aside className="flex w-[420px] shrink-0 flex-col border-l border-[var(--border)] bg-[var(--sidebar-bg)]">
+        <>
+        {/* Draggable divider */}
+        <div
+          onMouseDown={handleDividerMouseDown}
+          className="flex w-1.5 shrink-0 cursor-col-resize items-center justify-center bg-[var(--border)] transition-colors hover:bg-[var(--text-faint)]"
+        >
+          <div className="h-8 w-0.5 rounded-full bg-[var(--text-faint)]" />
+        </div>
+        <aside className="flex shrink-0 flex-col bg-[var(--sidebar-bg)]" style={{ width: `${(1 - splitRatio) * 100}%`, minWidth: "25%" }}>
           <div className="border-b border-[var(--border)] px-5 py-4">
             <h2 className="text-[28px] font-normal text-[var(--text)]">Workflow Prompt</h2>
             <p className="mt-1 text-xs text-[var(--text-muted)]">{selected.title}</p>
@@ -202,6 +231,7 @@ export default function WorkflowsPage() {
             </button>
           </div>
         </aside>
+        </>
       )}
       {confirmDeleteId && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={() => setConfirmDeleteId(null)}>

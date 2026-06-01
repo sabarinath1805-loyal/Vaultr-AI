@@ -5,7 +5,7 @@ import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
 import { get, set, del } from "idb-keyval";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { persist } from "zustand/middleware";
 
 interface State {
   base64Images: string[] | null;
@@ -462,7 +462,32 @@ const useChatStore = create<State & Actions>()(
     }),
     {
       name: "nextjs-ollama-ui-state",
-      storage: createJSONStorage(() => indexedDBStorage),
+      storage: {
+        getItem: async (name: string) => {
+          try {
+            const raw = await indexedDBStorage.getItem(name);
+            if (raw === null) return null;
+            return JSON.parse(raw);
+          } catch (err) {
+            console.warn("Storage getItem failed (non-critical):", err);
+            return null;
+          }
+        },
+        setItem: async (name: string, value: unknown) => {
+          try {
+            await indexedDBStorage.setItem(name, JSON.stringify(value));
+          } catch (err) {
+            console.warn("Storage setItem failed (non-critical):", err);
+          }
+        },
+        removeItem: async (name: string) => {
+          try {
+            await indexedDBStorage.removeItem(name);
+          } catch (err) {
+            console.warn("Storage removeItem failed (non-critical):", err);
+          }
+        },
+      },
       partialize: (state) => ({
         selectedModel: state.selectedModel,
         cloudMode: state.cloudMode,
@@ -612,22 +637,23 @@ const indexedDBStorage = {
   getItem: async (name: string): Promise<string | null> => {
     try {
       return (await get(name)) ?? null;
-    } catch {
+    } catch (err) {
+      console.warn("Storage read failed (non-critical):", err);
       return null;
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
     try {
       await set(name, value);
-    } catch {
-      /* silent fail */
+    } catch (err) {
+      console.warn("Storage write failed (non-critical):", err);
     }
   },
   removeItem: async (name: string): Promise<void> => {
     try {
       await del(name);
-    } catch {
-      /* silent fail */
+    } catch (err) {
+      console.warn("Storage remove failed (non-critical):", err);
     }
   },
 };

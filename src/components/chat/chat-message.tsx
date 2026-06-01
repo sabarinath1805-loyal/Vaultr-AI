@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -7,7 +7,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { IconFileText } from "@tabler/icons-react";
-import { ChevronRight, Edit3, File, FileText, RefreshCcw } from "lucide-react";
+import { ChevronRight, Download, Edit3, File, FileText, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
@@ -16,6 +16,90 @@ import { SourcesFooter } from "@/components/chat/reasoning-timeline";
 import { LegalSourcesPanel } from "@/components/legal-sources-panel";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { ThinkingIndicator } from "./thinking-indicator";
+
+// Detect generate_docx tool calls in message content
+const DOCX_TOOL_REGEX = /generate_docx\s*\(\s*(\{[\s\S]*?\})\s*\)/g;
+const DOCX_JSON_REGEX = /\{\s*"tool_(?:code|name)"\s*:\s*"generate_docx"[\s\S]*?"(?:arguments|params|parameters)"\s*:\s*(\{[\s\S]*?\})\s*\}/g;
+
+function extractDocxCalls(content: string): { title: string; sections: unknown[]; landscape?: boolean }[] {
+  const results: { title: string; sections: unknown[]; landscape?: boolean }[] = [];
+  const patterns = [DOCX_TOOL_REGEX, DOCX_JSON_REGEX];
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    let match;
+    while ((match = pattern.exec(content)) !== null) {
+      try {
+        const parsed = JSON.parse(match[1]);
+        if (parsed.title && Array.isArray(parsed.sections)) {
+          results.push(parsed);
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  }
+  return results;
+}
+
+function DocxDownloadButton({ params }: { params: { title: string; sections: unknown[]; landscape?: boolean } }) {
+  const [status, setStatus] = useState<"idle" | "generating" | "ready" | "error">("idle");
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [filename, setFilename] = useState<string>("");
+
+  const generate = useCallback(async () => {
+    setStatus("generating");
+    try {
+      const response = await fetch("/api/generate-docx", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      if (!response.ok) throw new Error("Generation failed");
+      const data = await response.json();
+      setDownloadUrl(data.url);
+      setFilename(data.filename || `${params.title}.docx`);
+      setStatus("ready");
+    } catch {
+      setStatus("error");
+    }
+  }, [params]);
+
+  useEffect(() => {
+    generate();
+  }, [generate]);
+
+  if (status === "generating") {
+    return (
+      <div className="my-3 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--text-muted)]">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--text-muted)] border-t-transparent" />
+        Generating document...
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <div className="my-3 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--danger)] bg-[var(--danger-bg)] px-4 py-3 text-sm">
+        <span className="text-[var(--danger)]">Document generation failed.</span>
+        <button type="button" onClick={generate} className="text-[var(--accent)] hover:underline">Retry</button>
+      </div>
+    );
+  }
+
+  if (status === "ready" && downloadUrl) {
+    return (
+      <a
+        href={downloadUrl}
+        download={filename}
+        className="my-3 flex w-fit items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-muted)] no-underline"
+      >
+        <Download className="h-4 w-4 text-[var(--accent)]" />
+        <span>{filename}</span>
+        <span className="text-[var(--text-muted)]">— Download</span>
+      </a>
+    );
+  }
+
+  return null;
+}
 
 function LexAvatar() {
   return (
@@ -57,6 +141,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
   const router = useRouter();
 
   const cleanContent = useMemo(() => stripAssistantMarkup(message.content), [message.content]);
+  const docxCalls = useMemo(() => message.role === "assistant" ? extractDocxCalls(message.content) : [], [message.content, message.role]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
@@ -313,6 +398,13 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
             <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
+            {!isCurrentlyStreaming && docxCalls.length > 0 && (
+              <div className="mt-2">
+                {docxCalls.map((call, idx) => (
+                  <DocxDownloadButton key={`${message.id}-docx-${idx}`} params={call} />
+                ))}
+              </div>
+            )}
             {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
             )}
