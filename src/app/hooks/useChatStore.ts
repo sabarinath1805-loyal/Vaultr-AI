@@ -25,6 +25,7 @@ interface State {
   thinkingModeDefault: boolean;
   themePreference: "light" | "dark" | "system";
   defaultModelPreference: string;
+  defaultJurisdiction: string;
   autoCleanupConversations: boolean;
   isDownloading: boolean;
   downloadProgress: number;
@@ -65,6 +66,7 @@ interface Actions {
   setPendingAttachedDocumentIds: (documentIds: string[]) => void;
   setPendingWorkflow: (workflow: AttachedWorkflow | null) => void;
   addCustomWorkflow: (workflow: Omit<CustomWorkflow, "id" | "source">) => CustomWorkflow;
+  deleteCustomWorkflow: (workflowId: string) => void;
   resetComposerState: () => void;
   setSelectedModel: (selectedModel: string | null) => void;
   setCloudMode: (enabled: boolean, privateModel?: string | null) => void;
@@ -83,6 +85,7 @@ interface Actions {
   setThinkingModeDefault: (enabled: boolean) => void;
   setThemePreference: (theme: "light" | "dark" | "system") => void;
   setDefaultModelPreference: (modelId: string) => void;
+  setDefaultJurisdiction: (jurisdiction: string) => void;
   setAutoCleanupConversations: (enabled: boolean) => void;
   startDownload: (modelName: string) => void;
   stopDownload: () => void;
@@ -139,6 +142,7 @@ const useChatStore = create<State & Actions>()(
       thinkingModeDefault: false,
       themePreference: "light",
       defaultModelPreference: GROQ_DEFAULT_MODEL,
+      defaultJurisdiction: "us",
       autoCleanupConversations: false,
       isDownloading: false,
       downloadProgress: 0,
@@ -163,6 +167,10 @@ const useChatStore = create<State & Actions>()(
       setDefaultModelPreference: (modelId) => {
         safeStorage.setItem("vaultr-default-model", modelId);
         set({ defaultModelPreference: modelId });
+      },
+      setDefaultJurisdiction: (jurisdiction) => {
+        safeStorage.setItem("vaultr-default-jurisdiction", jurisdiction);
+        set({ defaultJurisdiction: jurisdiction });
       },
       setAutoCleanupConversations: (enabled) => {
         safeStorage.setItem("vaultr-auto-cleanup", String(enabled));
@@ -198,6 +206,11 @@ const useChatStore = create<State & Actions>()(
           customWorkflows: [customWorkflow, ...state.customWorkflows],
         }));
         return customWorkflow;
+      },
+      deleteCustomWorkflow: (workflowId) => {
+        set((state) => ({
+          customWorkflows: state.customWorkflows.filter((w) => w.id !== workflowId),
+        }));
       },
       resetComposerState: () =>
         set((state) => ({
@@ -460,6 +473,7 @@ const useChatStore = create<State & Actions>()(
         thinkingModeDefault: state.thinkingModeDefault,
         themePreference: state.themePreference,
         defaultModelPreference: state.defaultModelPreference,
+        defaultJurisdiction: state.defaultJurisdiction,
         autoCleanupConversations: state.autoCleanupConversations,
         scanProgress: state.scanProgress,
         scanningStep: state.scanningStep,
@@ -575,6 +589,10 @@ const useChatStore = create<State & Actions>()(
               currentState.defaultModelPreference;
             return isLexModel(model) ? model : currentState.defaultModelPreference;
           })(),
+          defaultJurisdiction:
+            (typeof window !== "undefined" && safeStorage.getItem("vaultr-default-jurisdiction")) ||
+            persisted.defaultJurisdiction ||
+            currentState.defaultJurisdiction,
           autoCleanupConversations:
             typeof window !== "undefined" &&
             safeStorage.getItem("vaultr-auto-cleanup") !== null
