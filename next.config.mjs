@@ -6,7 +6,9 @@ const nextConfig = {
   },
   devIndicators: false,
   reactStrictMode: false,
-  turbopack: {},
+  turbopack: {
+    root: ".",
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
