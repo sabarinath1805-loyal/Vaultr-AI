@@ -10,6 +10,9 @@ const SYSTEM_PROMPT_LEAK_REGEX = /(?:^|\n)\s*-?\s*(?:Open with a direct one-sent
 // e.g. "Will perform web search", "(I'll simulate searching)", "Fetching…"
 // appearing mid-response or wrapped in parentheses/brackets.
 const INLINE_SEARCH_PROCESS_REGEX = /[\(\[]?\s*(?:Will perform web search[^\n.!?]*|I['\u2019]ll simulate(?:\s+search(?:ing)?(?:\s+the\s+web)?)?[^\n.!?]*|\(I['\u2019]ll simulate[^)]*\)|Fetching[^\n.!?]*(?:results?|data|information)?[^\n.!?]*|Search(?:ing)? query\s*:[^\n]*|Search results?(?:\s+fetched)?[^\n]*)\s*[\)\]]?\n?/gi;
+// Matches JSON blocks containing tool_code or tool_name fields (raw tool calls leaked by LLM)
+const TOOL_CALL_JSON_REGEX = /```(?:json)?\s*\{[\s\S]*?(?:"tool_code"|"tool_name")[\s\S]*?\}\s*```/gi;
+const TOOL_CALL_BARE_JSON_REGEX = /\{\s*"(?:tool_code|tool_name)"\s*:[\s\S]*?\}(?:\s*\n?)/gi;
 
 export interface ThinkStripState {
   insideThink: boolean;
@@ -31,7 +34,7 @@ export function extractThinkContent(content: string) {
 }
 
 export function stripAssistantMarkup(content: string) {
-  return content
+  const cleaned = content
     .replace(THINK_BLOCK_REGEX, "")
     .replace(THINK_TAG_REGEX, "")
     .replace(DANGLING_THINK_TAG_REGEX, "")
@@ -41,7 +44,10 @@ export function stripAssistantMarkup(content: string) {
     .replace(SYSTEM_PROMPT_LEAK_REGEX, "")
     .replace(SEARCH_PREAMBLE_REGEX, "")
     .replace(INLINE_SEARCH_PROCESS_REGEX, "")
+    .replace(TOOL_CALL_JSON_REGEX, "")
+    .replace(TOOL_CALL_BARE_JSON_REGEX, "")
     .trim();
+  return stripPreamble(cleaned);
 }
 
 export function createThinkStripState(): ThinkStripState {
@@ -222,4 +228,25 @@ function getSearchPreambleBoundary(buffer: string) {
   if (lineMatch?.index !== undefined) return lineMatch.index + 1;
 
   return isOnlySearchProcessLine(buffer) ? buffer.length : -1;
+}
+
+const PREAMBLE_PATTERNS = [
+  /^What[''\u2019]s landed on your desk\?\s*/i,
+  /^What[''\u2019]s the matter\?\s*/i,
+  /^Talk to me\.\s*/i,
+  /^Go ahead\.\s*/i,
+  /^Ready when you are\.\s*/i,
+  /^Fire away\.\s*/i,
+  /^Here[''\u2019]s that .+ you asked for[,.]\s*/i,
+  /^Keep in mind[,.]\s*/i,
+];
+
+export function stripPreamble(content: string): string {
+  let result = content;
+  for (const pattern of PREAMBLE_PATTERNS) {
+    result = result.replace(pattern, "");
+  }
+  const stripped = result.trimStart();
+  if (stripped.length > 200) return stripped;
+  return content;
 }

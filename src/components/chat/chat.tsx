@@ -12,6 +12,7 @@ import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
+import { toast } from "sonner";
 
 type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
 const TYPEWRITER_CHARS_PER_SECOND = 500;
@@ -305,12 +306,23 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       console.error(error.message);
       if (error.cause) console.error(error.cause);
 
+      function getErrorMessage(err: Error): string {
+        if (typeof navigator !== "undefined" && !navigator.onLine) {
+          return "No internet connection. Check your network and try again.";
+        }
+        const msg = err.message || "";
+        if (msg.includes("503")) return "Lex is under high demand right now. Try again in a moment.";
+        if (msg.includes("401") || msg.includes("403")) return "Authentication error. Check your API keys in Settings.";
+        if (msg.includes("429")) return "Rate limit reached. Try switching to a different Lex tier.";
+        if (/timeout/i.test(msg)) return "Lex timed out. Try again or switch to a faster tier.";
+        if (!cloudMode) return "Lex is unavailable. Make sure Ollama is running and try again.";
+        return "Something went wrong. Try regenerating or switching models.";
+      }
+
       const errorMessage: Message = {
         id: generateId(),
         role: "assistant",
-        content: cloudMode
-          ? "Lex is unavailable. Check your internet connection and try again."
-          : "Lex is unavailable. Make sure Ollama is running and try again.",
+        content: getErrorMessage(error),
         createdAt: new Date(),
       };
 
@@ -354,6 +366,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
         if (!response.ok || !response.body) {
           throw new Error(`Chat request failed: ${response.status}`);
+        }
+
+        const fallbackTier = response.headers.get("X-Gemini-Fallback");
+        if (fallbackTier) {
+          toast(`${fallbackTier} is under high demand — responding with Lex Pro instead.`, {
+            duration: 5000,
+            style: { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid #d97706" },
+          });
         }
 
         const reader = response.body.getReader();
@@ -411,7 +431,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           }
         }
 
-        const finalAssistantMessage: Message = {
+        let finalAssistantMessage: Message = {
           ...assistantMessage,
           ...(activeAssistantMessageRef.current || {}),
           content: stripAssistantMarkup(bufferedAssistantContentRef.current),
@@ -436,10 +456,15 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         }
         setSearchingLegalMessageId(null);
 
+        if (!finalAssistantMessage.content.trim()) {
+          finalAssistantMessage = {
+            ...finalAssistantMessage,
+            content: "Lex didn't return a response. Try regenerating.",
+          };
+        }
+
         if (directStream) {
-          const nextMessages = finalAssistantMessage.content
-            ? [...requestMessages, finalAssistantMessage]
-            : requestMessages;
+          const nextMessages = [...requestMessages, finalAssistantMessage];
           setMessages(nextMessages);
           await saveMessages(id, nextMessages);
           if (!isOpenEmptyChat) router.replace(`/c/${id}`);

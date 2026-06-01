@@ -4,6 +4,7 @@ import { createOllama } from "ollama-ai-provider";
 import { streamText, type CoreMessage } from "ai";
 import {
   GROQ_DEFAULT_MODEL,
+  GEMINI_MAX_MODEL,
   isCloudModel,
   isGeminiModel,
   isLexModel,
@@ -163,7 +164,7 @@ export async function POST(req: Request) {
   const documentContext = documentContexts.filter(Boolean).join("");
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
-  let usesCloudReasoning = !privacyMode && activeModel === "qwen/qwen3-32b";
+  let usesCloudReasoning = !privacyMode && activeModel === "openai/gpt-oss-120b";
   const recentDataFallback =
     "\n\nIf asked about recent events or news and you don't have real-time data, respond in one sentence: \"I don't have real-time data on that — want me to search?\" Do not write a long explanation about your training cutoff.";
   const baseSystemPrompt =
@@ -198,6 +199,7 @@ export async function POST(req: Request) {
 
   const abortController = new AbortController();
   const timeout = setTimeout(() => abortController.abort(), 120_000);
+  let geminiToGroqFallbackTier: string | null = null;
 
   try {
     if (!privacyMode && geminiModel) {
@@ -216,11 +218,12 @@ export async function POST(req: Request) {
         clearTimeout(timeout);
         return geminiResponse;
       }
-      // Gemini 503 — fall back to Lex Pro via Groq
-      console.log("[Gemini 503] Falling back to Lex Pro (Groq)");
-      activeModel = "qwen/qwen3-32b";
+      // Gemini 503/timeout — fall back to Lex Pro via Groq
+      const failedTierName = geminiModel === GEMINI_MAX_MODEL ? "Lex Max" : "Lex Ultra";
+      console.log(`[Gemini] ${failedTierName} unavailable, falling back to Lex Pro (Groq)`);
+      activeModel = "openai/gpt-oss-120b";
       usesCloudReasoning = true;
-      systemMessage = "⚠️ Lex Max is busy — responded with Lex Pro instead.\n\n" + systemMessage;
+      geminiToGroqFallbackTier = failedTierName;
     }
 
     const response = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
@@ -346,12 +349,14 @@ export async function POST(req: Request) {
       },
     });
 
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "X-Vercel-AI-Data-Stream": "v1",
-      },
-    });
+    const responseHeaders: Record<string, string> = {
+      "Content-Type": "text/plain; charset=utf-8",
+      "X-Vercel-AI-Data-Stream": "v1",
+    };
+    if (geminiToGroqFallbackTier) {
+      responseHeaders["X-Gemini-Fallback"] = geminiToGroqFallbackTier;
+    }
+    return new Response(stream, { headers: responseHeaders });
   } catch {
     clearTimeout(timeout);
     return new Response(
@@ -408,30 +413,45 @@ async function streamGeminiResponse({
     { role: "user", parts: [{ text: userMessage }] },
   ];
 
+  const GEMINI_TIMEOUT_MS = 8000;
+
   async function attemptStream() {
     return generativeModel.generateContentStream({ contents });
   }
 
-  let result: Awaited<ReturnType<typeof attemptStream>>;
-  try {
-    result = await attemptStream();
-  } catch (err: unknown) {
-    const status = (err as { status?: number })?.status ?? (err as { httpStatusCode?: number })?.httpStatusCode;
-    if (status === 503) {
-      console.error("[Gemini 503] First attempt failed, retrying in 500ms…", err);
-      await new Promise((r) => setTimeout(r, 500));
-      try {
-        result = await attemptStream();
-      } catch (retryErr) {
-        console.error("[Gemini 503] Retry also failed, signalling fallback", retryErr);
-        return new Response(JSON.stringify({ gemini503Fallback: true }), {
-          status: 503,
-          headers: { "Content-Type": "application/json" },
-        });
+  async function attemptWithRetry(): Promise<Awaited<ReturnType<typeof attemptStream>>> {
+    try {
+      return await attemptStream();
+    } catch (err: unknown) {
+      const status = (err as { status?: number })?.status ?? (err as { httpStatusCode?: number })?.httpStatusCode;
+      if (status === 503) {
+        console.error("[Gemini 503] First attempt failed, retrying in 200ms…", err);
+        await new Promise((r) => setTimeout(r, 200));
+        return await attemptStream();
       }
-    } else {
       throw err;
     }
+  }
+
+  let result: Awaited<ReturnType<typeof attemptStream>>;
+  try {
+    result = await Promise.race([
+      attemptWithRetry(),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("GEMINI_TIMEOUT")), GEMINI_TIMEOUT_MS)
+      ),
+    ]);
+  } catch (err: unknown) {
+    const msg = (err as Error)?.message ?? "";
+    const status = (err as { status?: number })?.status ?? (err as { httpStatusCode?: number })?.httpStatusCode;
+    if (status === 503 || msg === "GEMINI_TIMEOUT") {
+      console.error(`[Gemini] Fallback triggered (${msg || "503"})`);
+      return new Response(JSON.stringify({ gemini503Fallback: true }), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+    throw err;
   }
 
   const encoder = new TextEncoder();
