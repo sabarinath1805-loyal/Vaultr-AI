@@ -6,6 +6,7 @@ import { generateUUID } from "@/lib/utils";
 import type { LocalDocument, LocalProject } from "@/lib/local-documents";
 import { getFileType } from "@/lib/local-documents";
 import { toast } from "sonner";
+import { safeStorage } from "@/lib/safe-storage";
 
 interface LocalVaultState {
   documents: LocalDocument[];
@@ -162,9 +163,7 @@ export async function rehydrateLocalVaultSafely() {
 
 async function resetLocalVaultPersistence() {
   try {
-    if (typeof window !== "undefined") {
-      window.localStorage.removeItem(LOCAL_VAULT_STORAGE_KEY);
-    }
+    safeStorage.removeItem(LOCAL_VAULT_STORAGE_KEY);
     await sqliteVaultStorage.setItem(LOCAL_VAULT_STORAGE_KEY, emptyPersistedVault);
   } finally {
     useLocalVaultStore.setState({ documents: [], projects: [] });
@@ -184,7 +183,7 @@ const sqliteVaultStorage = {
       const documents = Array.isArray(data.documents) ? data.documents : [];
       const projects = Array.isArray(data.projects) ? data.projects : [];
       if (documents.length > 0 || projects.length > 0) {
-        window.localStorage.removeItem(name);
+        safeStorage.removeItem(name);
         return JSON.stringify({ state: { documents, projects }, version: 1 });
       }
     } catch {
@@ -214,7 +213,7 @@ const sqliteVaultStorage = {
   },
   removeItem: async (name: string) => {
     if (typeof window === "undefined") return;
-    try { window.localStorage.removeItem(name); } catch { /* quota or access error */ }
+    safeStorage.removeItem(name);
     await fetch("/api/local-vault", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -224,8 +223,7 @@ const sqliteVaultStorage = {
 };
 
 function migrateLegacyLocalStorageVault(name: string) {
-  let legacyValue: string | null = null;
-  try { legacyValue = window.localStorage.getItem(name); } catch { return null; }
+  const legacyValue = safeStorage.getItem(name);
   if (!legacyValue) return null;
 
   try {
@@ -237,10 +235,10 @@ function migrateLegacyLocalStorageVault(name: string) {
     const projects = Array.isArray(parsed.state?.projects) ? parsed.state.projects : [];
     const nextValue = JSON.stringify({ state: { documents, projects }, version: 1 });
     void sqliteVaultStorage.setItem(name, nextValue);
-    try { window.localStorage.removeItem(name); } catch { /* silent */ }
+    safeStorage.removeItem(name);
     return nextValue;
   } catch {
-    try { window.localStorage.removeItem(name); } catch { /* silent */ }
+    safeStorage.removeItem(name);
     return emptyPersistedVault;
   }
 }

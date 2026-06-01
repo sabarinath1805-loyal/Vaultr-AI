@@ -135,7 +135,19 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(cleanContent);
+    const plain = cleanContent
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/\*(.*?)\*/g, "$1")
+      .replace(/`{3}[\s\S]*?`{3}/g, "")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^\d+\.\s+/gm, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+      .replace(/^>\s+/gm, "")
+      .replace(/---/g, "")
+      .trim();
+    navigator.clipboard.writeText(plain);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 1500);
   };
