@@ -16,6 +16,7 @@ import {
   stripAssistantStreamChunk,
 } from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
+import { searchLegalDatabases, formatCasesForContext } from "@/lib/legal-search";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -175,7 +176,16 @@ export async function POST(req: Request) {
   const jurisdictionContext = typeof jurisdictionPrompt === "string" && jurisdictionPrompt.trim()
     ? jurisdictionPrompt.trim()
     : "";
-  const systemMessage = `${finalSystemPrompt}${documentContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}`;
+  // Run legal database search in parallel (non-blocking)
+  const legalSearchPromise = !privacyMode
+    ? searchLegalDatabases(userMessage).catch(() => ({ cases: [], databases_searched: [], offline: false }))
+    : Promise.resolve({ cases: [], databases_searched: [], offline: false });
+
+  // Await legal results before building system message (fast due to parallel execution)
+  const legalResults = await legalSearchPromise;
+  const legalContext = formatCasesForContext(legalResults.cases);
+
+  const systemMessage = `${finalSystemPrompt}${documentContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}`;
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },
@@ -200,6 +210,7 @@ export async function POST(req: Request) {
         searchSources: webSearch.sources,
         activeModel,
         attachedDocuments,
+        legalResults,
       });
       clearTimeout(timeout);
       return response;
@@ -289,6 +300,18 @@ export async function POST(req: Request) {
               );
             }
           }
+          {
+            const legalMarker = formatLegalSourcesMarker(legalResults);
+            if (legalMarker) {
+              const state = tokenFlushState.get(controller);
+              if (state) {
+                state.buffer += `\n\n${legalMarker}`;
+                tokenFlushState.set(controller, state);
+              } else {
+                controller.enqueue(encoder.encode(`0:${JSON.stringify(legalMarker)}\n`));
+              }
+            }
+          }
           const remaining = tokenFlushState.get(controller);
           if (remaining) {
             remaining.buffer += flushThinkStripState(remaining.thinkStripState);
@@ -350,6 +373,7 @@ async function streamGeminiResponse({
   searchSources,
   activeModel,
   attachedDocuments,
+  legalResults,
 }: {
   model: string;
   systemMessage: string;
@@ -359,6 +383,7 @@ async function streamGeminiResponse({
   searchSources: WebSearchSource[];
   activeModel: string | null;
   attachedDocuments: { filename?: string }[] | undefined;
+  legalResults: { cases: { title: string; citation: string; year: string; jurisdiction: string; court: string; summary: string; url: string; source: string }[]; databases_searched: string[]; offline: boolean };
 }) {
   const apiKey = getConfiguredApiKey("GEMINI_API_KEY");
   if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
@@ -404,6 +429,7 @@ async function streamGeminiResponse({
                       `<document-analyzed filename="${document.filename}" />`
                   )
               : []),
+            formatLegalSourcesMarker(legalResults),
           ].filter(Boolean).join("\n\n");
           if (markers) {
             controller.enqueue(encoder.encode(`0:${JSON.stringify(markers)}\n`));
@@ -843,4 +869,9 @@ function formatWebSearchMarker(model: string | null, sources: WebSearchSource[])
     ? ` sources="${encodeURIComponent(JSON.stringify(sources))}"`
     : "";
   return `<web-search-used model="${model || ""}"${sourceAttribute} />`;
+}
+
+function formatLegalSourcesMarker(results: { cases: { title: string; citation: string; year: string; jurisdiction: string; court: string; summary: string; url: string; source: string }[]; databases_searched: string[]; offline: boolean }) {
+  if (results.cases.length === 0 && !results.offline) return "";
+  return `<legal-sources data="${encodeURIComponent(JSON.stringify(results))}" />`;
 }
