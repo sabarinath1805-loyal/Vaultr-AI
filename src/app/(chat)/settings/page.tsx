@@ -160,6 +160,20 @@ function LexSettings() {
   const setDefaultModelPreference = useChatStore((state) => state.setDefaultModelPreference);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
 
+  const defaultJurisdiction = useChatStore((state) => state.defaultJurisdiction);
+  const setDefaultJurisdiction = useChatStore((state) => state.setDefaultJurisdiction);
+
+  const jurisdictionOptions = [
+    { value: "us", label: "United States" },
+    { value: "uk", label: "United Kingdom" },
+    { value: "au", label: "Australia" },
+    { value: "ca", label: "Canada" },
+    { value: "in", label: "India" },
+    { value: "eu", label: "European Union" },
+    { value: "sg", label: "Singapore" },
+    { value: "int", label: "International" },
+  ];
+
   const defaultModelOptions = !cloudMode
     ? LEX_MODELS
         .filter(
@@ -211,13 +225,14 @@ function LexSettings() {
             <span className="mb-2 block text-sm text-[var(--text-muted)]">
               Jurisdiction for web search context
             </span>
-            <select className={fieldClass} defaultValue="us">
-              <option value="us">United States</option>
-              <option value="uk">United Kingdom</option>
-              <option value="au">Australia</option>
-              <option value="ca">Canada</option>
-              <option value="in">India</option>
-              <option value="eu">European Union</option>
+            <select
+              value={defaultJurisdiction}
+              onChange={(event) => setDefaultJurisdiction(event.target.value)}
+              className={fieldClass}
+            >
+              {jurisdictionOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
           </label>
         </div>
