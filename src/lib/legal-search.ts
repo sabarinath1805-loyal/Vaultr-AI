@@ -18,6 +18,39 @@ export interface LegalSearchResult {
   offline: boolean;
 }
 
+async function extractLegalQuery(userMessage: string): Promise<string> {
+  try {
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return userMessage;
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        messages: [
+          {
+            role: "system",
+            content:
+              "Extract 3-5 key legal search terms from this query. Return ONLY the search terms as a short phrase, nothing else. Focus on legal concepts, jurisdiction, and cause of action.",
+          },
+          { role: "user", content: userMessage },
+        ],
+        max_tokens: 50,
+        temperature: 0,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return userMessage;
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content?.trim() || userMessage;
+  } catch {
+    return userMessage;
+  }
+}
+
 // Detect if we're offline
 async function isOnline(): Promise<boolean> {
   try {
@@ -35,7 +68,7 @@ async function isOnline(): Promise<boolean> {
 async function searchCourtListener(query: string): Promise<LegalCase[]> {
   try {
     const response = await fetch(
-      `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(query)}&type=o&format=json&page_size=3`,
+      `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(query)}&type=o&format=json&page_size=3&semantic=true`,
       { signal: AbortSignal.timeout(8000) }
     );
     if (!response.ok) return [];
@@ -291,64 +324,56 @@ async function searchWorldLII(query: string): Promise<LegalCase[]> {
   }
 }
 
-// Detect if query is legal in nature (avoid querying DBs for casual chat)
+const JURISDICTION_DB_PRIORITY: Record<string, string[]> = {
+  us: ["courtlistener", "caselaw", "worldlii"],
+  uk: ["bailii", "commonlii", "courtlistener"],
+  au: ["austlii", "commonlii", "courtlistener"],
+  sg: ["sco", "commonlii", "courtlistener"],
+  eu: ["eurlex", "courtlistener", "worldlii"],
+  in: ["indiankanoon", "courtlistener", "worldlii"],
+  ca: ["commonlii", "courtlistener", "caselaw"],
+  int: ["worldlii", "commonlii", "courtlistener"],
+};
+
 function isLegalQuery(query: string): boolean {
   const legalKeywords = [
-    "law",
-    "legal",
-    "court",
-    "case",
-    "contract",
-    "clause",
-    "liability",
-    "statute",
-    "act",
-    "regulation",
-    "judgment",
-    "precedent",
-    "tort",
-    "breach",
-    "damages",
-    "negligence",
-    "defendant",
-    "plaintiff",
-    "appeal",
-    "jurisdiction",
-    "counsel",
-    "privilege",
-    "evidence",
-    "criminal",
-    "civil",
-    "employment",
-    "IP",
-    "patent",
-    "trademark",
-    "copyright",
-    "property",
-    "lease",
-    "tenancy",
-    "arbitration",
-    "injunction",
-    "affidavit",
-    "discovery",
-    "deposition",
-    "settlement",
-    "sued",
-    "sue",
-    "legal advice",
-    "solicitor",
-    "barrister",
-    "lawyer",
-    "attorney",
-    "judge",
+    // Core legal concepts
+    "law", "legal", "court", "case", "contract", "clause", "liability",
+    "statute", "act ", " act", "regulation", "judgment", "precedent",
+    // Tort/civil
+    "tort", "breach", "damages", "negligence", "defendant", "plaintiff",
+    "appeal", "jurisdiction", "injunction", "affidavit", "settlement",
+    // Criminal
+    "criminal", "offence", "offense", "prosecution", "conviction",
+    // Corporate/commercial
+    "shareholder", "director", "fiduciary", "incorporation", "winding up",
+    "liquidation", "insolvency", "oppression", "dividend",
+    // IP
+    "patent", "trademark", "copyright", "intellectual property",
+    // Property/real estate
+    "lease", "tenancy", "landlord", "tenant", "mortgage", "conveyance",
+    // Employment
+    "employment", "wrongful dismissal", "redundancy", "discrimination",
+    // Dispute resolution
+    "arbitration", "mediation", "litigation", "sue", "sued", "claim",
+    // Legal professionals
+    "solicitor", "barrister", "lawyer", "attorney", "counsel",
+    // Explicit legal question indicators
+    "legal options", "legal advice", "my rights", "am i liable",
+    "can i sue", "enforceable", "void", "voidable", "null and void",
+    "legal recourse", "cause of action",
   ];
   const lower = query.toLowerCase();
-  return legalKeywords.some((kw) => lower.includes(kw));
+  return legalKeywords.some((kw) => {
+    if (kw.includes(" ")) return lower.includes(kw);
+    return lower.split(/\W+/).includes(kw.trim());
+  });
 }
 
 // Main search function — queries all databases in parallel
 export async function searchLegalDatabases(
-  query: string
+  query: string,
+  jurisdiction?: string
 ): Promise<LegalSearchResult> {
   if (!isLegalQuery(query)) {
     return { cases: [], databases_searched: [], offline: false };
@@ -359,61 +384,58 @@ export async function searchLegalDatabases(
     return { cases: [], databases_searched: [], offline: true };
   }
 
-  const [
-    courtListenerResults,
-    caseLawResults,
-    eurLexResults,
-    indianKanoonResults,
-    bailiiResults,
-    austliiResults,
-    commonliiResults,
-    scoResults,
-    worldliiResults,
-  ] = await Promise.allSettled([
-    searchCourtListener(query),
-    searchCaseLaw(query),
-    searchEurLex(query),
-    searchIndianKanoon(query),
-    searchBAILII(query),
-    searchAustLII(query),
-    searchCommonLII(query),
-    searchSCO(query),
-    searchWorldLII(query),
-  ]);
+  const dbMap: Record<string, (q: string) => Promise<LegalCase[]>> = {
+    courtlistener: searchCourtListener,
+    caselaw: searchCaseLaw,
+    eurlex: searchEurLex,
+    indiankanoon: searchIndianKanoon,
+    bailii: searchBAILII,
+    austlii: searchAustLII,
+    commonlii: searchCommonLII,
+    sco: searchSCO,
+    worldlii: searchWorldLII,
+  };
+  const dbNames: Record<string, string> = {
+    courtlistener: "CourtListener",
+    caselaw: "Caselaw Access Project",
+    eurlex: "EUR-Lex",
+    indiankanoon: "Indian Kanoon",
+    bailii: "BAILII",
+    austlii: "AustLII",
+    commonlii: "CommonLII",
+    sco: "Singapore Courts",
+    worldlii: "WorldLII",
+  };
 
-  const allCases: LegalCase[] = [
-    ...(courtListenerResults.status === "fulfilled"
-      ? courtListenerResults.value
-      : []),
-    ...(caseLawResults.status === "fulfilled" ? caseLawResults.value : []),
-    ...(eurLexResults.status === "fulfilled" ? eurLexResults.value : []),
-    ...(indianKanoonResults.status === "fulfilled"
-      ? indianKanoonResults.value
-      : []),
-    ...(bailiiResults.status === "fulfilled" ? bailiiResults.value : []),
-    ...(austliiResults.status === "fulfilled" ? austliiResults.value : []),
-    ...(commonliiResults.status === "fulfilled"
-      ? commonliiResults.value
-      : []),
-    ...(scoResults.status === "fulfilled" ? scoResults.value : []),
-    ...(worldliiResults.status === "fulfilled" ? worldliiResults.value : []),
+  const extractedQuery = await extractLegalQuery(query);
+
+  const priority = JURISDICTION_DB_PRIORITY[jurisdiction || "us"] || JURISDICTION_DB_PRIORITY["us"];
+  const allDbKeys = Object.keys(dbMap);
+  const orderedKeys = [
+    ...priority,
+    ...allDbKeys.filter((k) => !priority.includes(k)),
   ];
 
-  const databasesSearched = [
-    "CourtListener",
-    "Caselaw Access Project",
-    "EUR-Lex",
-    "Indian Kanoon",
-    "BAILII",
-    "AustLII",
-    "CommonLII",
-    "Singapore Courts",
-    "WorldLII",
-  ];
+  const results = await Promise.allSettled(
+    orderedKeys.map((key) => dbMap[key](extractedQuery))
+  );
+
+  const priorityCases: LegalCase[] = [];
+  const otherCases: LegalCase[] = [];
+  results.forEach((result, index) => {
+    if (result.status !== "fulfilled") return;
+    if (index < priority.length) {
+      priorityCases.push(...result.value);
+    } else {
+      otherCases.push(...result.value);
+    }
+  });
+
+  const allCases = [...priorityCases, ...otherCases];
 
   return {
     cases: allCases.slice(0, 12),
-    databases_searched: databasesSearched,
+    databases_searched: orderedKeys.map((k) => dbNames[k]),
     offline: false,
   };
 }

@@ -13,7 +13,33 @@ import { getRiskCounts } from "@/lib/contract-scanner";
 import { GROQ_DEFAULT_MODEL } from "@/lib/models";
 import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = [".pdf", ".docx", ".txt"];
+const ALLOWED_TYPES = [
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "text/plain",
+];
+
+function validateFile(file: File): string | null {
+  const extension = "." + (file.name.split(".").pop()?.toLowerCase() || "");
+  if (!ALLOWED_EXTENSIONS.includes(extension) && !ALLOWED_TYPES.includes(file.type)) {
+    return `Only PDF, DOCX, and TXT files are supported. You uploaded a ${extension.toUpperCase()} file.`;
+  }
+  if (file.size > MAX_FILE_SIZE) {
+    return "File is too large. Maximum size is 50MB.";
+  }
+  return null;
+}
+
+function getContractScannerError(error: unknown): string {
+  const status = (error as Record<string, unknown>)?.status ?? (error as Record<string, unknown>)?.statusCode;
+  if (typeof navigator !== "undefined" && !navigator.onLine) return "No internet connection. Check your network and try again.";
+  if (status === 503) return "Lex is under high demand right now. Try again in a moment.";
+  if (status === 429) return "Rate limit reached. Try again in a few seconds.";
+  if (status === 401 || status === 403) return "Authentication error. Check your API keys in Settings.";
+  return "Contract scan failed. Try again or switch to a different mode.";
+}
 type ScannerMode = "cloud" | "private";
 const scanningSteps = [
   "Reading document...",
@@ -140,9 +166,10 @@ export default function ContractScannerPage() {
   const handleFileSelected = (selectedFile: File) => {
     setAnalysis(null);
     setActiveFilter("all");
-    if (selectedFile.size > MAX_FILE_SIZE) {
+    const validationError = validateFile(selectedFile);
+    if (validationError) {
       setFile(null);
-      setError("File too large. Please upload a contract under 10MB.");
+      setError(validationError);
       return;
     }
 
@@ -180,7 +207,7 @@ export default function ContractScannerPage() {
           status: response.status,
           body: data,
         });
-        setError(data?.error || "Lex is unavailable. Check your internet connection and try again.");
+        setError(data?.error || getContractScannerError({ status: response.status }));
         return;
       }
 
@@ -222,7 +249,7 @@ export default function ContractScannerPage() {
       setScanStartedAt(null);
     } catch (error) {
       console.error("Contract scan failed", error);
-      setError("Lex is unavailable. Check your internet connection and try again.");
+      setError(getContractScannerError(error));
       setScanProgress(0);
       setScanStartedAt(null);
     } finally {
