@@ -3,12 +3,15 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
 import { ThinkingIndicator } from "./thinking-indicator";
+import type { LegalSearchResult } from "@/lib/legal-search";
 
 interface ChatListProps {
   messages: Message[];
   isLoading: boolean;
   thinkingVisible: boolean;
   thinkingMessageId: string | null;
+  legalSourcesMap: Record<string, LegalSearchResult>;
+  searchingLegalMessageId: string | null;
   onEditMessage: (messageId: string, content: string) => void;
   reload: (
     chatRequestOptions?: ChatRequestOptions
@@ -20,6 +23,8 @@ export default function ChatList({
   isLoading,
   thinkingVisible,
   thinkingMessageId,
+  legalSourcesMap,
+  searchingLegalMessageId,
   onEditMessage,
   reload,
 }: ChatListProps) {
@@ -66,6 +71,8 @@ export default function ChatList({
               isLast={index === messages.length - 1}
               isLoading={isLoading}
               showThinking={showInlineThinking && index === messages.length - 1 && message.role === "assistant"}
+              legalSources={message.role === "assistant" ? legalSourcesMap[message.id] : undefined}
+              isSearchingLegal={message.role === "assistant" && message.id === searchingLegalMessageId}
               onEditMessage={onEditMessage}
               reload={reload}
             />
