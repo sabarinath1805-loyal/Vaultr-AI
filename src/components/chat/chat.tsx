@@ -11,6 +11,7 @@ import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
+import type { LegalSearchResult } from "@/lib/legal-search";
 
 type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
 const TYPEWRITER_CHARS_PER_SECOND = 500;
@@ -85,6 +86,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const [responseFlowState, setResponseFlowState] = React.useState<ResponseFlowState>("idle");
   const [thinkingMessageId, setThinkingMessageId] = React.useState<string | null>(null);
   const [directStreamingActive, setDirectStreamingActive] = React.useState(false);
+  const [legalSourcesMap, setLegalSourcesMap] = React.useState<Record<string, LegalSearchResult>>({});
+  const [searchingLegalMessageId, setSearchingLegalMessageId] = React.useState<string | null>(null);
   const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
   React.useEffect(() => {
     setHomeGreeting(getCounselorGreeting());
@@ -415,6 +418,23 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           createdAt: assistantMessage.createdAt,
         };
 
+        // Extract legal sources marker from raw stream content
+        const legalSourcesMatch = rawBufferedContentRef.current.match(/<legal-sources\s+data="([^"]+)"\s*\/>/);
+        if (legalSourcesMatch) {
+          try {
+            const legalData = JSON.parse(decodeURIComponent(legalSourcesMatch[1])) as LegalSearchResult;
+            if (legalData.cases.length > 0 || legalData.offline) {
+              setLegalSourcesMap((prev) => ({
+                ...prev,
+                [finalAssistantMessage.id]: legalData,
+              }));
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        }
+        setSearchingLegalMessageId(null);
+
         if (directStream) {
           const nextMessages = finalAssistantMessage.content
             ? [...requestMessages, finalAssistantMessage]
@@ -543,6 +563,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setInput("");
     void saveMessages(id, nextMessages);
     setBase64Images(null);
+
     void handleChatStream(requestPayload, userMessage, nextMessages, shouldDirectStreamLexMax);
   };
 
@@ -677,6 +698,8 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             isLoading={thinkingVisible || isLoading}
             thinkingVisible={thinkingVisible}
             thinkingMessageId={thinkingMessageId}
+            legalSourcesMap={legalSourcesMap}
+            searchingLegalMessageId={searchingLegalMessageId}
             onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();
