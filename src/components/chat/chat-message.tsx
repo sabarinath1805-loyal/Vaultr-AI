@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -7,7 +7,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { IconFileText } from "@tabler/icons-react";
-import { ChevronRight, Download, Edit3, File, FileText, RefreshCcw } from "lucide-react";
+import { ChevronRight, Download, Edit3, File, FileText, FileDown, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
@@ -99,6 +99,85 @@ function DocxDownloadButton({ params }: { params: { title: string; sections: unk
   }
 
   return null;
+}
+
+function ExportButtons({ content, messageId }: { content: string; messageId: string }) {
+  const [exporting, setExporting] = useState<"pdf" | "docx" | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const handleExport = useCallback(async (format: "pdf" | "docx") => {
+    setExporting(format);
+    setMenuOpen(false);
+    try {
+      const response = await fetch("/api/export-response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, format, title: "Lex Response" }),
+      });
+      if (!response.ok) throw new Error("Export failed");
+      const data = await response.json();
+      if (data.url) {
+        const a = document.createElement("a");
+        a.href = data.url;
+        a.download = data.filename || `lex-response.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    } catch {
+      console.error(`Failed to export as ${format}`);
+    } finally {
+      setExporting(null);
+    }
+  }, [content]);
+
+  if (!content || content.length < 20) return null;
+
+  return (
+    <div ref={menuRef} className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setMenuOpen((prev) => !prev)}
+        className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+        aria-label="Export response"
+        title="Export response"
+      >
+        {exporting ? (
+          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[var(--text-muted)] border-t-transparent" />
+        ) : (
+          <FileDown className="h-3.5 w-3.5" />
+        )}
+      </button>
+      {menuOpen && (
+        <div className="absolute bottom-6 left-0 z-50 min-w-[160px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={() => handleExport("pdf")}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-[var(--text)] hover:bg-[var(--surface)]"
+          >
+            <FileText className="h-3.5 w-3.5 text-[var(--danger)]" /> Download as PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => handleExport("docx")}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[12px] text-[var(--text)] hover:bg-[var(--surface)]"
+          >
+            <File className="h-3.5 w-3.5 text-[var(--blue,#378ADD)]" /> Export to Word
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function LexAvatar() {
@@ -437,6 +516,9 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                     <CopyIcon className="h-3.5 w-3.5" />
                   )}
                 </button>
+              )}
+              {!isLoading && (
+                <ExportButtons content={cleanContent} messageId={message.id} />
               )}
               {!isLoading && isLast && (
                 <button

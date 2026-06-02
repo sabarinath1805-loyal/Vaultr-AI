@@ -8,6 +8,8 @@ import {
   isCloudModel,
   isGeminiModel,
   isLexModel,
+  isOllamaCloudModel,
+  OLLAMA_CLOUD_FALLBACK_MODELS,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
 import {
@@ -229,106 +231,63 @@ export async function POST(req: Request) {
         clearTimeout(timeout);
         return geminiResponse;
       }
-      // Gemini 503/timeout — fall back to Lex Pro via Z.ai
+      // Gemini 503/timeout — fall back to Groq
       const failedTierName = geminiModel === GEMINI_MAX_MODEL ? "Lex Max" : "Lex Ultra";
-      console.log(`[Gemini] ${failedTierName} unavailable, falling back to Lex Pro (Z.ai)`);
-      activeModel = "glm-4-plus";
+      console.log(`[Gemini] ${failedTierName} unavailable, falling back to Groq`);
+      activeModel = GROQ_DEFAULT_MODEL;
       usesCloudReasoning = false;
       geminiToGroqFallbackTier = failedTierName;
     }
 
-    // Z.ai provider (GLM-4 Plus) — OpenAI-compatible API
-    if (!privacyMode && activeModel === "glm-4-plus") {
-      const zaiApiKey = getConfiguredApiKey("ZAI_API_KEY");
-      if (!zaiApiKey) throw new Error("Missing ZAI_API_KEY");
-
-      const zaiResponse = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${zaiApiKey}`,
-        },
-        signal: abortController.signal,
-        body: JSON.stringify({
-          model: "glm-4-plus",
-          stream: true,
-          max_tokens: 4096,
-          messages: [
-            { role: "system", content: systemMessage },
-            ...initialMessages,
-            { role: "user", content: userContent },
-          ],
-        }),
-      });
-
-      clearTimeout(timeout);
-
-      if (!zaiResponse.ok || !zaiResponse.body) {
-        throw new Error(`Z.ai request failed: ${zaiResponse.status}`);
-      }
-
-      const encoder = new TextEncoder();
-      const decoder = new TextDecoder();
-      let zaiBuffer = "";
-      const zaiStream = new ReadableStream({
-        async start(controller) {
-          const reader = zaiResponse.body!.getReader();
+    // Ollama Cloud provider
+    if (!privacyMode && isOllamaCloudModel(activeModel)) {
+      try {
+        const ollamaCloudResponse = await streamOllamaCloudResponse({
+          model: activeModel!,
+          systemMessage,
+          initialMessages,
+          userMessage,
+          shouldSearch,
+          searchSources: webSearch.sources,
+          activeModel,
+          attachedDocuments,
+          abortSignal: abortController.signal,
+        });
+        clearTimeout(timeout);
+        const ollamaHeaders: Record<string, string> = {};
+        ollamaCloudResponse.headers.forEach((v, k) => { ollamaHeaders[k] = v; });
+        if (geminiToGroqFallbackTier) {
+          ollamaHeaders["X-Gemini-Fallback"] = geminiToGroqFallbackTier;
+        }
+        return new Response(ollamaCloudResponse.body, { headers: ollamaHeaders });
+      } catch (ollamaErr) {
+        console.error(`[Ollama Cloud] ${activeModel} failed, trying next fallback model`, ollamaErr);
+        // Try fallback Ollama Cloud models in order
+        for (const fallbackModel of OLLAMA_CLOUD_FALLBACK_MODELS) {
+          if (fallbackModel === activeModel) continue;
           try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              zaiBuffer += decoder.decode(value, { stream: true });
-              const lines = zaiBuffer.split("\n");
-              zaiBuffer = lines.pop() || "";
-              for (const line of lines) {
-                flushSseToken(line, controller, encoder);
-              }
-            }
-            if (zaiBuffer.trim()) {
-              flushSseToken(zaiBuffer, controller, encoder);
-            }
-            if (shouldSearch) {
-              const state = tokenFlushState.get(controller);
-              const marker = formatWebSearchMarker(activeModel, webSearch.sources);
-              if (state) { state.buffer += `\n\n${marker}`; tokenFlushState.set(controller, state); }
-              else { controller.enqueue(encoder.encode(`0:${JSON.stringify(marker)}\n`)); }
-            }
-            if (Array.isArray(attachedDocuments)) {
-              const state = tokenFlushState.get(controller);
-              const markers = attachedDocuments.filter((d) => d?.filename).map((d) => `<document-analyzed filename="${d.filename}" />`).join("\n\n");
-              if (markers && state) { state.buffer += `\n\n${markers}`; tokenFlushState.set(controller, state); }
-              else if (markers) { controller.enqueue(encoder.encode(`0:${JSON.stringify(markers)}\n`)); }
-            }
-            {
-              const legalMarker = formatLegalSourcesMarker(legalResults);
-              if (legalMarker) {
-                const state = tokenFlushState.get(controller);
-                if (state) { state.buffer += `\n\n${legalMarker}`; tokenFlushState.set(controller, state); }
-                else { controller.enqueue(encoder.encode(`0:${JSON.stringify(legalMarker)}\n`)); }
-              }
-            }
-            const remaining = tokenFlushState.get(controller);
-            if (remaining) { remaining.buffer += flushThinkStripState(remaining.thinkStripState); }
-            if (remaining?.buffer) { controller.enqueue(encoder.encode(`0:${JSON.stringify(remaining.buffer)}\n`)); }
-            tokenFlushState.delete(controller);
-            controller.enqueue(encoder.encode(`d:${JSON.stringify({ finishReason: "stop", usage: { promptTokens: 0, completionTokens: 0 } })}\n`));
-            controller.close();
-          } catch (error) {
-            controller.error(error);
-          } finally {
-            reader.releaseLock();
+            const fbResponse = await streamOllamaCloudResponse({
+              model: fallbackModel,
+              systemMessage,
+              initialMessages,
+              userMessage,
+              shouldSearch,
+              searchSources: webSearch.sources,
+              activeModel,
+              attachedDocuments,
+              abortSignal: abortController.signal,
+            });
+            clearTimeout(timeout);
+            console.log(`[Ollama Cloud] Fallback to ${fallbackModel} succeeded`);
+            return fbResponse;
+          } catch {
+            console.error(`[Ollama Cloud] Fallback ${fallbackModel} also failed`);
           }
-        },
-      });
-
-      const zaiHeaders: Record<string, string> = {
-        "Content-Type": "text/plain; charset=utf-8",
-        "X-Vercel-AI-Data-Stream": "v1",
-      };
-      if (geminiToGroqFallbackTier) {
-        zaiHeaders["X-Gemini-Fallback"] = geminiToGroqFallbackTier;
+        }
+        // All Ollama Cloud models failed — fall through to Groq
+        console.log("[Ollama Cloud] All models failed, falling back to Groq");
+        activeModel = GROQ_DEFAULT_MODEL;
       }
-      return new Response(zaiStream, { headers: zaiHeaders });
     }
 
     const response = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
@@ -462,8 +421,34 @@ export async function POST(req: Request) {
       responseHeaders["X-Gemini-Fallback"] = geminiToGroqFallbackTier;
     }
     return new Response(stream, { headers: responseHeaders });
-  } catch {
+  } catch (primaryError) {
     clearTimeout(timeout);
+    // If not privacy mode, try Ollama Cloud as last-resort fallback
+    if (!privacyMode) {
+      for (const fallbackModel of OLLAMA_CLOUD_FALLBACK_MODELS) {
+        try {
+          console.log(`[Fallback] Primary provider failed, trying Ollama Cloud (${fallbackModel})`, primaryError);
+          const fbAbort = new AbortController();
+          const fbTimeout = setTimeout(() => fbAbort.abort(), 30_000);
+          const fbResponse = await streamOllamaCloudResponse({
+            model: fallbackModel,
+            systemMessage,
+            initialMessages,
+            userMessage,
+            shouldSearch,
+            searchSources: webSearch.sources,
+            activeModel,
+            attachedDocuments,
+            abortSignal: fbAbort.signal,
+          });
+          clearTimeout(fbTimeout);
+          console.log(`[Fallback] Ollama Cloud (${fallbackModel}) succeeded`);
+          return fbResponse;
+        } catch {
+          console.error(`[Fallback] Ollama Cloud (${fallbackModel}) also failed`);
+        }
+      }
+    }
     return new Response(
       `3:${JSON.stringify(
         privacyMode
@@ -661,11 +646,12 @@ async function streamOllamaCloudResponse({
       async start(controller) {
         try {
           for await (const part of result.fullStream) {
-            if (part.type === "reasoning" && part.textDelta) {
-              flushVisibleToken(`<think>${part.textDelta}</think>`, controller, encoder);
+            const p = part as { type: string; textDelta?: string };
+            if (p.type === "reasoning" && p.textDelta) {
+              flushVisibleToken(`<think>${p.textDelta}</think>`, controller, encoder);
             }
-            if (part.type === "text-delta" && part.textDelta) {
-              flushVisibleToken(part.textDelta, controller, encoder);
+            if (p.type === "text-delta" && p.textDelta) {
+              flushVisibleToken(p.textDelta, controller, encoder);
             }
           }
           flushSseToken(null, controller, encoder);

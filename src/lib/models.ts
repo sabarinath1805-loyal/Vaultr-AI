@@ -17,7 +17,7 @@ export interface GroqModel {
   id: string;
   name: string;
   groqId: string;
-  provider: "groq" | "gemini" | "ollama-cloud" | "zai";
+  provider: "groq" | "gemini" | "ollama-cloud";
   badge: string;
   color: string;
   description: string;
@@ -40,11 +40,11 @@ export const GROQ_MODELS: GroqModel[] = [
   {
     id: "groq-pro",
     name: "Lex Pro",
-    groqId: "glm-4-plus",
-    provider: "zai",
+    groqId: "minimax-m2.5:cloud",
+    provider: "ollama-cloud",
     badge: "Pro",
     color: "#7F77DD",
-    description: "Z.ai GLM-4 Plus — powerful analysis for complex legal work.",
+    description: "Ollama Cloud — powerful analysis for complex legal work.",
   },
   {
     id: "gemini-ultra",
@@ -139,8 +139,10 @@ export function isGeminiModel(modelId: string | null | undefined): boolean {
   );
 }
 
-export function isOllamaCloudModel(_modelId: string | null | undefined): boolean {
-  return false;
+export function isOllamaCloudModel(modelId: string | null | undefined): boolean {
+  return !!modelId && GROQ_MODELS.some(
+    (model) => model.provider === "ollama-cloud" && model.groqId === modelId
+  );
 }
 
 export function groqIdToLexName(groqId: string): string {
@@ -152,6 +154,12 @@ export function getCloudProviderLabel(provider: GroqModel["provider"]) {
   if (provider === "ollama-cloud") return "Ollama Cloud";
   return "Groq";
 }
+
+export const OLLAMA_CLOUD_FALLBACK_MODELS = [
+  "minimax-m2.5:cloud",
+  "kimi-k2.5:cloud",
+  "glm-5:cloud",
+];
 
 export function getModelDisplayMetadata(modelId: string) {
   const groqModel = GROQ_MODELS.find((model) => model.groqId === modelId);
