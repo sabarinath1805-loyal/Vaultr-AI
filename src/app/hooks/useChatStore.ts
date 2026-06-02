@@ -7,6 +7,31 @@ import { get, set, del } from "idb-keyval";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+const indexedDBStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      return (await get(name)) ?? null;
+    } catch (err) {
+      console.warn("Storage read failed (non-critical):", err);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      await set(name, value);
+    } catch (err) {
+      console.warn("Storage write failed (non-critical):", err);
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    try {
+      await del(name);
+    } catch (err) {
+      console.warn("Storage remove failed (non-critical):", err);
+    }
+  },
+};
+
 interface State {
   base64Images: string[] | null;
   chats: Record<string, ChatSession>;
@@ -66,6 +91,7 @@ interface Actions {
   setPendingAttachedDocumentIds: (documentIds: string[]) => void;
   setPendingWorkflow: (workflow: AttachedWorkflow | null) => void;
   addCustomWorkflow: (workflow: Omit<CustomWorkflow, "id" | "source">) => CustomWorkflow;
+  updateCustomWorkflow: (workflowId: string, updates: Partial<Pick<CustomWorkflow, "title" | "prompt" | "requireDocumentUpload">>) => void;
   deleteCustomWorkflow: (workflowId: string) => void;
   resetComposerState: () => void;
   setSelectedModel: (selectedModel: string | null) => void;
@@ -206,6 +232,13 @@ const useChatStore = create<State & Actions>()(
           customWorkflows: [customWorkflow, ...state.customWorkflows],
         }));
         return customWorkflow;
+      },
+      updateCustomWorkflow: (workflowId, updates) => {
+        set((state) => ({
+          customWorkflows: state.customWorkflows.map((w) =>
+            w.id === workflowId ? { ...w, ...updates } : w
+          ),
+        }));
       },
       deleteCustomWorkflow: (workflowId) => {
         set((state) => ({
@@ -632,28 +665,3 @@ const useChatStore = create<State & Actions>()(
 );
 
 export default useChatStore;
-
-const indexedDBStorage = {
-  getItem: async (name: string): Promise<string | null> => {
-    try {
-      return (await get(name)) ?? null;
-    } catch (err) {
-      console.warn("Storage read failed (non-critical):", err);
-      return null;
-    }
-  },
-  setItem: async (name: string, value: string): Promise<void> => {
-    try {
-      await set(name, value);
-    } catch (err) {
-      console.warn("Storage write failed (non-critical):", err);
-    }
-  },
-  removeItem: async (name: string): Promise<void> => {
-    try {
-      await del(name);
-    } catch (err) {
-      console.warn("Storage remove failed (non-critical):", err);
-    }
-  },
-};
