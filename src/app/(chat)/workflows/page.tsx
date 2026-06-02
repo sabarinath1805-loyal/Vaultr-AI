@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState, useEffect } from "react";
-import { Check, ChevronDown, Copy, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Copy, Edit3, Eye, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -35,10 +35,12 @@ export default function WorkflowsPage() {
   const [selected, setSelected] = useState<WorkflowRow | null>(builtInRows[0]);
   const [newWorkflowOpen, setNewWorkflowOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [editingWorkflow, setEditingWorkflow] = useState<WorkflowRow | null>(null);
   const [splitRatio, setSplitRatio] = useState(0.6); // 60% list / 40% prompt
   const isDragging = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const deleteCustomWorkflow = useChatStore((state) => state.deleteCustomWorkflow);
+  const updateCustomWorkflow = useChatStore((state) => state.updateCustomWorkflow);
   const router = useRouter();
 
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
@@ -181,6 +183,7 @@ export default function WorkflowsPage() {
                 <WorkflowMenu
                   workflow={workflow}
                   onView={() => setSelected(workflow)}
+                  onEdit={() => setEditingWorkflow(workflow)}
                   onDuplicate={() => {
                     const saved = addCustomWorkflow({ title: `Copy of ${workflow.title}`, prompt: workflow.prompt, requireDocumentUpload: workflow.requireDocumentUpload });
                     setSelected({ ...saved, practice: "Custom", source: "Custom" });
@@ -268,6 +271,19 @@ export default function WorkflowsPage() {
           }}
         />
       )}
+      {editingWorkflow && editingWorkflow.source === "Custom" && (
+        <EditWorkflowModal
+          workflow={editingWorkflow}
+          onClose={() => setEditingWorkflow(null)}
+          onSave={(updates) => {
+            updateCustomWorkflow(editingWorkflow.id, updates);
+            if (selected?.id === editingWorkflow.id) {
+              setSelected({ ...editingWorkflow, ...updates });
+            }
+            setEditingWorkflow(null);
+          }}
+        />
+      )}
     </main>
   );
 }
@@ -338,14 +354,84 @@ function NewWorkflowModal({
   );
 }
 
+function EditWorkflowModal({
+  workflow,
+  onClose,
+  onSave,
+}: {
+  workflow: WorkflowRow;
+  onClose: () => void;
+  onSave: (updates: { title: string; prompt: string; requireDocumentUpload?: boolean }) => void;
+}) {
+  const [name, setName] = useState(workflow.title);
+  const [instructions, setInstructions] = useState(workflow.prompt);
+  const [requireDocumentUpload, setRequireDocumentUpload] = useState(workflow.requireDocumentUpload ?? false);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-[var(--overlay)]" onClick={onClose}>
+      <form
+        className="w-[520px] rounded-[12px] border border-[var(--border)] bg-[var(--bg)] p-6 text-[var(--text-primary)] shadow-[0_8px_32px_var(--shadow-modal)]"
+        onClick={(event) => event.stopPropagation()}
+        onSubmit={(event) => {
+          event.preventDefault();
+          const title = name.trim();
+          const prompt = instructions.trim();
+          if (!title || !prompt) return;
+          onSave({ title, prompt, requireDocumentUpload });
+        }}
+      >
+        <h2 className="text-[28px] font-normal">Edit Workflow</h2>
+        <label className="mt-5 block text-xs font-medium text-[var(--text-muted)]">
+          Workflow name
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            autoFocus
+            className="mt-2 w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-transparent px-3 py-2 text-[13px] text-[var(--text-primary)] outline-none focus:border-[var(--text-secondary)]"
+          />
+        </label>
+        <label className="mt-4 block text-xs font-medium text-[var(--text-muted)]">
+          Instructions (what Lex should do)
+          <textarea
+            value={instructions}
+            onChange={(event) => setInstructions(event.target.value)}
+            className="mt-2 min-h-[160px] w-full rounded-[var(--radius-sm)] border border-[var(--border)] bg-transparent px-3 py-2 text-[13px] leading-relaxed text-[var(--text-primary)] outline-none focus:border-[var(--text-secondary)]"
+          />
+        </label>
+        <label className="mt-4 flex items-center justify-between rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-2 text-[13px] text-[var(--text-primary)]">
+          <span>Require document upload</span>
+          <button
+            type="button"
+            onClick={() => setRequireDocumentUpload((enabled) => !enabled)}
+            className={`h-6 w-11 rounded-full p-0.5 transition-colors ${requireDocumentUpload ? "bg-[var(--accent)]" : "bg-[var(--surface-muted)]"}`}
+            aria-pressed={requireDocumentUpload}
+          >
+            <span className={`block h-5 w-5 rounded-full bg-white transition-transform ${requireDocumentUpload ? "translate-x-5" : ""}`} />
+          </button>
+        </label>
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="rounded-[var(--radius-sm)] px-4 py-2 text-[13px] text-[var(--text-secondary)] hover:bg-[var(--surface-muted)]">
+            Cancel
+          </button>
+          <button type="submit" className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-4 py-2 text-[13px] font-medium text-[var(--bg-primary)] hover:opacity-90">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 function WorkflowMenu({
   workflow,
   onView,
+  onEdit,
   onDuplicate,
   onDelete,
 }: {
   workflow: WorkflowRow;
   onView: () => void;
+  onEdit: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
 }) {
@@ -383,6 +469,13 @@ function WorkflowMenu({
           </button>
           {!isBuiltIn && (
             <>
+              <button
+                type="button"
+                onClick={() => { setOpen(false); onEdit(); }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+              >
+                <Edit3 className="h-3.5 w-3.5" /> Edit
+              </button>
               <button
                 type="button"
                 onClick={() => { setOpen(false); onDuplicate(); }}
