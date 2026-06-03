@@ -21,6 +21,34 @@ import { ThinkingIndicator } from "./thinking-indicator";
 const DOCX_TOOL_REGEX = /generate_docx\s*\(\s*(\{[\s\S]*?\})\s*\)/g;
 const DOCX_JSON_REGEX = /\{\s*"tool_(?:code|name)"\s*:\s*"generate_docx"[\s\S]*?"(?:arguments|params|parameters)"\s*:\s*(\{[\s\S]*?\})\s*\}/g;
 
+// Document type patterns for auto-detect
+const DOCUMENT_PATTERNS: { regex: RegExp; prefix: string }[] = [
+  { regex: /\b(?:non[- ]?disclosure agreement|nda|confidentiality agreement)\b/i, prefix: "NDA" },
+  { regex: /\b(?:memorandum of understanding|mou)\b/i, prefix: "MOU" },
+  { regex: /\b(?:service (?:level )?agreement|sla)\b/i, prefix: "Service_Agreement" },
+  { regex: /\b(?:employment (?:agreement|contract))\b/i, prefix: "Employment_Contract" },
+  { regex: /\b(?:lease agreement|tenancy agreement)\b/i, prefix: "Lease_Agreement" },
+  { regex: /\b(?:terms (?:of|and) (?:service|use)|tos)\b/i, prefix: "Terms_of_Service" },
+  { regex: /\b(?:privacy policy)\b/i, prefix: "Privacy_Policy" },
+  { regex: /\b(?:legal opinion|legal memorandum)\b/i, prefix: "Legal_Opinion" },
+  { regex: /\b(?:contract|agreement)\b/i, prefix: "Contract" },
+];
+
+const MIN_DOCUMENT_LENGTH = 800;
+
+function detectDocumentType(content: string): string | null {
+  if (content.length < MIN_DOCUMENT_LENGTH) return null;
+  // Must have structure: multiple headings or numbered clauses
+  const headingCount = (content.match(/^#{1,3}\s+/gm) || []).length;
+  const clauseCount = (content.match(/^\d+\.\s+/gm) || []).length;
+  if (headingCount < 3 && clauseCount < 3) return null;
+  for (const { regex, prefix } of DOCUMENT_PATTERNS) {
+    if (regex.test(content)) return prefix;
+  }
+  // Generic long structured response
+  return headingCount >= 5 ? "Legal_Document" : null;
+}
+
 function extractDocxCalls(content: string): { title: string; sections: unknown[]; landscape?: boolean }[] {
   const results: { title: string; sections: unknown[]; landscape?: boolean }[] = [];
   const patterns = [DOCX_TOOL_REGEX, DOCX_JSON_REGEX];
@@ -99,6 +127,73 @@ function DocxDownloadButton({ params }: { params: { title: string; sections: unk
   }
 
   return null;
+}
+
+function DocumentArtifactButton({ content, docType }: { content: string; docType: string }) {
+  const [status, setStatus] = useState<"idle" | "generating" | "ready" | "error">("idle");
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const filename = `${docType}_${dateStr}.docx`;
+
+  const generate = useCallback(async () => {
+    setStatus("generating");
+    try {
+      const response = await fetch("/api/export-response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ content, format: "docx", title: docType.replace(/_/g, " ") }),
+      });
+      if (!response.ok) throw new Error("Generation failed");
+      const data = await response.json();
+      setDownloadUrl(data.url);
+      setStatus("ready");
+    } catch {
+      setStatus("error");
+    }
+  }, [content, docType]);
+
+  if (status === "idle") {
+    return (
+      <button
+        type="button"
+        onClick={generate}
+        className="my-3 flex w-fit items-center gap-2 rounded-[var(--radius-md)] border border-[var(--accent)]/30 bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-muted)]"
+      >
+        <Download className="h-4 w-4 text-[var(--accent)]" />
+        <span>Download as Word — {filename}</span>
+      </button>
+    );
+  }
+
+  if (status === "generating") {
+    return (
+      <div className="my-3 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--text-muted)]">
+        <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--text-muted)] border-t-transparent" />
+        Generating {filename}...
+      </div>
+    );
+  }
+
+  if (status === "ready" && downloadUrl) {
+    return (
+      <a
+        href={downloadUrl}
+        download={filename}
+        className="my-3 flex w-fit items-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-muted)] no-underline"
+      >
+        <Download className="h-4 w-4 text-[var(--accent)]" />
+        <span>{filename}</span>
+        <span className="text-[var(--text-muted)]">— Download</span>
+      </a>
+    );
+  }
+
+  return (
+    <div className="my-3 flex items-center gap-2 rounded-[var(--radius-md)] border border-[var(--danger)] bg-[var(--danger-bg)] px-4 py-2.5 text-sm">
+      <span className="text-[var(--danger)]">Failed to generate document.</span>
+      <button type="button" onClick={generate} className="text-[var(--accent)] hover:underline">Retry</button>
+    </div>
+  );
 }
 
 function ExportButtons({ content, messageId }: { content: string; messageId: string }) {
@@ -221,6 +316,18 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
 
   const cleanContent = useMemo(() => stripAssistantMarkup(message.content), [message.content]);
   const docxCalls = useMemo(() => message.role === "assistant" ? extractDocxCalls(message.content) : [], [message.content, message.role]);
+  // Parse inline legal sources marker from message content (covers persisted messages)
+  const inlineLegalSources = useMemo(() => {
+    if (message.role !== "assistant") return null;
+    const match = message.content.match(/<legal-sources\s+data="([^"]*?)"\s*\/>/);
+    if (!match) return null;
+    try {
+      const data = JSON.parse(decodeURIComponent(match[1])) as LegalSearchResult;
+      return (data.cases.length > 0 || data.offline) ? data : null;
+    } catch { return null; }
+  }, [message.content, message.role]);
+  const effectiveLegalSources = legalSources || inlineLegalSources;
+  const detectedDocType = useMemo(() => message.role === "assistant" ? detectDocumentType(cleanContent) : null, [cleanContent, message.role]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
@@ -484,12 +591,15 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                 ))}
               </div>
             )}
+            {!isCurrentlyStreaming && detectedDocType && docxCalls.length === 0 && (
+              <DocumentArtifactButton content={cleanContent} docType={detectedDocType} />
+            )}
             {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
             )}
-            {!isCurrentlyStreaming && (legalSources || isSearchingLegal) && (
+            {!isCurrentlyStreaming && (effectiveLegalSources || isSearchingLegal) && (
               <LegalSourcesPanel
-                searchResult={legalSources || null}
+                searchResult={effectiveLegalSources || null}
                 isLoading={isSearchingLegal || false}
               />
             )}
@@ -502,7 +612,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                 </div>
               ))}
             </div>
-            <div className="message-actions flex gap-2 pt-2 text-[var(--text-muted)]">
+            <div className="message-actions flex items-center gap-2 pt-2 text-[var(--text-muted)]">
               {!isLoading && (
                 <button
                   type="button"
