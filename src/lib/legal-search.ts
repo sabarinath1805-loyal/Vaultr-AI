@@ -90,12 +90,15 @@ async function searchCourtListener(query: string): Promise<LegalCase[]> {
   }
 }
 
-// Harvard Caselaw Access Project (USA) — free API
+// Harvard Caselaw Access Project (USA) — free API (key optional for higher rate limits)
 async function searchCaseLaw(query: string): Promise<LegalCase[]> {
   try {
+    const capApiKey = process.env.HARVARD_CAP_API_KEY;
+    const headers: Record<string, string> = {};
+    if (capApiKey) headers["Authorization"] = `Token ${capApiKey}`;
     const response = await fetch(
       `https://api.case.law/v1/cases/?search=${encodeURIComponent(query)}&page_size=3`,
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(8000), headers }
     );
     if (!response.ok) return [];
     const data = await response.json();
@@ -295,6 +298,33 @@ async function searchSCO(query: string): Promise<LegalCase[]> {
   }
 }
 
+// Singapore Statutes Online (SSO) — sso.agc.gov.sg
+async function searchSSO(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://sso.agc.gov.sg/Search/Content?SearchPhrase=${encodeURIComponent(query)}&Category=act`,
+      { signal: AbortSignal.timeout(8000) }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [
+      ...html.matchAll(/href="(\/Act\/[^"]+)"[^>]*>([^<]+)<\/a>/g),
+    ];
+    return matches.slice(0, 3).map((match) => ({
+      title: match[2].trim(),
+      citation: "",
+      year: match[2].match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
+      jurisdiction: "Singapore",
+      court: "Parliament of Singapore",
+      summary: "",
+      url: `https://sso.agc.gov.sg${match[1]}`,
+      source: "Singapore Statutes Online",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 // WorldLII (Global) — web scraping
 async function searchWorldLII(query: string): Promise<LegalCase[]> {
   try {
@@ -328,7 +358,7 @@ const JURISDICTION_DB_PRIORITY: Record<string, string[]> = {
   us: ["courtlistener", "caselaw", "worldlii"],
   uk: ["bailii", "commonlii", "courtlistener"],
   au: ["austlii", "commonlii", "courtlistener"],
-  sg: ["sco", "commonlii", "courtlistener"],
+  sg: ["sco", "sso", "commonlii"],
   eu: ["eurlex", "courtlistener", "worldlii"],
   in: ["indiankanoon", "courtlistener", "worldlii"],
   ca: ["commonlii", "courtlistener", "caselaw"],
@@ -370,6 +400,25 @@ function isLegalQuery(query: string): boolean {
   });
 }
 
+// Auto-detect jurisdiction from query keywords
+const JURISDICTION_KEYWORDS: { pattern: RegExp; code: string }[] = [
+  { pattern: /\b(?:corporations act|australia|australian|austlii|nsw|queensland|victoria|hca|fca)\b/i, code: "au" },
+  { pattern: /\b(?:companies act.*singapore|singapore|singaporean|sgd|sghc|sgca|mas)\b/i, code: "sg" },
+  { pattern: /\b(?:uk\b|united kingdom|england|wales|ewca|ewhc|uksc|bailli|english law)\b/i, code: "uk" },
+  { pattern: /\b(?:eu\b|european union|european|directive|regulation.*eu|eur-lex|ecj|cjeu)\b/i, code: "eu" },
+  { pattern: /\b(?:india|indian|ipc|crpc|indian kanoon|supreme court of india|bombay|delhi high)\b/i, code: "in" },
+  { pattern: /\b(?:us\b|united states|american|federal|circuit|scotus|ussc|usc §)\b/i, code: "us" },
+  { pattern: /\b(?:canada|canadian|scc|onca|bcca|ontario|alberta)\b/i, code: "ca" },
+];
+
+function detectJurisdiction(query: string): string | undefined {
+  const lower = query.toLowerCase();
+  for (const { pattern, code } of JURISDICTION_KEYWORDS) {
+    if (pattern.test(lower)) return code;
+  }
+  return undefined;
+}
+
 // Main search function — queries all databases in parallel
 export async function searchLegalDatabases(
   query: string,
@@ -393,6 +442,7 @@ export async function searchLegalDatabases(
     austlii: searchAustLII,
     commonlii: searchCommonLII,
     sco: searchSCO,
+    sso: searchSSO,
     worldlii: searchWorldLII,
   };
   const dbNames: Record<string, string> = {
@@ -404,12 +454,15 @@ export async function searchLegalDatabases(
     austlii: "AustLII",
     commonlii: "CommonLII",
     sco: "Singapore Courts",
+    sso: "Singapore Statutes Online",
     worldlii: "WorldLII",
   };
 
   const extractedQuery = await extractLegalQuery(query);
 
-  const priority = JURISDICTION_DB_PRIORITY[jurisdiction || "us"] || JURISDICTION_DB_PRIORITY["us"];
+  // Auto-detect jurisdiction from query keywords, falling back to explicit or "us"
+  const detectedJurisdiction = detectJurisdiction(query) || jurisdiction;
+  const priority = JURISDICTION_DB_PRIORITY[detectedJurisdiction || "us"] || JURISDICTION_DB_PRIORITY["us"];
   const allDbKeys = Object.keys(dbMap);
   const orderedKeys = [
     ...priority,
