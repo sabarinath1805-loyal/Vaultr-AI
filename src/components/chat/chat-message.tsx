@@ -16,6 +16,7 @@ import { SourcesFooter } from "@/components/chat/reasoning-timeline";
 import { LegalSourcesPanel } from "@/components/legal-sources-panel";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { ThinkingIndicator } from "./thinking-indicator";
+import { ThinkingProcess, type ThinkingStep } from "./thinking-process";
 
 // Detect generate_docx tool calls in message content
 const DOCX_TOOL_REGEX = /generate_docx\s*\(\s*(\{[\s\S]*?\})\s*\)/g;
@@ -331,6 +332,36 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
+  const thinkingSteps = useMemo((): ThinkingStep[] => {
+    if (message.role !== "assistant") return [];
+    const steps: ThinkingStep[] = [];
+    const hasLegal = Boolean(effectiveLegalSources?.cases?.length);
+    const hasWeb = webSearchUsed;
+    const streaming = Boolean(isLoading && isLast);
+    if (hasLegal || streaming) {
+      steps.push({ id: "jurisdiction", label: "Detecting jurisdiction...", status: hasLegal || !streaming ? "done" : "active" });
+    }
+    if (hasLegal) {
+      const dbCount = effectiveLegalSources?.databases_searched?.length || 0;
+      const caseCount = effectiveLegalSources?.cases?.length || 0;
+      steps.push({ id: "legal-search", label: "Searching legal databases...", status: "done", detail: `Found ${caseCount} cases across ${dbCount} databases` });
+    } else if (streaming && isSearchingLegal) {
+      steps.push({ id: "legal-search", label: "Searching legal databases...", status: "active" });
+    }
+    if (hasWeb) {
+      steps.push({ id: "web-search", label: "Running web search...", status: "done" });
+    } else if (streaming) {
+      steps.push({ id: "web-search", label: "Running web search...", status: streaming && !hasLegal ? "active" : "pending" });
+    }
+    if (steps.length > 0) {
+      if (!streaming && cleanContent.length > 0) {
+        steps.push({ id: "synthesis", label: "Synthesising response...", status: "done" });
+      } else if (streaming) {
+        steps.push({ id: "synthesis", label: "Synthesising response...", status: cleanContent.length > 50 ? "active" : "pending" });
+      }
+    }
+    return steps;
+  }, [message.role, effectiveLegalSources, webSearchUsed, isLoading, isLast, isSearchingLegal, cleanContent]);
   const webSearchSources = useMemo(() => {
     const encodedSources = webSearchMatch?.[1]?.match(/\ssources="([^"]*)"/)?.[1];
     if (!encodedSources) return [];
@@ -581,6 +612,9 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
               </div>
             )}
             {showThinking && <ThinkingIndicator visible />}
+            {thinkingSteps.length > 0 && (
+              <ThinkingProcess steps={thinkingSteps} isStreaming={isCurrentlyStreaming} />
+            )}
             <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>{cleanContent}</Markdown>
             </div>
@@ -597,10 +631,10 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
             {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
             )}
-            {!isCurrentlyStreaming && (effectiveLegalSources || isSearchingLegal) && (
+            {(effectiveLegalSources || (!isCurrentlyStreaming && isSearchingLegal)) && (
               <LegalSourcesPanel
                 searchResult={effectiveLegalSources || null}
-                isLoading={isSearchingLegal || false}
+                isLoading={isSearchingLegal && !effectiveLegalSources || false}
               />
             )}
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">

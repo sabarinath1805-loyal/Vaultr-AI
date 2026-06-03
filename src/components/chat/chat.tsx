@@ -9,7 +9,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { GROQ_DEFAULT_MODEL, isLexModel } from "@/lib/models";
+import { CEREBRAS_CORE_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { toast } from "sonner";
@@ -573,7 +573,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setThinkingMessageId(userMessage.id);
     const requestPayload = {
       messages: nextMessages,
-      selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+      selectedModel: usePrivacyMode ? selectedModel : selectedModel || CEREBRAS_CORE_MODEL,
       workflow,
       workflowPrompt: workflow?.prompt,
       attachedDocuments: requestBody?.attachedDocuments || [],
@@ -631,7 +631,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setThinkingMessageId(updatedUserMessage.id);
     await handleChatStream(
       {
-        selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+        selectedModel: usePrivacyMode ? selectedModel : selectedModel || CEREBRAS_CORE_MODEL,
         workflow: pendingWorkflow,
         workflowPrompt: pendingWorkflow?.prompt,
         usePrivacyMode,
@@ -741,7 +741,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               setThinkingMessageId(lastRetryMessage.id);
               await handleChatStream(
                 {
-                  selectedModel: usePrivacyMode ? selectedModel : selectedModel || GROQ_DEFAULT_MODEL,
+                  selectedModel: usePrivacyMode ? selectedModel : selectedModel || CEREBRAS_CORE_MODEL,
                   usePrivacyMode,
                   workflowPrompt: pendingWorkflow?.prompt,
                   messages: retryMessages,
