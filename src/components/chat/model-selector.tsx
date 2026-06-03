@@ -5,7 +5,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   GROQ_MODELS,
-  GROQ_DEFAULT_MODEL,
+  CEREBRAS_CORE_MODEL,
   getModelDisplayMetadata,
   groqIdToLexName,
   isLexModel,
@@ -268,7 +268,7 @@ function getNextSelectedModel({
   if (cloudMode) {
     return GROQ_MODELS.some((model) => model.groqId === selectedModel)
       ? selectedModel
-      : GROQ_DEFAULT_MODEL;
+      : CEREBRAS_CORE_MODEL;
   }
 
   if (!isOllamaRunning || availableModels.length === 0) return null;
