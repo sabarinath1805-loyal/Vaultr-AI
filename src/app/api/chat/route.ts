@@ -290,34 +290,46 @@ export async function POST(req: Request) {
       }
     }
 
-    const response = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(privacyMode ? {} : { Authorization: `Bearer ${getConfiguredApiKey("GROQ_API_KEY")}` }),
-      },
-      signal: abortController.signal,
-      body: JSON.stringify({
-        model: activeModel,
-        stream: true,
-        ...(usesCloudReasoning ? { reasoning_format: "parsed" } : {}),
-        ...(privacyMode && thinkingEnabled ? { think: true } : {}),
-        ...(!privacyMode ? {
-          tools: WEB_SEARCH_TOOLS,
-          tool_choice: "auto",
-        } : {}),
-        ...(privacyMode ? {
-          options: {
-            num_ctx: documentContext ? 4096 : 2048,
-          },
-        } : {}),
-        messages: [
-          { role: "system", content: systemMessage },
-          ...initialMessages,
-          { role: "user", content: userContent },
-        ],
-      }),
-    });
+    async function fetchGroqWithRetry(retries = 2): Promise<Response> {
+      const res = await fetch(privacyMode ? `${ollamaUrl}/v1/chat/completions` : "https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(privacyMode ? {} : { Authorization: `Bearer ${getConfiguredApiKey("GROQ_API_KEY")}` }),
+        },
+        signal: abortController.signal,
+        body: JSON.stringify({
+          model: activeModel,
+          stream: true,
+          max_tokens: 8192,
+          ...(usesCloudReasoning ? { reasoning_format: "parsed" } : {}),
+          ...(privacyMode && thinkingEnabled ? { think: true } : {}),
+          ...(!privacyMode ? {
+            tools: WEB_SEARCH_TOOLS,
+            tool_choice: "auto",
+          } : {}),
+          ...(privacyMode ? {
+            options: {
+              num_ctx: documentContext ? 4096 : 2048,
+            },
+          } : {}),
+          messages: [
+            { role: "system", content: systemMessage },
+            ...initialMessages,
+            { role: "user", content: userContent },
+          ],
+        }),
+      });
+      if (res.status === 429 && retries > 0) {
+        const retryAfter = parseInt(res.headers.get("retry-after") || "2", 10);
+        const waitMs = Math.min(retryAfter * 1000, 5000);
+        console.log(`[Groq] Rate limited (429), retrying in ${waitMs}ms (${retries} retries left)`);
+        await new Promise((r) => setTimeout(r, waitMs));
+        return fetchGroqWithRetry(retries - 1);
+      }
+      return res;
+    }
+    const response = await fetchGroqWithRetry();
 
     clearTimeout(timeout);
 
@@ -449,12 +461,23 @@ export async function POST(req: Request) {
         }
       }
     }
+    const errStatus = (primaryError as { status?: number })?.status;
+    let errMsg: string;
+    if (privacyMode) {
+      errMsg = "Lex is unavailable. Make sure Ollama is running and try again.";
+    } else if (!navigator?.onLine && typeof navigator !== "undefined") {
+      errMsg = "No internet connection. Check your network and try again.";
+    } else if (errStatus === 429) {
+      errMsg = "Lex is under high demand. Try again in a few seconds.";
+    } else if (errStatus === 401 || errStatus === 403) {
+      errMsg = "Authentication error. Check your API keys in Settings.";
+    } else if (errStatus === 503) {
+      errMsg = "Lex is under high demand right now. Try again in a moment.";
+    } else {
+      errMsg = "Lex is unavailable. Check your internet connection and try again.";
+    }
     return new Response(
-      `3:${JSON.stringify(
-        privacyMode
-          ? "Lex is unavailable. Make sure Ollama is running and try again."
-          : "Lex is unavailable. Check your internet connection and try again."
-      )}\n`,
+      `3:${JSON.stringify(errMsg)}\n`,
       {
         status: 503,
         headers: {
@@ -488,7 +511,13 @@ async function streamGeminiResponse({
   legalResults: { cases: { title: string; citation: string; year: string; jurisdiction: string; court: string; summary: string; url: string; source: string }[]; databases_searched: string[]; offline: boolean };
 }) {
   const apiKey = getConfiguredApiKey("GEMINI_API_KEY");
-  if (!apiKey) throw new Error("Missing GEMINI_API_KEY");
+  if (!apiKey) {
+    console.warn("[Gemini] GEMINI_API_KEY not configured, falling back");
+    return new Response(JSON.stringify({ gemini503Fallback: true }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const generativeModel = genAI.getGenerativeModel({

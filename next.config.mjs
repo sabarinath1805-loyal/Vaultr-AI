@@ -11,16 +11,26 @@ const nextConfig = {
   },
   devIndicators: false,
   reactStrictMode: false,
+  productionBrowserSourceMaps: false,
   turbopack: {
     root: __dirname,
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         module: false,
         perf_hooks: false,
+      };
+    }
+    if (dev) {
+      config.devtool = "eval";
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: { maxSize: 200000 },
+        removeAvailableModules: false,
+        removeEmptyChunks: false,
       };
     }
     return config;
