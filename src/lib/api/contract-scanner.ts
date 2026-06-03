@@ -7,7 +7,7 @@ import {
   patchPredatoryClauseFindings,
 } from "@/lib/contract-scanner";
 import { LEX_SYSTEM_PROMPT } from "@/lib/lex";
-import { GROQ_DEFAULT_MODEL } from "@/lib/models";
+import { CEREBRAS_CORE_MODEL, GROQ_DEFAULT_MODEL } from "@/lib/models";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -56,13 +56,28 @@ export async function scanContractFormData(formData: FormData) {
     }
 
     const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
-    const modelId = mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : GROQ_DEFAULT_MODEL;
-    const responseBody = await requestContractAnalysis({
-      mode,
-      model: modelId,
-      ollamaUrl,
-      prompt,
-    });
+    const modelId = mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : CEREBRAS_CORE_MODEL;
+    let responseBody: string;
+    try {
+      responseBody = await requestContractAnalysis({
+        mode,
+        model: modelId,
+        ollamaUrl,
+        prompt,
+      });
+    } catch (primaryErr) {
+      if (mode === "cloud") {
+        console.warn(`[Contract Scanner] Cerebras failed, falling back to Groq`, primaryErr);
+        responseBody = await requestContractAnalysis({
+          mode,
+          model: GROQ_DEFAULT_MODEL,
+          ollamaUrl,
+          prompt,
+        });
+      } else {
+        throw primaryErr;
+      }
+    }
 
     const payload = JSON.parse(responseBody);
     const responseText = getOpenAiResponseText(payload);
@@ -144,15 +159,20 @@ async function requestContractAnalysis({
   ollamaUrl: string;
   prompt: string;
 }) {
+  const isCerebras = mode === "cloud" && [CEREBRAS_CORE_MODEL, "gpt-oss-120b-low", "glm-4.7", "qwen3-235b"].includes(model);
+  const cloudUrl = isCerebras
+    ? "https://api.cerebras.ai/v1/chat/completions"
+    : "https://api.groq.com/openai/v1/chat/completions";
+  const cloudKey = isCerebras
+    ? getConfiguredApiKey("CEREBRAS_API_KEY")
+    : getConfiguredApiKey("GROQ_API_KEY");
   const response = await fetch(
-    mode === "private"
-      ? `${ollamaUrl}/v1/chat/completions`
-      : "https://api.groq.com/openai/v1/chat/completions",
+    mode === "private" ? `${ollamaUrl}/v1/chat/completions` : cloudUrl,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(mode === "private" ? {} : { Authorization: `Bearer ${getConfiguredApiKey("GROQ_API_KEY")}` }),
+        ...(mode === "private" ? {} : { Authorization: `Bearer ${cloudKey}` }),
       },
       body: JSON.stringify({
         model,

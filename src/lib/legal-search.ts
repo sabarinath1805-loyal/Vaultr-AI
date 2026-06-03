@@ -29,7 +29,7 @@ async function extractLegalQuery(userMessage: string): Promise<string> {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-4-scout-17b-16e-instruct",
+        model: "llama-3.3-70b-versatile",
         messages: [
           {
             role: "system",
@@ -354,13 +354,88 @@ async function searchWorldLII(query: string): Promise<LegalCase[]> {
   }
 }
 
+// UK Legislation — legislation.gov.uk API
+async function searchUKLegislation(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://www.legislation.gov.uk/search?text=${encodeURIComponent(query)}&results-count=5`,
+      { signal: AbortSignal.timeout(8000), headers: { Accept: "text/html" } }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [...html.matchAll(/<a href="(\/[a-z]+\/\d{4}\/\d+)"[^>]*>([^<]+)<\/a>/g)];
+    return matches.slice(0, 3).map((match) => ({
+      title: match[2].trim(),
+      citation: "",
+      year: match[1].match(/\/(\d{4})\//)?.[1] || "",
+      jurisdiction: "UK",
+      court: "UK Parliament",
+      summary: "",
+      url: `https://www.legislation.gov.uk${match[1]}`,
+      source: "UK Legislation",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// Australian Legislation — legislation.gov.au
+async function searchAULegislation(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://www.legislation.gov.au/Search/${encodeURIComponent(query)}`,
+      { signal: AbortSignal.timeout(8000), headers: { Accept: "text/html" } }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [...html.matchAll(/<a href="(\/Details\/[^"]+)"[^>]*>([^<]+)<\/a>/g)];
+    return matches.slice(0, 3).map((match) => ({
+      title: match[2].trim(),
+      citation: "",
+      year: match[2].match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
+      jurisdiction: "Australia",
+      court: "Australian Parliament",
+      summary: "",
+      url: `https://www.legislation.gov.au${match[1]}`,
+      source: "Australian Legislation",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// India Code — indiacode.nic.in
+async function searchIndiaCode(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://www.indiacode.nic.in/handle/123456789/1362/search?query=${encodeURIComponent(query)}&rpp=5`,
+      { signal: AbortSignal.timeout(8000), headers: { Accept: "text/html" } }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [...html.matchAll(/<a href="(\/handle\/[^"]+)"[^>]*>([^<]+)<\/a>/g)];
+    return matches.slice(0, 3).map((match) => ({
+      title: match[2].trim(),
+      citation: "",
+      year: match[2].match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
+      jurisdiction: "India",
+      court: "Indian Parliament",
+      summary: "",
+      url: `https://www.indiacode.nic.in${match[1]}`,
+      source: "India Code",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 const JURISDICTION_DB_PRIORITY: Record<string, string[]> = {
   us: ["courtlistener", "caselaw", "worldlii"],
-  uk: ["bailii", "commonlii", "courtlistener"],
-  au: ["austlii", "commonlii", "courtlistener"],
+  uk: ["bailii", "uklegislation", "commonlii", "courtlistener"],
+  au: ["austlii", "aulegislation", "commonlii", "courtlistener"],
   sg: ["sco", "sso", "commonlii"],
   eu: ["eurlex", "courtlistener", "worldlii"],
-  in: ["indiankanoon", "courtlistener", "worldlii"],
+  in: ["indiankanoon", "indiacode", "courtlistener", "worldlii"],
   ca: ["commonlii", "courtlistener", "caselaw"],
   int: ["worldlii", "commonlii", "courtlistener"],
 };
@@ -403,11 +478,11 @@ function isLegalQuery(query: string): boolean {
 // Auto-detect jurisdiction from query keywords
 const JURISDICTION_KEYWORDS: { pattern: RegExp; code: string }[] = [
   { pattern: /\b(?:corporations act|australia|australian|austlii|nsw|queensland|victoria|hca|fca)\b/i, code: "au" },
-  { pattern: /\b(?:companies act.*singapore|singapore|singaporean|sgd|sghc|sgca|mas)\b/i, code: "sg" },
+  { pattern: /\b(?:companies act.*singapore|singapore|singaporean|sgd|sghc|sgca|irda|mas|sgx)\b/i, code: "sg" },
   { pattern: /\b(?:uk\b|united kingdom|england|wales|ewca|ewhc|uksc|bailli|english law)\b/i, code: "uk" },
   { pattern: /\b(?:eu\b|european union|european|directive|regulation.*eu|eur-lex|ecj|cjeu)\b/i, code: "eu" },
-  { pattern: /\b(?:india|indian|ipc|crpc|indian kanoon|supreme court of india|bombay|delhi high)\b/i, code: "in" },
-  { pattern: /\b(?:us\b|united states|american|federal|circuit|scotus|ussc|usc §)\b/i, code: "us" },
+  { pattern: /\b(?:india|indian|ipc|crpc|indian kanoon|supreme court of india|sc india|bombay|delhi high)\b/i, code: "in" },
+  { pattern: /\b(?:us\b|united states|american|federal|circuit|scotus|ussc|usc §|delaware|new york)\b/i, code: "us" },
   { pattern: /\b(?:canada|canadian|scc|onca|bcca|ontario|alberta)\b/i, code: "ca" },
 ];
 
@@ -444,6 +519,9 @@ export async function searchLegalDatabases(
     sco: searchSCO,
     sso: searchSSO,
     worldlii: searchWorldLII,
+    uklegislation: searchUKLegislation,
+    aulegislation: searchAULegislation,
+    indiacode: searchIndiaCode,
   };
   const dbNames: Record<string, string> = {
     courtlistener: "CourtListener",
@@ -456,13 +534,16 @@ export async function searchLegalDatabases(
     sco: "Singapore Courts",
     sso: "Singapore Statutes Online",
     worldlii: "WorldLII",
+    uklegislation: "UK Legislation",
+    aulegislation: "Australian Legislation",
+    indiacode: "India Code",
   };
 
   const extractedQuery = await extractLegalQuery(query);
 
-  // Auto-detect jurisdiction from query keywords, falling back to explicit or "us"
+  // Auto-detect jurisdiction from query keywords, falling back to explicit or "all" (search everything)
   const detectedJurisdiction = detectJurisdiction(query) || jurisdiction;
-  const priority = JURISDICTION_DB_PRIORITY[detectedJurisdiction || "us"] || JURISDICTION_DB_PRIORITY["us"];
+  const priority = JURISDICTION_DB_PRIORITY[detectedJurisdiction || "all"] || [];
   const allDbKeys = Object.keys(dbMap);
   const orderedKeys = [
     ...priority,
@@ -494,9 +575,9 @@ export async function searchLegalDatabases(
 }
 
 // Format cases for injection into Lex's context window
-export function formatCasesForContext(cases: LegalCase[]): string {
+export function formatCasesForContext(cases: LegalCase[], maxCases = 3): string {
   if (cases.length === 0) return "";
-  const formatted = cases
+  const formatted = cases.slice(0, maxCases)
     .map(
       (c) =>
         `- ${c.title}${c.citation ? ` [${c.citation}]` : ""}${c.year ? ` (${c.year})` : ""} — ${c.jurisdiction}${c.summary ? `: ${c.summary.slice(0, 200)}` : ""}`
