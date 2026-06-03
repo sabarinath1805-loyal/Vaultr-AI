@@ -9,16 +9,14 @@ interface ThinkingIndicatorProps {
 export function ThinkingIndicator({ visible }: ThinkingIndicatorProps) {
   return (
     <div
-      className={`lex-thinking-indicator mb-3 flex items-center text-[16px] leading-none text-[var(--text-primary)] ${
+      className={`lex-thinking-indicator mb-3 flex items-center gap-2 text-[var(--text-primary)] ${
         visible ? "lex-thinking-visible" : "lex-thinking-hidden"
       }`}
       data-testid="lex-thinking-indicator"
     >
-      <span className="font-semibold leading-none" style={{ fontSize: '24px' }}>✳</span>
-      <span aria-hidden="true" className="w-2" />
-      <span className="font-semibold leading-none" style={{ fontSize: '14px' }}>Lex is thinking</span>
-      <span aria-hidden="true" className="w-2" />
-      <span className="lex-thinking-dots" aria-hidden="true">
+      <span className="inline-flex items-center justify-center font-semibold" style={{ fontSize: '20px', lineHeight: 1, width: '20px', height: '20px' }}>✳</span>
+      <span className="font-semibold" style={{ fontSize: '14px', lineHeight: '20px' }}>Lex is thinking</span>
+      <span className="lex-thinking-dots" aria-hidden="true" style={{ lineHeight: '20px' }}>
         <span>●</span>
         <span>●</span>
         <span>●</span>
