@@ -3,9 +3,11 @@ import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
 import { createOllama } from "ollama-ai-provider";
 import { streamText, type CoreMessage } from "ai";
 import {
+  CEREBRAS_CORE_MODEL,
   GROQ_DEFAULT_MODEL,
   GEMINI_MAX_MODEL,
   isCloudModel,
+  isCerebrasModel,
   isGeminiModel,
   isLexModel,
   isOllamaCloudModel,
@@ -123,21 +125,23 @@ export async function POST(req: Request) {
   const ollamaUrl = requestedOllamaUrl || process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
   const cloudModel = isCloudModel(requestedModel)
     ? requestedModel
-    : process.env.GROQ_DEFAULT_MODEL || GROQ_DEFAULT_MODEL;
+    : CEREBRAS_CORE_MODEL;
   let activeModel = privacyMode ? requestedModel : cloudModel;
   const geminiModel = GEMINI_MODELS.includes(activeModel || "") && isGeminiModel(activeModel)
     ? activeModel
     : null;
+  const cerebrasModel = isCerebrasModel(activeModel) ? activeModel : null;
 
   const conversationMessages = Array.isArray(messages) ? messages : [];
   const initialMessages = sanitizeChatMessages(conversationMessages.slice(0, -1));
   const currentMessage = conversationMessages[conversationMessages.length - 1];
   const userMessage =
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
-  const shouldSearch = !privacyMode && shouldUseWebSearch(userMessage);
-  const webSearch = shouldSearch
-    ? await getWebSearchContext(userMessage)
-    : { context: "", sources: [] };
+  const shouldSearch = !privacyMode;
+  // Run web search + RAG + statutes in parallel (Feature 1)
+  const webSearchPromise = shouldSearch
+    ? getWebSearchContext(userMessage)
+    : Promise.resolve({ context: "", sources: [] as WebSearchSource[] });
   const workflowTemplatePrompt =
     typeof workflowPrompt === "string" && workflowPrompt.trim()
       ? workflowPrompt.trim()
@@ -192,8 +196,8 @@ export async function POST(req: Request) {
     ? searchLegalDatabases(userMessage, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined).catch(() => ({ cases: [], databases_searched: [], offline: false }))
     : Promise.resolve({ cases: [], databases_searched: [], offline: false });
 
-  // Await legal results before building system message (fast due to parallel execution)
-  const legalResults = await legalSearchPromise;
+  // Await web search + RAG in parallel
+  const [webSearch, legalResults] = await Promise.all([webSearchPromise, legalSearchPromise]);
   const legalContext = formatCasesForContext(legalResults.cases);
 
   let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}`;
@@ -215,6 +219,30 @@ export async function POST(req: Request) {
   let geminiToGroqFallbackTier: string | null = null;
 
   try {
+    // Cerebras primary provider
+    if (!privacyMode && cerebrasModel) {
+      try {
+        const cerebrasResponse = await streamCerebrasResponse({
+          model: cerebrasModel,
+          systemMessage,
+          initialMessages: initialMessages.slice(-8),
+          userMessage,
+          shouldSearch,
+          searchSources: webSearch.sources,
+          activeModel,
+          attachedDocuments,
+          abortSignal: abortController.signal,
+          legalResults,
+        });
+        clearTimeout(timeout);
+        return cerebrasResponse;
+      } catch (cerebrasErr) {
+        console.error(`[Cerebras] ${cerebrasModel} failed, falling back to Groq`, cerebrasErr);
+        activeModel = GROQ_DEFAULT_MODEL;
+        usesCloudReasoning = false;
+      }
+    }
+
     if (!privacyMode && geminiModel) {
       const geminiResponse = await streamGeminiResponse({
         model: geminiModel,
@@ -315,7 +343,7 @@ export async function POST(req: Request) {
           } : {}),
           messages: [
             { role: "system", content: systemMessage },
-            ...initialMessages,
+            ...initialMessages.slice(-8),
             { role: "user", content: userContent },
           ],
         }),
@@ -465,16 +493,10 @@ export async function POST(req: Request) {
     let errMsg: string;
     if (privacyMode) {
       errMsg = "Lex is unavailable. Make sure Ollama is running and try again.";
-    } else if (!navigator?.onLine && typeof navigator !== "undefined") {
-      errMsg = "No internet connection. Check your network and try again.";
-    } else if (errStatus === 429) {
-      errMsg = "Lex is under high demand. Try again in a few seconds.";
     } else if (errStatus === 401 || errStatus === 403) {
       errMsg = "Authentication error. Check your API keys in Settings.";
-    } else if (errStatus === 503) {
-      errMsg = "Lex is under high demand right now. Try again in a moment.";
     } else {
-      errMsg = "Lex is unavailable. Check your internet connection and try again.";
+      errMsg = "Lex is temporarily unavailable. Please try again in a moment.";
     }
     return new Response(
       `3:${JSON.stringify(errMsg)}\n`,
@@ -721,6 +743,144 @@ async function streamOllamaCloudResponse({
   );
 }
 
+
+async function streamCerebrasResponse({
+  model,
+  systemMessage,
+  initialMessages,
+  userMessage,
+  shouldSearch,
+  searchSources,
+  activeModel,
+  attachedDocuments,
+  abortSignal,
+  legalResults,
+}: {
+  model: string;
+  systemMessage: string;
+  initialMessages: { role: string; content: string }[];
+  userMessage: string;
+  shouldSearch: boolean;
+  searchSources: WebSearchSource[];
+  activeModel: string | null;
+  attachedDocuments: { filename?: string }[] | undefined;
+  abortSignal: AbortSignal;
+  legalResults: { cases: { title: string; citation: string; year: string; jurisdiction: string; court: string; summary: string; url: string; source: string }[]; databases_searched: string[]; offline: boolean };
+}) {
+  const apiKey = getConfiguredApiKey("CEREBRAS_API_KEY");
+  if (!apiKey) throw new Error("Missing CEREBRAS_API_KEY");
+
+  const maxTokens = model === "qwen3-235b" ? 16384 : 8192;
+
+  const response = await fetch("https://api.cerebras.ai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    signal: abortSignal,
+    body: JSON.stringify({
+      model,
+      stream: true,
+      max_tokens: maxTokens,
+      messages: [
+        { role: "system", content: systemMessage },
+        ...initialMessages.slice(-8),
+        { role: "user", content: userMessage },
+      ],
+    }),
+  });
+
+  if (!response.ok || !response.body) {
+    throw new Error(`Cerebras request failed: ${response.status}`);
+  }
+
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const reader = response.body!.getReader();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              flushSseToken(line, controller, encoder);
+            }
+          }
+          if (buffer.trim()) {
+            flushSseToken(buffer, controller, encoder);
+          }
+          if (shouldSearch) {
+            const state = tokenFlushState.get(controller);
+            const marker = formatWebSearchMarker(activeModel, searchSources);
+            if (state) {
+              state.buffer += `\n\n${marker}`;
+              tokenFlushState.set(controller, state);
+            } else {
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(marker)}\n`));
+            }
+          }
+          if (Array.isArray(attachedDocuments)) {
+            const state = tokenFlushState.get(controller);
+            const markers = attachedDocuments
+              .filter((document) => document?.filename)
+              .map((document) => `<document-analyzed filename="${document.filename}" />`)
+              .join("\n\n");
+            if (markers && state) {
+              state.buffer += `\n\n${markers}`;
+              tokenFlushState.set(controller, state);
+            } else if (markers) {
+              controller.enqueue(encoder.encode(`0:${JSON.stringify(markers)}\n`));
+            }
+          }
+          {
+            const legalMarker = formatLegalSourcesMarker(legalResults);
+            if (legalMarker) {
+              const state = tokenFlushState.get(controller);
+              if (state) {
+                state.buffer += `\n\n${legalMarker}`;
+                tokenFlushState.set(controller, state);
+              } else {
+                controller.enqueue(encoder.encode(`0:${JSON.stringify(legalMarker)}\n`));
+              }
+            }
+          }
+          const remaining = tokenFlushState.get(controller);
+          if (remaining) {
+            remaining.buffer += flushThinkStripState(remaining.thinkStripState);
+          }
+          if (remaining?.buffer) {
+            controller.enqueue(encoder.encode(`0:${JSON.stringify(remaining.buffer)}\n`));
+          }
+          tokenFlushState.delete(controller);
+          controller.enqueue(
+            encoder.encode(
+              `d:${JSON.stringify({ finishReason: "stop", usage: { promptTokens: 0, completionTokens: 0 } })}\n`
+            )
+          );
+          controller.close();
+        } catch (error) {
+          controller.error(error);
+        } finally {
+          reader.releaseLock();
+        }
+      },
+    }),
+    {
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+        "X-Vercel-AI-Data-Stream": "v1",
+      },
+    }
+  );
+}
 
 function sanitizeChatMessages(messages: unknown[]) {
   return messages
