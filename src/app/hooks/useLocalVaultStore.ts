@@ -28,6 +28,105 @@ const emptyPersistedVault = JSON.stringify({
 
 let vaultHasHydrated = false;
 
+function migrateLegacyLocalStorageVault(name: string) {
+  const legacyValue = safeStorage.getItem(name);
+  if (!legacyValue) return null;
+
+  try {
+    const parsed = JSON.parse(legacyValue) as {
+      state?: { documents?: LocalDocument[]; projects?: LocalProject[] };
+      version?: number;
+    };
+    const documents = Array.isArray(parsed.state?.documents) ? parsed.state.documents : [];
+    const projects = Array.isArray(parsed.state?.projects) ? parsed.state.projects : [];
+    const nextValue = JSON.stringify({ state: { documents, projects }, version: 1 });
+    void sqliteVaultStorage.setItem(name, nextValue);
+    safeStorage.removeItem(name);
+    return nextValue;
+  } catch {
+    safeStorage.removeItem(name);
+    return emptyPersistedVault;
+  }
+}
+
+const sqliteVaultStorage = {
+  getItem: async (name: string) => {
+    if (typeof window === "undefined") return null;
+    try {
+      const response = await fetch("/api/local-vault", { cache: "no-store" });
+      if (!response.ok) throw new Error("Local vault unavailable");
+      const data = (await response.json()) as {
+        documents?: LocalDocument[];
+        projects?: LocalProject[];
+      };
+      const documents = Array.isArray(data.documents) ? data.documents : [];
+      const projects = Array.isArray(data.projects) ? data.projects : [];
+      if (documents.length > 0 || projects.length > 0) {
+        safeStorage.removeItem(name);
+        return JSON.stringify({ state: { documents, projects }, version: 1 });
+      }
+    } catch {
+      return null;
+    }
+
+    return migrateLegacyLocalStorageVault(name);
+  },
+  setItem: async (_name: string, value: string) => {
+    if (typeof window === "undefined") return;
+    if (!vaultHasHydrated) return;
+    try {
+      const parsed = JSON.parse(value) as {
+        state?: { documents?: LocalDocument[]; projects?: LocalProject[] };
+      };
+      await fetch("/api/local-vault", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          documents: Array.isArray(parsed.state?.documents) ? parsed.state.documents : [],
+          projects: Array.isArray(parsed.state?.projects) ? parsed.state.projects : [],
+        }),
+      });
+    } catch {
+      return;
+    }
+  },
+  removeItem: async (name: string) => {
+    if (typeof window === "undefined") return;
+    safeStorage.removeItem(name);
+    await fetch("/api/local-vault", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ documents: [], projects: [] }),
+    }).catch(() => undefined);
+  },
+};
+
+// Wraps sqliteVaultStorage with error suppression to prevent "Unable to update" errors
+const safeSqliteVaultStorage = {
+  getItem: async (name: string) => {
+    try {
+      return await sqliteVaultStorage.getItem(name);
+    } catch (err) {
+      console.warn("Vault storage read failed (non-critical):", err);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string) => {
+    try {
+      await sqliteVaultStorage.setItem(name, value);
+    } catch (err) {
+      console.warn("Vault storage write failed (non-critical):", err);
+    }
+  },
+  removeItem: async (name: string) => {
+    try {
+      await sqliteVaultStorage.removeItem(name);
+    } catch (err) {
+      console.warn("Vault storage remove failed (non-critical):", err);
+    }
+  },
+};
+
 const useLocalVaultStore = create<LocalVaultState>()(
   persist(
     (set, get) => ({
@@ -140,7 +239,7 @@ const useLocalVaultStore = create<LocalVaultState>()(
     {
       name: LOCAL_VAULT_STORAGE_KEY,
       version: 1,
-      storage: createJSONStorage(() => sqliteVaultStorage),
+      storage: createJSONStorage(() => safeSqliteVaultStorage),
       partialize: (state) => ({
         documents: state.documents,
         projects: state.projects,
@@ -167,78 +266,5 @@ async function resetLocalVaultPersistence() {
     await sqliteVaultStorage.setItem(LOCAL_VAULT_STORAGE_KEY, emptyPersistedVault);
   } finally {
     useLocalVaultStore.setState({ documents: [], projects: [] });
-  }
-}
-
-const sqliteVaultStorage = {
-  getItem: async (name: string) => {
-    if (typeof window === "undefined") return null;
-    try {
-      const response = await fetch("/api/local-vault", { cache: "no-store" });
-      if (!response.ok) throw new Error("Local vault unavailable");
-      const data = (await response.json()) as {
-        documents?: LocalDocument[];
-        projects?: LocalProject[];
-      };
-      const documents = Array.isArray(data.documents) ? data.documents : [];
-      const projects = Array.isArray(data.projects) ? data.projects : [];
-      if (documents.length > 0 || projects.length > 0) {
-        safeStorage.removeItem(name);
-        return JSON.stringify({ state: { documents, projects }, version: 1 });
-      }
-    } catch {
-      return null;
-    }
-
-    return migrateLegacyLocalStorageVault(name);
-  },
-  setItem: async (_name: string, value: string) => {
-    if (typeof window === "undefined") return;
-    if (!vaultHasHydrated) return;
-    try {
-      const parsed = JSON.parse(value) as {
-        state?: { documents?: LocalDocument[]; projects?: LocalProject[] };
-      };
-      await fetch("/api/local-vault", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          documents: Array.isArray(parsed.state?.documents) ? parsed.state.documents : [],
-          projects: Array.isArray(parsed.state?.projects) ? parsed.state.projects : [],
-        }),
-      });
-    } catch {
-      return;
-    }
-  },
-  removeItem: async (name: string) => {
-    if (typeof window === "undefined") return;
-    safeStorage.removeItem(name);
-    await fetch("/api/local-vault", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ documents: [], projects: [] }),
-    }).catch(() => undefined);
-  },
-};
-
-function migrateLegacyLocalStorageVault(name: string) {
-  const legacyValue = safeStorage.getItem(name);
-  if (!legacyValue) return null;
-
-  try {
-    const parsed = JSON.parse(legacyValue) as {
-      state?: { documents?: LocalDocument[]; projects?: LocalProject[] };
-      version?: number;
-    };
-    const documents = Array.isArray(parsed.state?.documents) ? parsed.state.documents : [];
-    const projects = Array.isArray(parsed.state?.projects) ? parsed.state.projects : [];
-    const nextValue = JSON.stringify({ state: { documents, projects }, version: 1 });
-    void sqliteVaultStorage.setItem(name, nextValue);
-    safeStorage.removeItem(name);
-    return nextValue;
-  } catch {
-    safeStorage.removeItem(name);
-    return emptyPersistedVault;
   }
 }

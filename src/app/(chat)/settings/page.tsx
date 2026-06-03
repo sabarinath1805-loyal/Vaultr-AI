@@ -160,20 +160,6 @@ function LexSettings() {
   const setDefaultModelPreference = useChatStore((state) => state.setDefaultModelPreference);
   const setSelectedModel = useChatStore((state) => state.setSelectedModel);
 
-  const defaultJurisdiction = useChatStore((state) => state.defaultJurisdiction);
-  const setDefaultJurisdiction = useChatStore((state) => state.setDefaultJurisdiction);
-
-  const jurisdictionOptions = [
-    { value: "us", label: "United States" },
-    { value: "uk", label: "United Kingdom" },
-    { value: "au", label: "Australia" },
-    { value: "ca", label: "Canada" },
-    { value: "in", label: "India" },
-    { value: "eu", label: "European Union" },
-    { value: "sg", label: "Singapore" },
-    { value: "int", label: "International" },
-  ];
-
   const defaultModelOptions = !cloudMode
     ? LEX_MODELS
         .filter(
@@ -219,22 +205,11 @@ function LexSettings() {
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
-        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Default Jurisdiction</h2>
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Jurisdiction</h2>
         <div className="max-w-xl">
-          <label className="block">
-            <span className="mb-2 block text-sm text-[var(--text-muted)]">
-              Jurisdiction for web search context
-            </span>
-            <select
-              value={defaultJurisdiction}
-              onChange={(event) => setDefaultJurisdiction(event.target.value)}
-              className={fieldClass}
-            >
-              {jurisdictionOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </label>
+          <p className="text-sm text-[var(--text-muted)]">
+            Lex automatically detects jurisdiction from your query keywords and routes searches to the most relevant legal databases.
+          </p>
         </div>
       </section>
     </div>
