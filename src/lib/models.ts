@@ -17,52 +17,56 @@ export interface GroqModel {
   id: string;
   name: string;
   groqId: string;
-  provider: "groq" | "gemini" | "ollama-cloud";
+  provider: "cerebras" | "groq" | "gemini" | "ollama-cloud";
   badge: string;
   color: string;
   description: string;
 }
 
-export const GROQ_DEFAULT_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
+export const CEREBRAS_CORE_MODEL = "llama4-scout";
+export const CEREBRAS_PRO_MODEL = "gpt-oss-120b-low";
+export const CEREBRAS_ULTRA_MODEL = "glm-4.7";
+export const CEREBRAS_MAX_MODEL = "qwen3-235b";
+export const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
 export const GEMINI_ULTRA_MODEL = "gemini-2.5-flash";
 export const GEMINI_MAX_MODEL = "gemini-3.0-flash";
 
 export const GROQ_MODELS: GroqModel[] = [
   {
-    id: "groq-core",
+    id: "cerebras-core",
     name: "Lex Core",
-    groqId: GROQ_DEFAULT_MODEL,
-    provider: "groq",
+    groqId: CEREBRAS_CORE_MODEL,
+    provider: "cerebras",
     badge: "Core",
     color: "#378ADD",
-    description: "Llama 4 Scout — fast all-round. Default for most legal work.",
+    description: "Llama 4 Scout via Cerebras — fast all-round. Default for most legal work.",
   },
   {
-    id: "groq-pro",
+    id: "cerebras-pro",
     name: "Lex Pro",
-    groqId: "minimax-m2.5:cloud",
-    provider: "ollama-cloud",
+    groqId: CEREBRAS_PRO_MODEL,
+    provider: "cerebras",
     badge: "Pro",
     color: "#7F77DD",
-    description: "Ollama Cloud — powerful analysis for complex legal work.",
+    description: "GPT-OSS 120B via Cerebras — powerful analysis for complex legal work.",
   },
   {
-    id: "gemini-ultra",
+    id: "cerebras-ultra",
     name: "Lex Ultra",
-    groqId: GEMINI_ULTRA_MODEL,
-    provider: "gemini",
+    groqId: CEREBRAS_ULTRA_MODEL,
+    provider: "cerebras",
     badge: "Ultra",
     color: "#9A6BFF",
-    description: "Gemini 2.5 Flash — fast reasoning for contract analysis.",
+    description: "GLM-4.7 via Cerebras — fast reasoning for contract analysis.",
   },
   {
-    id: "gemini-max",
+    id: "cerebras-max",
     name: "Lex Max",
-    groqId: GEMINI_MAX_MODEL,
-    provider: "gemini",
+    groqId: CEREBRAS_MAX_MODEL,
+    provider: "cerebras",
     badge: "Max",
     color: "#C9A84C",
-    description: "Gemini 3.5 Flash — most powerful. Deep legal analysis.",
+    description: "Qwen3-235B via Cerebras — 64K context. Deep legal analysis.",
   },
 ];
 
@@ -115,6 +119,16 @@ function getLexModelIds(): string[] {
   return LEX_MODELS.map((model) => model.ollamaId);
 }
 
+export function getCerebrasModelIds(): string[] {
+  return GROQ_MODELS.filter((model) => model.provider === "cerebras").map(
+    (model) => model.groqId
+  );
+}
+
+export function isCerebrasModel(modelId: string | null | undefined): boolean {
+  return !!modelId && getCerebrasModelIds().includes(modelId);
+}
+
 export function getGroqModelIds(): string[] {
   return GROQ_MODELS.filter((model) => model.provider === "groq").map(
     (model) => model.groqId
@@ -150,6 +164,7 @@ export function groqIdToLexName(groqId: string): string {
 }
 
 export function getCloudProviderLabel(provider: GroqModel["provider"]) {
+  if (provider === "cerebras") return "Cerebras";
   if (provider === "gemini") return "Google";
   if (provider === "ollama-cloud") return "Ollama Cloud";
   return "Groq";

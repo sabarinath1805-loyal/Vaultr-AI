@@ -1,15 +1,18 @@
 import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
-import { GROQ_DEFAULT_MODEL, isCloudModel, isLexModel } from "@/lib/models";
+import { CEREBRAS_CORE_MODEL, isCloudModel, isLexModel } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
-import { get, set, del } from "idb-keyval";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
+const isSSR = typeof window === "undefined" || typeof indexedDB === "undefined";
+
 const indexedDBStorage = {
   getItem: async (name: string): Promise<string | null> => {
+    if (isSSR) return null;
     try {
+      const { get } = await import("idb-keyval");
       return (await get(name)) ?? null;
     } catch (err) {
       console.warn("Storage read failed (non-critical):", err);
@@ -17,14 +20,18 @@ const indexedDBStorage = {
     }
   },
   setItem: async (name: string, value: string): Promise<void> => {
+    if (isSSR) return;
     try {
+      const { set } = await import("idb-keyval");
       await set(name, value);
     } catch (err) {
       console.warn("Storage write failed (non-critical):", err);
     }
   },
   removeItem: async (name: string): Promise<void> => {
+    if (isSSR) return;
     try {
+      const { del } = await import("idb-keyval");
       await del(name);
     } catch (err) {
       console.warn("Storage remove failed (non-critical):", err);
@@ -159,7 +166,7 @@ const useChatStore = create<State & Actions>()(
       pendingWorkflow: null,
       customWorkflows: [],
       composerResetToken: 0,
-      selectedModel: GROQ_DEFAULT_MODEL,
+      selectedModel: CEREBRAS_CORE_MODEL,
       cloudMode: true,
       usePrivacyMode: false,
       userName: "Local User",
@@ -167,7 +174,7 @@ const useChatStore = create<State & Actions>()(
       ollamaUrl: "http://localhost:11434",
       thinkingModeDefault: false,
       themePreference: "light",
-      defaultModelPreference: GROQ_DEFAULT_MODEL,
+      defaultModelPreference: CEREBRAS_CORE_MODEL,
       defaultJurisdiction: "us",
       autoCleanupConversations: false,
       isDownloading: false,
@@ -263,10 +270,10 @@ const useChatStore = create<State & Actions>()(
         safeStorage.setItem("vaultr-privacy-mode", String(!enabled));
         set((state) => {
           const selectedModel = enabled
-            ? GROQ_DEFAULT_MODEL
+            ? CEREBRAS_CORE_MODEL
             : privateModel || state.selectedModel;
           const defaultModelPreference = enabled
-            ? GROQ_DEFAULT_MODEL
+            ? CEREBRAS_CORE_MODEL
             : state.defaultModelPreference;
 
           if (
@@ -290,10 +297,10 @@ const useChatStore = create<State & Actions>()(
         safeStorage.setItem("vaultr-privacy-mode", String(enabled));
         safeStorage.setItem("vaultr-cloud-mode", String(!enabled));
         set((state) => {
-          const selectedModel = enabled ? state.selectedModel : GROQ_DEFAULT_MODEL;
+          const selectedModel = enabled ? state.selectedModel : CEREBRAS_CORE_MODEL;
           const defaultModelPreference = enabled
             ? state.defaultModelPreference
-            : GROQ_DEFAULT_MODEL;
+            : CEREBRAS_CORE_MODEL;
 
           if (
             state.cloudMode === !enabled &&
@@ -583,7 +590,7 @@ const useChatStore = create<State & Actions>()(
             if (cloudMode) {
               return persisted.selectedModel && isCloudModel(persisted.selectedModel)
                 ? persisted.selectedModel
-                : GROQ_DEFAULT_MODEL;
+                : CEREBRAS_CORE_MODEL;
             }
             return persisted.selectedModel && isLexModel(persisted.selectedModel)
               ? persisted.selectedModel
@@ -639,7 +646,7 @@ const useChatStore = create<State & Actions>()(
               if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
               return currentState.cloudMode;
             })();
-            if (cloudMode) return GROQ_DEFAULT_MODEL;
+            if (cloudMode) return CEREBRAS_CORE_MODEL;
             const model =
               (typeof window !== "undefined" &&
                 safeStorage.getItem("vaultr-default-model")) ||
