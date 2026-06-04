@@ -9,7 +9,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { CEREBRAS_CORE_MODEL, isLexModel } from "@/lib/models";
+import { ANTHROPIC_CORE_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { toast } from "sonner";
@@ -376,6 +376,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             style: { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid #d97706" },
           });
         }
+        const fallbackModel = response.headers.get("X-Fallback-Model");
+        if (fallbackModel) {
+          const modelName = selectedModel || "Lex";
+          toast(`${modelName} is under high demand — responding with ${fallbackModel} instead.`, {
+            duration: 6000,
+            style: { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid #d97706" },
+          });
+        }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -573,7 +581,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setThinkingMessageId(userMessage.id);
     const requestPayload = {
       messages: nextMessages,
-      selectedModel: usePrivacyMode ? selectedModel : selectedModel || CEREBRAS_CORE_MODEL,
+      selectedModel: usePrivacyMode ? selectedModel : selectedModel || ANTHROPIC_CORE_MODEL,
       workflow,
       workflowPrompt: workflow?.prompt,
       attachedDocuments: requestBody?.attachedDocuments || [],
@@ -631,7 +639,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setThinkingMessageId(updatedUserMessage.id);
     await handleChatStream(
       {
-        selectedModel: usePrivacyMode ? selectedModel : selectedModel || CEREBRAS_CORE_MODEL,
+        selectedModel: usePrivacyMode ? selectedModel : selectedModel || ANTHROPIC_CORE_MODEL,
         workflow: pendingWorkflow,
         workflowPrompt: pendingWorkflow?.prompt,
         usePrivacyMode,
@@ -728,6 +736,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             thinkingMessageId={thinkingMessageId}
             legalSourcesMap={legalSourcesMap}
             searchingLegalMessageId={searchingLegalMessageId}
+            activeModel={selectedModel}
             onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();
@@ -741,7 +750,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               setThinkingMessageId(lastRetryMessage.id);
               await handleChatStream(
                 {
-                  selectedModel: usePrivacyMode ? selectedModel : selectedModel || CEREBRAS_CORE_MODEL,
+                  selectedModel: usePrivacyMode ? selectedModel : selectedModel || ANTHROPIC_CORE_MODEL,
                   usePrivacyMode,
                   workflowPrompt: pendingWorkflow?.prompt,
                   messages: retryMessages,
