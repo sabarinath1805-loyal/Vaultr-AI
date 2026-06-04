@@ -5,7 +5,8 @@ import { Check, ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   GROQ_MODELS,
-  CEREBRAS_CORE_MODEL,
+  ANTHROPIC_CORE_MODEL,
+  ANTHROPIC_MAX_MODEL,
   getModelDisplayMetadata,
   groqIdToLexName,
   isLexModel,
@@ -196,6 +197,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                 {cloudMode && GROQ_MODELS.map((model) => {
                   const modelId = model.groqId;
                   const metadata = getModelDisplayMetadata(modelId);
+                  const isMax = modelId === ANTHROPIC_MAX_MODEL;
                   return (
                     <button
                       key={modelId}
@@ -205,6 +207,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                         setOpen(false);
                       }}
                       className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-black/5"
+                      title={isMax ? "Comprehensive analysis — allow 1-2 minutes" : undefined}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
                         <span className="flex min-w-0 flex-1 flex-col">
@@ -268,7 +271,7 @@ function getNextSelectedModel({
   if (cloudMode) {
     return GROQ_MODELS.some((model) => model.groqId === selectedModel)
       ? selectedModel
-      : CEREBRAS_CORE_MODEL;
+      : ANTHROPIC_CORE_MODEL;
   }
 
   if (!isOllamaRunning || availableModels.length === 0) return null;

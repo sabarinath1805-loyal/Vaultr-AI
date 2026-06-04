@@ -17,12 +17,16 @@ export interface GroqModel {
   id: string;
   name: string;
   groqId: string;
-  provider: "cerebras" | "groq" | "gemini" | "ollama-cloud";
+  provider: "anthropic" | "cerebras" | "groq" | "gemini" | "ollama-cloud";
   badge: string;
   color: string;
   description: string;
 }
 
+export const ANTHROPIC_CORE_MODEL = "claude-3-haiku";
+export const ANTHROPIC_PRO_MODEL = "claude-sonnet-4-5";
+export const ANTHROPIC_ULTRA_MODEL = "claude-sonnet-4-6";
+export const ANTHROPIC_MAX_MODEL = "claude-opus-4-6";
 export const CEREBRAS_CORE_MODEL = "llama4-scout";
 export const CEREBRAS_PRO_MODEL = "gpt-oss-120b-low";
 export const CEREBRAS_ULTRA_MODEL = "glm-4.7";
@@ -33,40 +37,40 @@ export const GEMINI_MAX_MODEL = "gemini-3.0-flash";
 
 export const GROQ_MODELS: GroqModel[] = [
   {
-    id: "cerebras-core",
+    id: "anthropic-core",
     name: "Lex Core",
-    groqId: CEREBRAS_CORE_MODEL,
-    provider: "cerebras",
+    groqId: ANTHROPIC_CORE_MODEL,
+    provider: "anthropic",
     badge: "Core",
     color: "#378ADD",
-    description: "Llama 4 Scout via Cerebras — fast all-round. Default for most legal work.",
+    description: "Claude Haiku — fast all-round. Default for most legal work.",
   },
   {
-    id: "cerebras-pro",
+    id: "anthropic-pro",
     name: "Lex Pro",
-    groqId: CEREBRAS_PRO_MODEL,
-    provider: "cerebras",
+    groqId: ANTHROPIC_PRO_MODEL,
+    provider: "anthropic",
     badge: "Pro",
     color: "#7F77DD",
-    description: "GPT-OSS 120B via Cerebras — powerful analysis for complex legal work.",
+    description: "Claude Sonnet 4.5 — powerful analysis for complex legal work.",
   },
   {
-    id: "cerebras-ultra",
+    id: "anthropic-ultra",
     name: "Lex Ultra",
-    groqId: CEREBRAS_ULTRA_MODEL,
-    provider: "cerebras",
+    groqId: ANTHROPIC_ULTRA_MODEL,
+    provider: "anthropic",
     badge: "Ultra",
     color: "#9A6BFF",
-    description: "GLM-4.7 via Cerebras — fast reasoning for contract analysis.",
+    description: "Claude Sonnet 4.6 — advanced reasoning for contract analysis.",
   },
   {
-    id: "cerebras-max",
+    id: "anthropic-max",
     name: "Lex Max",
-    groqId: CEREBRAS_MAX_MODEL,
-    provider: "cerebras",
+    groqId: ANTHROPIC_MAX_MODEL,
+    provider: "anthropic",
     badge: "Max",
     color: "#C9A84C",
-    description: "Qwen3-235B via Cerebras — 64K context. Deep legal analysis.",
+    description: "Claude Opus 4.6 — comprehensive deep analysis. Allow 1-2 minutes.",
   },
 ];
 
@@ -119,6 +123,16 @@ function getLexModelIds(): string[] {
   return LEX_MODELS.map((model) => model.ollamaId);
 }
 
+export function getAnthropicModelIds(): string[] {
+  return GROQ_MODELS.filter((model) => model.provider === "anthropic").map(
+    (model) => model.groqId
+  );
+}
+
+export function isAnthropicModel(modelId: string | null | undefined): boolean {
+  return !!modelId && getAnthropicModelIds().includes(modelId);
+}
+
 export function getCerebrasModelIds(): string[] {
   return GROQ_MODELS.filter((model) => model.provider === "cerebras").map(
     (model) => model.groqId
@@ -164,6 +178,7 @@ export function groqIdToLexName(groqId: string): string {
 }
 
 export function getCloudProviderLabel(provider: GroqModel["provider"]) {
+  if (provider === "anthropic") return "Anthropic";
   if (provider === "cerebras") return "Cerebras";
   if (provider === "gemini") return "Google";
   if (provider === "ollama-cloud") return "Ollama Cloud";

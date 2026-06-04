@@ -13,7 +13,7 @@ import { AddDocumentsModal } from "@/components/shared/add-documents-modal";
 import { formatBytes, type LocalDocument } from "@/lib/local-documents";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import useChatStore, { type AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { CEREBRAS_CORE_MODEL, isLexModel, isThinkingCapableModel, sortModelsByLexOrder } from "@/lib/models";
+import { ANTHROPIC_CORE_MODEL, isLexModel, isThinkingCapableModel, sortModelsByLexOrder } from "@/lib/models";
 import { SourcesDropdown, SourcePills, buildJurisdictionPrompt } from "@/components/chat/sources-dropdown";
 
 interface ComposerCardProps {
@@ -283,7 +283,7 @@ export function ComposerCard({
 
   const switchMode = async () => {
     if (!cloudMode) {
-      setCloudMode(true, selectedModel || CEREBRAS_CORE_MODEL);
+      setCloudMode(true, selectedModel || ANTHROPIC_CORE_MODEL);
       return;
     }
 
@@ -304,7 +304,7 @@ export function ComposerCard({
   };
 
   const selectCloudMode = () => {
-    if (!cloudMode) setCloudMode(true, selectedModel || CEREBRAS_CORE_MODEL);
+    if (!cloudMode) setCloudMode(true, selectedModel || ANTHROPIC_CORE_MODEL);
     setModePopoverOpen(false);
   };
 
