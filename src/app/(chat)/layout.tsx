@@ -3,6 +3,7 @@ import { Sora } from "next/font/google";
 import "../globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { AppShell } from "@/components/app-shell";
+import { AuthProvider } from "@/components/auth/auth-provider";
 
 const sora = Sora({ subsets: ["latin"], variable: "--font-sora" });
 
@@ -36,7 +37,9 @@ export default function RootLayout({
         <link rel="icon" href="/favicon-32.png" />
       </head>
       <body className="antialiased tracking-tight">
-        <AppShell>{children}</AppShell>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
         <Toaster />
       </body>
     </html>
