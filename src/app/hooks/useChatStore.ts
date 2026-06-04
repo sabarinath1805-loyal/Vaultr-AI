@@ -1,7 +1,7 @@
 import type { Message } from "ai/react";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
-import { CEREBRAS_CORE_MODEL, isCloudModel, isLexModel } from "@/lib/models";
+import { ANTHROPIC_CORE_MODEL, isCloudModel, isLexModel } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -166,7 +166,7 @@ const useChatStore = create<State & Actions>()(
       pendingWorkflow: null,
       customWorkflows: [],
       composerResetToken: 0,
-      selectedModel: CEREBRAS_CORE_MODEL,
+      selectedModel: ANTHROPIC_CORE_MODEL,
       cloudMode: true,
       usePrivacyMode: false,
       userName: "Local User",
@@ -174,7 +174,7 @@ const useChatStore = create<State & Actions>()(
       ollamaUrl: "http://localhost:11434",
       thinkingModeDefault: false,
       themePreference: "light",
-      defaultModelPreference: CEREBRAS_CORE_MODEL,
+      defaultModelPreference: ANTHROPIC_CORE_MODEL,
       defaultJurisdiction: "us",
       autoCleanupConversations: false,
       isDownloading: false,
@@ -270,10 +270,10 @@ const useChatStore = create<State & Actions>()(
         safeStorage.setItem("vaultr-privacy-mode", String(!enabled));
         set((state) => {
           const selectedModel = enabled
-            ? CEREBRAS_CORE_MODEL
+            ? ANTHROPIC_CORE_MODEL
             : privateModel || state.selectedModel;
           const defaultModelPreference = enabled
-            ? CEREBRAS_CORE_MODEL
+            ? ANTHROPIC_CORE_MODEL
             : state.defaultModelPreference;
 
           if (
@@ -297,10 +297,10 @@ const useChatStore = create<State & Actions>()(
         safeStorage.setItem("vaultr-privacy-mode", String(enabled));
         safeStorage.setItem("vaultr-cloud-mode", String(!enabled));
         set((state) => {
-          const selectedModel = enabled ? state.selectedModel : CEREBRAS_CORE_MODEL;
+          const selectedModel = enabled ? state.selectedModel : ANTHROPIC_CORE_MODEL;
           const defaultModelPreference = enabled
             ? state.defaultModelPreference
-            : CEREBRAS_CORE_MODEL;
+            : ANTHROPIC_CORE_MODEL;
 
           if (
             state.cloudMode === !enabled &&
@@ -590,7 +590,7 @@ const useChatStore = create<State & Actions>()(
             if (cloudMode) {
               return persisted.selectedModel && isCloudModel(persisted.selectedModel)
                 ? persisted.selectedModel
-                : CEREBRAS_CORE_MODEL;
+                : ANTHROPIC_CORE_MODEL;
             }
             return persisted.selectedModel && isLexModel(persisted.selectedModel)
               ? persisted.selectedModel
@@ -646,7 +646,7 @@ const useChatStore = create<State & Actions>()(
               if (typeof persisted.usePrivacyMode === "boolean") return !persisted.usePrivacyMode;
               return currentState.cloudMode;
             })();
-            if (cloudMode) return CEREBRAS_CORE_MODEL;
+            if (cloudMode) return ANTHROPIC_CORE_MODEL;
             const model =
               (typeof window !== "undefined" &&
                 safeStorage.getItem("vaultr-default-model")) ||
