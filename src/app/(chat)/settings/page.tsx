@@ -6,6 +6,8 @@ import useChatStore from "@/app/hooks/useChatStore";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { ANTHROPIC_CORE_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
+import { useAuth } from "@/components/auth/auth-provider";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 type Tab = "account" | "appearance" | "lex" | "private-mode" | "data";
 
@@ -76,14 +78,36 @@ export default function SettingsPage() {
 }
 
 function AccountSettings() {
+  const { user, signOut } = useAuth();
+  const supabaseEnabled = isSupabaseConfigured();
+
   return (
     <div className="space-y-4">
       <section className="pb-6">
         <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Account</h2>
-        <div className="max-w-xl rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-6 py-5">
+        <div className="max-w-xl space-y-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] px-6 py-5">
           <p className="text-sm text-[var(--text)]">
             Vaultr Beta — Thank you for being an early access member.
           </p>
+          {supabaseEnabled && user && (
+            <div className="space-y-3 border-t border-[var(--border)] pt-4">
+              <p className="text-sm text-[var(--text-muted)]">
+                Signed in as <span className="font-medium text-[var(--text)]">{user.email}</span>
+              </p>
+              <button
+                type="button"
+                onClick={signOut}
+                className="rounded-md border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-muted)] hover:text-[var(--text)]"
+              >
+                Sign out
+              </button>
+            </div>
+          )}
+          {supabaseEnabled && !user && (
+            <p className="text-xs text-[var(--text-muted)]">
+              Not signed in — auth is configured but no session detected.
+            </p>
+          )}
         </div>
       </section>
     </div>
