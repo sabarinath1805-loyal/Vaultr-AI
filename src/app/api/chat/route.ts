@@ -16,6 +16,7 @@ import {
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
 import { checkRateLimit, recordUsage } from "@/lib/rate-limit";
+import { getSessionUser, isBetaUser, logUsage, isSupabaseConfigured, checkSupabaseRateLimit } from "@/lib/supabase";
 import {
   createThinkStripState,
   flushThinkStripState,
@@ -110,6 +111,28 @@ export async function POST(req: Request) {
     jurisdictionPrompt,
     defaultJurisdiction,
   } = await req.json();
+
+  // Supabase auth gate — when configured, require authenticated beta user
+  let authenticatedUserId: string | null = null;
+  if (isSupabaseConfigured()) {
+    const authHeader = req.headers.get("authorization");
+    const user = await getSessionUser(authHeader);
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required. Please sign in." }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    const approved = await isBetaUser(user.email || "");
+    if (!approved) {
+      return new Response(
+        JSON.stringify({ error: "Your account is pending beta approval." }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    authenticatedUserId = user.id;
+  }
+
   const privacyMode = usePrivacyMode === true;
   const requestedModel = typeof selectedModel === "string" ? selectedModel : null;
   if (privacyMode && !isLexModel(requestedModel)) {
@@ -135,7 +158,7 @@ export async function POST(req: Request) {
   const anthropicModel = isAnthropicModel(activeModel) ? activeModel : null;
   const cerebrasModel = isCerebrasModel(activeModel) ? activeModel : null;
 
-  // Per-model rate limiting (Feature 3)
+  // Per-model rate limiting — Supabase-backed when auth is available, else IP-based in-memory
   if (!privacyMode && activeModel) {
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
     const rateLimitResult = checkRateLimit(clientIp, activeModel);
@@ -260,6 +283,9 @@ export async function POST(req: Request) {
         clearTimeout(timeout);
         const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
         recordUsage(clientIp, anthropicModel);
+        if (authenticatedUserId) {
+          logUsage(authenticatedUserId, anthropicModel, clientIp).catch(() => {});
+        }
         return anthropicResponse;
       } catch (anthropicErr) {
         console.error(`[Anthropic] ${anthropicModel} failed, falling back to Groq`, anthropicErr);

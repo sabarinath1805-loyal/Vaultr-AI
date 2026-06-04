@@ -12,6 +12,7 @@ import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { ANTHROPIC_CORE_MODEL, isLexModel } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
+import { createBrowserSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
 import { toast } from "sonner";
 
 type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
@@ -358,9 +359,19 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       activeAssistantMessageRef.current = assistantMessage;
 
       try {
+        // Build headers — include auth token when Supabase is configured
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (isSupabaseConfigured()) {
+          const supabase = createBrowserSupabaseClient();
+          const session = supabase ? (await supabase.auth.getSession()).data.session : null;
+          if (session?.access_token) {
+            headers["Authorization"] = `Bearer ${session.access_token}`;
+          }
+        }
+
         const response = await fetch("/api/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify(requestBody),
           signal: abortController.signal,
         });
