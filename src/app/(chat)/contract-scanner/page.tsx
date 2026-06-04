@@ -10,7 +10,7 @@ import { ResultsDisplay } from "@/components/contract-scanner/results-display";
 import useChatStore from "@/app/hooks/useChatStore";
 import useContractScannerStore from "@/app/hooks/useContractScannerStore";
 import { getRiskCounts } from "@/lib/contract-scanner";
-import { CEREBRAS_CORE_MODEL } from "@/lib/models";
+import { ANTHROPIC_CORE_MODEL } from "@/lib/models";
 import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -92,7 +92,7 @@ export default function ContractScannerPage() {
     if (cloudMode || hasForcedCloudMode.current) return;
 
     hasForcedCloudMode.current = true;
-    setCloudMode(true, CEREBRAS_CORE_MODEL);
+    setCloudMode(true, ANTHROPIC_CORE_MODEL);
     // hasForcedCloudMode is a one-shot ref so this Cloud Mode write cannot repeat
     // when the store update changes cloudMode and re-renders the scanner.
   }, [cloudMode, setCloudMode]);

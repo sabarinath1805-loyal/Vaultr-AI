@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
-import { CEREBRAS_CORE_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
+import { ANTHROPIC_CORE_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
 
 type Tab = "account" | "appearance" | "lex" | "private-mode" | "data";
@@ -175,7 +175,7 @@ function LexSettings() {
     ? defaultModelPreference
     : !cloudMode
     ? defaultModelOptions[0]?.value || ""
-    : CEREBRAS_CORE_MODEL;
+    : ANTHROPIC_CORE_MODEL;
 
   return (
     <div className="space-y-4">
