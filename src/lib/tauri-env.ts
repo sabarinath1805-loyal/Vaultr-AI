@@ -12,6 +12,7 @@ export const API_KEY_NAMES = [
   "OLLAMA_API_KEY",
   "CEREBRAS_API_KEY",
   "HARVARD_CAP_API_KEY",
+  "CLAUDEOPUS_API_KEY",
 ] as const;
 
 export type ApiKeyName = (typeof API_KEY_NAMES)[number];

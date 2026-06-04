@@ -7,7 +7,7 @@ import {
   patchPredatoryClauseFindings,
 } from "@/lib/contract-scanner";
 import { LEX_SYSTEM_PROMPT } from "@/lib/lex";
-import { CEREBRAS_CORE_MODEL, GROQ_DEFAULT_MODEL } from "@/lib/models";
+import { ANTHROPIC_CORE_MODEL, GROQ_DEFAULT_MODEL } from "@/lib/models";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
@@ -56,7 +56,7 @@ export async function scanContractFormData(formData: FormData) {
     }
 
     const prompt = CONTRACT_ANALYSIS_PROMPT.replace("{contract_text}", contractText);
-    const modelId = mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : CEREBRAS_CORE_MODEL;
+    const modelId = mode === "private" ? PRIVATE_CONTRACT_SCANNER_MODEL : ANTHROPIC_CORE_MODEL;
     let responseBody: string;
     try {
       responseBody = await requestContractAnalysis({
@@ -159,7 +159,7 @@ async function requestContractAnalysis({
   ollamaUrl: string;
   prompt: string;
 }) {
-  const isCerebras = mode === "cloud" && [CEREBRAS_CORE_MODEL, "gpt-oss-120b-low", "glm-4.7", "qwen3-235b"].includes(model);
+  const isCerebras = mode === "cloud" && [ANTHROPIC_CORE_MODEL, "gpt-oss-120b-low", "glm-4.7", "qwen3-235b"].includes(model);
   const cloudUrl = isCerebras
     ? "https://api.cerebras.ai/v1/chat/completions"
     : "https://api.groq.com/openai/v1/chat/completions";

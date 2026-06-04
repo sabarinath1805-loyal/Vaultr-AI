@@ -37,7 +37,12 @@ const DOCUMENT_PATTERNS: { regex: RegExp; prefix: string }[] = [
 
 const MIN_DOCUMENT_LENGTH = 800;
 
-function detectDocumentType(content: string): string | null {
+// Only show docx download when user explicitly requested document generation
+const DOCX_REQUEST_KEYWORDS = /\b(?:draft|generate|create a document|download|word doc|docx|write me a contract|prepare an agreement|write me an? (?:nda|contract|agreement|lease|memorandum|letter)|generate a (?:document|contract|agreement))\b/i;
+
+function detectDocumentType(content: string, userMessage?: string): string | null {
+  // Only auto-detect if user explicitly asked for a document
+  if (!userMessage || !DOCX_REQUEST_KEYWORDS.test(userMessage)) return null;
   if (content.length < MIN_DOCUMENT_LENGTH) return null;
   // Must have structure: multiple headings or numbered clauses
   const headingCount = (content.match(/^#{1,3}\s+/gm) || []).length;
@@ -240,11 +245,11 @@ function ExportButtons({ content, messageId }: { content: string; messageId: str
   if (!content || content.length < 20) return null;
 
   return (
-    <div ref={menuRef} className="relative inline-block">
+    <div ref={menuRef} className="relative inline-flex items-center">
       <button
         type="button"
         onClick={() => setMenuOpen((prev) => !prev)}
-        className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+        className="flex h-[28px] w-[28px] items-center justify-center transition-[color,background-color] duration-150 hover:text-[var(--text)]"
         aria-label="Export response"
         title="Export response"
       >
@@ -303,13 +308,14 @@ export type ChatMessageProps = {
   showThinking?: boolean;
   legalSources?: LegalSearchResult | null;
   isSearchingLegal?: boolean;
+  previousUserMessage?: string;
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
   onEditMessage: (messageId: string, content: string) => void;
 };
 
-function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, isSearchingLegal, reload, onEditMessage }: ChatMessageProps) {
+function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, isSearchingLegal, previousUserMessage, reload, onEditMessage }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [editing, setEditing] = useState(false);
   const [draftContent, setDraftContent] = useState(message.content);
@@ -328,7 +334,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
     } catch { return null; }
   }, [message.content, message.role]);
   const effectiveLegalSources = legalSources || inlineLegalSources;
-  const detectedDocType = useMemo(() => message.role === "assistant" ? detectDocumentType(cleanContent) : null, [cleanContent, message.role]);
+  const detectedDocType = useMemo(() => message.role === "assistant" ? detectDocumentType(cleanContent, previousUserMessage) : null, [cleanContent, message.role, previousUserMessage]);
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
@@ -628,7 +634,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
             {!isCurrentlyStreaming && detectedDocType && docxCalls.length === 0 && (
               <DocumentArtifactButton content={cleanContent} docType={detectedDocType} />
             )}
-            {!isCurrentlyStreaming && webSearchUsed && sourceFooterDomains.length > 0 && (
+            {webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
             )}
             {(effectiveLegalSources || (!isCurrentlyStreaming && isSearchingLegal)) && (
@@ -646,12 +652,12 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                 </div>
               ))}
             </div>
-            <div className="message-actions flex items-center gap-2 pt-2 text-[var(--text-muted)]">
+            <div className="message-actions flex h-[28px] items-center gap-3 pt-2 text-[var(--text-muted)]">
               {!isLoading && (
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+                  className="flex h-[28px] w-[28px] items-center justify-center transition-[color,background-color] duration-150 hover:text-[var(--text)]"
                   aria-label="Copy response"
                 >
                   {isCopied ? (
@@ -668,7 +674,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                 <button
                   type="button"
                   onClick={() => reload()}
-                  className="transition-[color,background-color] duration-150 hover:text-[var(--text)]"
+                  className="flex h-[28px] w-[28px] items-center justify-center transition-[color,background-color] duration-150 hover:text-[var(--text)]"
                   aria-label="Regenerate response"
                 >
                   <RefreshCcw className="h-3.5 w-3.5" />
@@ -688,6 +694,7 @@ export default memo(ChatMessage, (prevProps, nextProps) =>
   prevProps.showThinking === nextProps.showThinking &&
   prevProps.legalSources === nextProps.legalSources &&
   prevProps.isSearchingLegal === nextProps.isSearchingLegal &&
+  prevProps.previousUserMessage === nextProps.previousUserMessage &&
   prevProps.message.content === nextProps.message.content &&
   prevProps.message.id === nextProps.message.id
 );
