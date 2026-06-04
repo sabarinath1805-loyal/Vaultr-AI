@@ -12,6 +12,7 @@ interface ChatListProps {
   thinkingMessageId: string | null;
   legalSourcesMap: Record<string, LegalSearchResult>;
   searchingLegalMessageId: string | null;
+  activeModel?: string | null;
   onEditMessage: (messageId: string, content: string) => void;
   reload: (
     chatRequestOptions?: ChatRequestOptions
@@ -25,6 +26,7 @@ export default function ChatList({
   thinkingMessageId,
   legalSourcesMap,
   searchingLegalMessageId,
+  activeModel,
   onEditMessage,
   reload,
 }: ChatListProps) {
@@ -64,22 +66,28 @@ export default function ChatList({
     >
       <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
         <div className="flex flex-col">
-          {messages.map((message, index) => (
-            <ChatMessage
-              key={message.id || index}
-              message={message}
-              isLast={index === messages.length - 1}
-              isLoading={isLoading}
-              showThinking={showInlineThinking && index === messages.length - 1 && message.role === "assistant"}
-              legalSources={message.role === "assistant" ? legalSourcesMap[message.id] : undefined}
-              isSearchingLegal={message.role === "assistant" && message.id === searchingLegalMessageId}
-              onEditMessage={onEditMessage}
-              reload={reload}
-            />
-          ))}
+          {messages.map((message, index) => {
+            const prevUserMsg = message.role === "assistant" && index > 0
+              ? [...messages.slice(0, index)].reverse().find((m) => m.role === "user")?.content
+              : undefined;
+            return (
+              <ChatMessage
+                key={message.id || index}
+                message={message}
+                isLast={index === messages.length - 1}
+                isLoading={isLoading}
+                showThinking={showInlineThinking && index === messages.length - 1 && message.role === "assistant"}
+                legalSources={message.role === "assistant" ? legalSourcesMap[message.id] : undefined}
+                isSearchingLegal={message.role === "assistant" && message.id === searchingLegalMessageId}
+                previousUserMessage={prevUserMsg}
+                onEditMessage={onEditMessage}
+                reload={reload}
+              />
+            );
+          })}
           {showStandaloneThinking && (
             <div className="message animate-message-in w-full text-left">
-              <ThinkingIndicator visible />
+              <ThinkingIndicator visible activeModel={activeModel} />
             </div>
           )}
           <div ref={bottomRef} />
