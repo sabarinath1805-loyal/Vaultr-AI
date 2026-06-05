@@ -225,7 +225,7 @@ export async function POST(req: Request) {
     : [];
   const documentContext = documentContexts.filter(Boolean).join("");
   const documentPreamble = documentContext
-    ? "\n\nDOCUMENT CONTEXT:\nThe lawyer has attached the following document(s) for you to analyse. Read them carefully and answer the user's question based on their content. If they say \"analyse this\" or similar, provide a thorough analysis of the document content." + documentContext
+    ? "\n\n## Attached Documents\nThe lawyer has attached the following document(s) for you to analyse. Read them carefully and answer the user's question based on their content. If they say \"analyse this\" or similar, provide a thorough analysis of the document content." + documentContext
     : "";
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
