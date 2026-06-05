@@ -188,6 +188,30 @@ export async function POST(req: Request) {
   const currentMessage = conversationMessages[conversationMessages.length - 1];
   const userMessage =
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
+
+  // Fix 10: Detect greeting messages and return hardcoded response
+  const LEX_GREETINGS = [
+    "Morning. What's on your desk?",
+    "Good morning. What are we working on?",
+    "What do you need?",
+    "Ready when you are.",
+    "What's the matter?",
+  ];
+  const isGreetingMessage = initialMessages.length === 0 && /^(?:hi|hello|hey|good\s*(?:morning|afternoon|evening)|greetings|yo|sup|what'?s?\s*up)\s*[.!?]*$/i.test(userMessage.trim());
+  if (isGreetingMessage) {
+    const greeting = LEX_GREETINGS[Math.floor(Math.random() * LEX_GREETINGS.length)];
+    const encoder = new TextEncoder();
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`0:${JSON.stringify(greeting)}\n`));
+          controller.close();
+        },
+      }),
+      { headers: { "Content-Type": "text/event-stream" } }
+    );
+  }
+
   const shouldSearch = !privacyMode;
   // Run web search + RAG + statutes in parallel (Feature 1)
   const webSearchPromise = shouldSearch
