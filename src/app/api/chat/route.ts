@@ -15,6 +15,7 @@ import {
   OLLAMA_CLOUD_FALLBACK_MODELS,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
+import { resolveCitation, detectCaseFollowUp } from "@/lib/citation-resolver";
 import { checkRateLimit, recordUsage } from "@/lib/rate-limit";
 import { getSessionUser, isBetaUser, logUsage, isSupabaseConfigured, checkSupabaseRateLimit } from "@/lib/supabase";
 import {
@@ -212,6 +213,18 @@ export async function POST(req: Request) {
     );
   }
 
+  // Fix 12: Detect "tell me more about that case" follow-ups
+  const caseFollowUp = detectCaseFollowUp(userMessage);
+  let citationContext = "";
+  if (caseFollowUp) {
+    console.log(`[Citation Resolver] Detected case follow-up: "${caseFollowUp}"`);
+    const excerpt = await resolveCitation(caseFollowUp);
+    if (excerpt) {
+      citationContext = `\n\n## Case Law References\nThe following judgment excerpt was retrieved for "${caseFollowUp}":\n${excerpt}`;
+      console.log(`[Citation Resolver] Resolved ${excerpt.length} chars for "${caseFollowUp}"`);
+    }
+  }
+
   const shouldSearch = !privacyMode;
   // Run web search + RAG + statutes in parallel (Feature 1)
   const webSearchPromise = shouldSearch
@@ -280,7 +293,7 @@ export async function POST(req: Request) {
     ? `\n\n## Legal Concept Background\n${legalResults.wikiSummary}`
     : "";
 
-  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}`;
+  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}${citationContext}`;
   if (documentPreamble) {
     console.log(`[Chat] Document context injected: ${documentPreamble.length} chars`);
   }
