@@ -370,6 +370,8 @@ function expandSectionReference(text: string): string {
 function CitationsPanel({ content, attachedDocuments }: { content: string; attachedDocuments?: { filename: string }[] }) {
   const [citationsOpen, setCitationsOpen] = useState(false);
   const [docsOpen, setDocsOpen] = useState(false);
+  const [feedbackIdx, setFeedbackIdx] = useState<number | null>(null);
+  const [submittedFeedback, setSubmittedFeedback] = useState<Record<number, string>>({});
   const citations = useMemo(() => extractCitations(content), [content]);
   const hasDocuments = attachedDocuments && attachedDocuments.length > 0;
   const hasCitations = citations.length > 0;
@@ -417,22 +419,55 @@ function CitationsPanel({ content, attachedDocuments }: { content: string; attac
           {citationsOpen && (
             <div className="border-t border-[var(--border)] px-3 py-2">
               {citations.map((c, idx) => (
-                <div key={idx} className="flex items-start gap-2 py-1">
-                  <span className="shrink-0 text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums" style={{ minWidth: "18px" }}>{idx + 1}.</span>
-                  <a
-                    href={`https://www.google.com/search?q=${encodeURIComponent(c.text + " law")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-[13px] text-[var(--text-primary)] hover:underline cursor-pointer"
-                  >
-                    {expandSectionReference(c.text)}
-                    <span className="text-xs opacity-50">↗</span>
-                  </a>
-                  {c.jurisdiction && (
-                    <span className="shrink-0 rounded bg-[var(--accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]">{c.jurisdiction}</span>
-                  )}
-                  {c.year && (
-                    <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">{c.year}</span>
+                <div key={idx} className="py-1">
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums" style={{ minWidth: "18px" }}>{idx + 1}.</span>
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(c.text + " law")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[13px] text-[var(--text-primary)] hover:underline cursor-pointer"
+                    >
+                      {expandSectionReference(c.text)}
+                      <span className="text-xs opacity-50">↗</span>
+                    </a>
+                    {c.jurisdiction && (
+                      <span className="shrink-0 rounded bg-[var(--accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]">{c.jurisdiction}</span>
+                    )}
+                    {c.year && (
+                      <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">{c.year}</span>
+                    )}
+                    {submittedFeedback[idx] ? (
+                      <span className="ml-auto shrink-0 text-[10px] text-[var(--text-tertiary)]">{submittedFeedback[idx]}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackIdx(feedbackIdx === idx ? null : idx)}
+                        className="ml-auto shrink-0 text-[12px] text-[var(--text-tertiary)] opacity-50 transition-opacity hover:opacity-100"
+                        title="Flag this citation"
+                      >
+                        🚩
+                      </button>
+                    )}
+                  </div>
+                  {feedbackIdx === idx && !submittedFeedback[idx] && (
+                    <div className="ml-6 mt-1 flex items-center gap-2 text-[11px]">
+                      <span className="text-[var(--text-muted)]">Accurate?</span>
+                      {(["✓ Correct", "✗ Wrong case", "? Unverified"] as const).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            console.log("[Citation Feedback]", { citation: c.text, feedback: option, timestamp: new Date().toISOString() });
+                            setSubmittedFeedback((prev) => ({ ...prev, [idx]: option }));
+                            setFeedbackIdx(null);
+                          }}
+                          className="rounded border border-[var(--border)] px-2 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
               ))}
