@@ -233,16 +233,9 @@ export default function ContractScannerPage() {
       const savedReport = await saveResponse.json();
       window.dispatchEvent(new Event("vaultr-scan-reports-updated"));
       if (savedReport?.duplicate) {
-        toast.info("This document is already in your Vault.");
+        toast.info("This document has already been scanned.");
       } else {
-        toast.success("Report saved to Vault", {
-          action: {
-            label: "Open Vault",
-            onClick: () => {
-              window.location.href = "/vault";
-            },
-          },
-        });
+        toast.success("Scan report saved");
       }
       setReportMeta({ filename: file.name, date: new Date().toISOString() });
       setScanProgress(100);
@@ -279,7 +272,7 @@ export default function ContractScannerPage() {
                 href="/vault"
                 className="text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
               >
-                ← Back to Vault
+                ← Back to Scanner
               </Link>
             </div>
           )}
@@ -375,7 +368,7 @@ export default function ContractScannerPage() {
             href="/vault"
             className="text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
           >
-            View saved reports in Vault →
+            View previous scan reports →
           </Link>
         </div>
       )}

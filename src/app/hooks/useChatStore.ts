@@ -133,7 +133,7 @@ interface Actions {
 }
 
 const syncChatMessages = async (chatId: string, messages: Message[]) => {
-  await fetch(`/api/chats/${chatId}/messages`, {
+  const response = await fetch(`/api/chats/${chatId}/messages`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -150,6 +150,9 @@ const syncChatMessages = async (chatId: string, messages: Message[]) => {
       })),
     }),
   });
+  if (!response.ok) {
+    throw new Error(`Sync failed: ${response.status}`);
+  }
 };
 
 const syncQueues = new Map<string, Promise<void>>();

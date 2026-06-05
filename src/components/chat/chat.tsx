@@ -51,6 +51,9 @@ export interface ChatProps {
 }
 
 export default function Chat({ initialMessages, id }: ChatProps) {
+  const isMountedRef = React.useRef(true);
+  React.useEffect(() => () => { isMountedRef.current = false; }, []);
+
   const typewriterTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const thinkingFadeTimerRef = React.useRef<NodeJS.Timeout | null>(null);
   const typewriterMessageIdRef = React.useRef<string | null>(null);
@@ -426,6 +429,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             }
 
             if (!directStream || nextContent.length === 0) continue;
+            if (!isMountedRef.current) continue;
 
             const visibleAssistantMessage: Message = {
               ...assistantMessage,
@@ -484,6 +488,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         }
 
         if (directStream) {
+          if (!isMountedRef.current) return;
           const nextMessages = [...requestMessages, finalAssistantMessage];
           setMessages(nextMessages);
           await saveMessages(id, nextMessages);
