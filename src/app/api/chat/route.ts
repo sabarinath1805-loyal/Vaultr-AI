@@ -24,7 +24,7 @@ import {
   stripAssistantStreamChunk,
 } from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
-import { searchLegalDatabases, formatCasesForContext } from "@/lib/legal-search";
+import { searchLegalDatabases, formatCasesForContext, type LegalCase } from "@/lib/legal-search";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -133,6 +133,15 @@ export async function POST(req: Request) {
     authenticatedUserId = user.id;
   }
 
+  function recordUsageForProvider(request: Request, model: string | null, userId: string | null) {
+    if (!model) return;
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+    recordUsage(ip, model);
+    if (userId) {
+      logUsage(userId, model, ip).catch(() => {});
+    }
+  }
+
   const privacyMode = usePrivacyMode === true;
   const requestedModel = typeof selectedModel === "string" ? selectedModel : null;
   if (privacyMode && !isLexModel(requestedModel)) {
@@ -237,14 +246,17 @@ export async function POST(req: Request) {
     : "";
   // Run legal database search in parallel (non-blocking)
   const legalSearchPromise = !privacyMode
-    ? searchLegalDatabases(userMessage, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined).catch(() => ({ cases: [], databases_searched: [], offline: false }))
-    : Promise.resolve({ cases: [], databases_searched: [], offline: false });
+    ? searchLegalDatabases(userMessage, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined).catch(() => ({ cases: [], databases_searched: [], offline: false, wikiSummary: undefined }))
+    : Promise.resolve({ cases: [] as LegalCase[], databases_searched: [] as string[], offline: false, wikiSummary: undefined as string | undefined });
 
   // Await web search + RAG in parallel
   const [webSearch, legalResults] = await Promise.all([webSearchPromise, legalSearchPromise]);
   const legalContext = formatCasesForContext(legalResults.cases);
+  const wikiContext = legalResults.wikiSummary
+    ? `\n\n## Legal Concept Background\n${legalResults.wikiSummary}`
+    : "";
 
-  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}`;
+  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}`;
   if (documentPreamble) {
     console.log(`[Chat] Document context injected: ${documentPreamble.length} chars`);
   }
@@ -280,12 +292,7 @@ export async function POST(req: Request) {
           abortSignal: abortController.signal,
           legalResults,
         });
-        clearTimeout(timeout);
-        const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-        recordUsage(clientIp, anthropicModel);
-        if (authenticatedUserId) {
-          logUsage(authenticatedUserId, anthropicModel, clientIp).catch(() => {});
-        }
+        recordUsageForProvider(req, anthropicModel, authenticatedUserId);
         return anthropicResponse;
       } catch (anthropicErr) {
         console.error(`[Anthropic] ${anthropicModel} failed, falling back to Groq`, anthropicErr);
@@ -310,7 +317,7 @@ export async function POST(req: Request) {
           abortSignal: abortController.signal,
           legalResults,
         });
-        clearTimeout(timeout);
+        recordUsageForProvider(req, cerebrasModel, authenticatedUserId);
         return cerebrasResponse;
       } catch (cerebrasErr) {
         console.error(`[Cerebras] ${cerebrasModel} failed, falling back to Groq`, cerebrasErr);
@@ -332,7 +339,7 @@ export async function POST(req: Request) {
         legalResults,
       });
       if (geminiResponse.status !== 503) {
-        clearTimeout(timeout);
+        recordUsageForProvider(req, geminiModel, authenticatedUserId);
         return geminiResponse;
       }
       // Gemini 503/timeout — fall back to Groq
@@ -357,7 +364,7 @@ export async function POST(req: Request) {
           attachedDocuments,
           abortSignal: abortController.signal,
         });
-        clearTimeout(timeout);
+        recordUsageForProvider(req, activeModel, authenticatedUserId);
         const ollamaHeaders: Record<string, string> = {};
         ollamaCloudResponse.headers.forEach((v, k) => { ollamaHeaders[k] = v; });
         if (geminiToGroqFallbackTier) {
@@ -381,7 +388,6 @@ export async function POST(req: Request) {
               attachedDocuments,
               abortSignal: abortController.signal,
             });
-            clearTimeout(timeout);
             console.log(`[Ollama Cloud] Fallback to ${fallbackModel} succeeded`);
             return fbResponse;
           } catch {
@@ -434,8 +440,6 @@ export async function POST(req: Request) {
       return res;
     }
     const response = await fetchGroqWithRetry();
-
-    clearTimeout(timeout);
 
     if (!response.ok || !response.body) {
       throw new Error(`${privacyMode ? "Ollama" : "Groq"} request failed: ${response.status}`);
@@ -539,6 +543,7 @@ export async function POST(req: Request) {
     if (fallbackModelUsed) {
       responseHeaders["X-Fallback-Model"] = fallbackModelUsed;
     }
+    recordUsageForProvider(req, activeModel, authenticatedUserId);
     return new Response(stream, { headers: responseHeaders });
   } catch (primaryError) {
     clearTimeout(timeout);
@@ -809,7 +814,14 @@ async function streamOllamaCloudResponse({
           );
           controller.close();
         } catch (error) {
-          controller.error(error);
+          console.error(`[Ollama Cloud] Mid-stream error on ${model}:`, error);
+          try {
+            controller.enqueue(encoder.encode(`3:${JSON.stringify("Stream interrupted — please retry.")}
+`));
+            controller.close();
+          } catch {
+            controller.error(error);
+          }
         }
       },
     }),
