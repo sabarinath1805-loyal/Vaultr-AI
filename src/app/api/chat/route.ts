@@ -973,6 +973,26 @@ async function streamCerebrasResponse({
   );
 }
 
+function getAnthropicBaseUrl() {
+  const configured = process.env.ANTHROPIC_BASE_URL?.trim();
+  if (configured) {
+    const normalized = configured.replace(/\/$/, "");
+    const invalidLocalPatterns = [
+      /^http:\/\/localhost:11434/i,
+      /^https?:\/\/127\.0\.0\.1:11434/i,
+      /ollama/i,
+    ];
+    if (invalidLocalPatterns.some((pattern) => pattern.test(normalized))) {
+      console.warn(
+        `[Anthropic] Ignoring invalid ANTHROPIC_BASE_URL=${configured}; using official ClaudeOpus endpoint.`
+      );
+    } else {
+      return normalized;
+    }
+  }
+  return "https://api.claudeopus.pro";
+}
+
 async function streamAnthropicResponse({
   model,
   systemMessage,
@@ -999,8 +1019,11 @@ async function streamAnthropicResponse({
   const apiKey = getConfiguredApiKey("CLAUDEOPUS_API_KEY");
   if (!apiKey) throw new Error("Missing CLAUDEOPUS_API_KEY");
 
-  const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.claudeopus.pro";
+  const baseUrl = getAnthropicBaseUrl();
   const maxTokens = model === "claude-opus-4-6" ? 16384 : 8192;
+
+  console.log("[Anthropic URL]", baseUrl);
+  console.log("[Anthropic Model]", model);
 
   const response = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
@@ -1021,9 +1044,15 @@ async function streamAnthropicResponse({
     }),
   });
 
-  if (!response.ok || !response.body) {
-    throw new Error(`Anthropic request failed: ${response.status}`);
-  }
+  if (!response.ok) {
+  const errorText = await response.text();
+  console.error("[Anthropic Error Body]", errorText);
+  throw new Error(`Anthropic request failed: ${response.status}`);
+}
+
+if (!response.body) {
+  throw new Error("Anthropic response body missing");
+}
 
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
