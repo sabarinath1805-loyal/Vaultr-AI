@@ -3,7 +3,7 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Check, File, FileText, FolderOpen, Library, Square, X } from "lucide-react";
+import { ArrowRight, Briefcase, Check, File, FileText, FolderOpen, Library, Square, X } from "lucide-react";
 import { IconCloud, IconLock } from "@tabler/icons-react";
 import { useSearchParams } from "next/navigation";
 import { ModelSelector } from "@/components/chat/model-selector";
@@ -15,6 +15,7 @@ import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import useChatStore, { type AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { ANTHROPIC_CORE_MODEL, isLexModel, isThinkingCapableModel, sortModelsByLexOrder } from "@/lib/models";
 import { SourcesDropdown, SourcePills, buildJurisdictionPrompt } from "@/components/chat/sources-dropdown";
+import { readMatters, type Matter } from "@/lib/matters";
 
 interface ComposerCardProps {
   input: string;
@@ -92,6 +93,9 @@ export function ComposerCard({
   const [workflowModalOpen, setWorkflowModalOpen] = React.useState(false);
   const [modePopoverOpen, setModePopoverOpen] = React.useState(false);
   const [selectedSources, setSelectedSources] = React.useState<string[]>([]);
+  const [linkedMatter, setLinkedMatter] = React.useState<Matter | null>(null);
+  const [matterPickerOpen, setMatterPickerOpen] = React.useState(false);
+  const matterPickerRef = React.useRef<HTMLDivElement>(null);
   const modePopoverRef = React.useRef<HTMLDivElement>(null);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
@@ -329,9 +333,23 @@ export function ComposerCard({
     <>
       <form onSubmit={submitWithReset} className="w-full" style={{ maxWidth: "780px" }}>
         <div className="rounded-[16px] border border-[var(--border)] bg-[var(--bg)] md:rounded-[20px]">
-          {(selectedWorkflow || attachedDocuments.length > 0 || selectedSources.length > 0) && (
+          {(selectedWorkflow || attachedDocuments.length > 0 || selectedSources.length > 0 || linkedMatter) && (
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
               <SourcePills selectedSources={selectedSources} onRemove={removeSource} />
+              {linkedMatter && (
+                <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-primary)] py-0.5 pl-2.5 pr-1 text-xs text-[var(--text)] shadow-sm">
+                  <Briefcase className="h-2.5 w-2.5 shrink-0" />
+                  <span className="max-w-[140px] truncate">{linkedMatter.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => setLinkedMatter(null)}
+                    className="ml-0.5 rounded-full p-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-primary)]"
+                    aria-label="Unlink matter"
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </div>
+              )}
               {selectedWorkflow && (
                 <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-primary)] py-0.5 pl-2.5 pr-1 text-xs text-[var(--text)] shadow-sm">
                   <Library className="h-2.5 w-2.5 shrink-0" />
@@ -509,6 +527,30 @@ export function ComposerCard({
                 )}
                 <span className="hidden sm:inline">Workflows</span>
               </button>
+              <div className="relative shrink-0" ref={matterPickerRef}>
+                <button
+                  type="button"
+                  className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-[10px] py-[6px] text-sm transition-colors ${
+                    linkedMatter
+                      ? "text-[var(--blue)] hover:bg-[var(--bg-tertiary)]"
+                      : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
+                  }`}
+                  onClick={() => setMatterPickerOpen((open) => !open)}
+                  aria-label="Link to matter"
+                >
+                  <Briefcase className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Matter</span>
+                </button>
+                {matterPickerOpen && (
+                  <MatterPickerDropdown
+                    onSelect={(matter) => {
+                      setLinkedMatter(matter);
+                      setMatterPickerOpen(false);
+                    }}
+                    onClose={() => setMatterPickerOpen(false)}
+                  />
+                )}
+              </div>
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1">
@@ -552,5 +594,43 @@ export function ComposerCard({
         onUse={useWorkflowPrompt}
       />
     </>
+  );
+}
+
+function MatterPickerDropdown({ onSelect, onClose }: { onSelect: (matter: Matter) => void; onClose: () => void }) {
+  const matters = React.useMemo(() => readMatters().filter((m) => m.status === "Active"), []);
+
+  React.useEffect(() => {
+    const handle = (e: MouseEvent) => {
+      if (!(e.target instanceof Element) || !e.target.closest("[data-matter-picker]")) onClose();
+    };
+    document.addEventListener("click", handle);
+    return () => document.removeEventListener("click", handle);
+  }, [onClose]);
+
+  return (
+    <div
+      data-matter-picker
+      className="absolute bottom-full left-0 z-50 mb-2 max-h-[200px] w-[240px] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)] p-1 shadow-lg"
+    >
+      {matters.length === 0 ? (
+        <div className="px-3 py-4 text-center text-[12px] text-[var(--text-muted)]">No active matters</div>
+      ) : (
+        matters.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => onSelect(m)}
+            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+          >
+            <Briefcase className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]" />
+            <div className="min-w-0">
+              <div className="truncate font-medium">{m.name}</div>
+              {m.client && <div className="truncate text-[11px] text-[var(--text-muted)]">{m.client}</div>}
+            </div>
+          </button>
+        ))
+      )}
+    </div>
   );
 }
