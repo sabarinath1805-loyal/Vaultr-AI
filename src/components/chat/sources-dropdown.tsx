@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Globe, X } from "lucide-react";
-import "flag-icons/css/flag-icons.min.css";
+
 
 export interface JurisdictionSource {
   id: string;
@@ -50,11 +50,35 @@ export const JURISDICTION_SOURCES: JurisdictionSource[] = [
   },
 ];
 
-function FlagIcon({ source }: { source: JurisdictionSource }) {
-  if (source.id === "intl") {
-    return <Globe className="h-3.5 w-3.5 text-[var(--text-muted)]" />;
-  }
-  return <span className={`${source.flagClass} text-base leading-none`} />;
+const JURISDICTION_BADGE_STYLES: Record<string, { label: string; bg: string; text: string }> = {
+  sg: { label: "SG", bg: "#d4edda", text: "#155724" },
+  gb: { label: "UK", bg: "#cce5ff", text: "#004085" },
+  au: { label: "AU", bg: "#fff3cd", text: "#856404" },
+  us: { label: "US", bg: "#d6d8e7", text: "#1b1e4b" },
+  eu: { label: "EU", bg: "#cce5ff", text: "#004085" },
+  ca: { label: "CA", bg: "#f8d7da", text: "#721c24" },
+  intl: { label: "INT", bg: "#e2e3e5", text: "#383d41" },
+};
+
+function JurisdictionBadge({ source }: { source: JurisdictionSource }) {
+  const style = JURISDICTION_BADGE_STYLES[source.id] || JURISDICTION_BADGE_STYLES.intl;
+  return (
+    <span
+      style={{
+        fontSize: "11px",
+        padding: "2px 6px",
+        borderRadius: "4px",
+        fontWeight: 500,
+        backgroundColor: style.bg,
+        color: style.text,
+        lineHeight: 1,
+        display: "inline-flex",
+        alignItems: "center",
+      }}
+    >
+      {style.label}
+    </span>
+  );
 }
 
 interface SourcesDropdownProps {
@@ -122,7 +146,7 @@ export function SourcesDropdown({
                   onChange={() => onToggleSource(source.id)}
                   className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--blue)]"
                 />
-                <FlagIcon source={source} />
+                <JurisdictionBadge source={source} />
                 <span className="text-[13px] text-[var(--text-primary)]">
                   {source.name}
                 </span>
@@ -154,7 +178,7 @@ export function SourcePills({
             className="inline-flex items-center gap-1 rounded-full border-[0.5px] border-[var(--color-border-primary)] bg-[var(--color-background-primary)] py-0.5 pl-2 pr-1 text-xs text-[var(--color-text-primary)]"
           >
             <span className="text-[10px] leading-none text-[var(--text-muted)]">
-              <FlagIcon source={source} />
+              <JurisdictionBadge source={source} />
             </span>
             <span className="max-w-[100px] truncate">{source.name}</span>
             <button

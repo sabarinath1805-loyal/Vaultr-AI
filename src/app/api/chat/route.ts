@@ -15,6 +15,7 @@ import {
   OLLAMA_CLOUD_FALLBACK_MODELS,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
+import { resolveCitation, detectCaseFollowUp } from "@/lib/citation-resolver";
 import { checkRateLimit, recordUsage } from "@/lib/rate-limit";
 import { getSessionUser, isBetaUser, logUsage, isSupabaseConfigured, checkSupabaseRateLimit } from "@/lib/supabase";
 import {
@@ -188,6 +189,42 @@ export async function POST(req: Request) {
   const currentMessage = conversationMessages[conversationMessages.length - 1];
   const userMessage =
     typeof currentMessage?.content === "string" ? currentMessage.content : "";
+
+  // Fix 10: Detect greeting messages and return hardcoded response
+  const LEX_GREETINGS = [
+    "Morning. What's on your desk?",
+    "Good morning. What are we working on?",
+    "What do you need?",
+    "Ready when you are.",
+    "What's the matter?",
+  ];
+  const isGreetingMessage = initialMessages.length === 0 && /^(?:hi|hello|hey|good\s*(?:morning|afternoon|evening)|greetings|yo|sup|what'?s?\s*up)\s*[.!?]*$/i.test(userMessage.trim());
+  if (isGreetingMessage) {
+    const greeting = LEX_GREETINGS[Math.floor(Math.random() * LEX_GREETINGS.length)];
+    const encoder = new TextEncoder();
+    return new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(`0:${JSON.stringify(greeting)}\n`));
+          controller.close();
+        },
+      }),
+      { headers: { "Content-Type": "text/event-stream" } }
+    );
+  }
+
+  // Fix 12: Detect "tell me more about that case" follow-ups
+  const caseFollowUp = detectCaseFollowUp(userMessage);
+  let citationContext = "";
+  if (caseFollowUp) {
+    console.log(`[Citation Resolver] Detected case follow-up: "${caseFollowUp}"`);
+    const excerpt = await resolveCitation(caseFollowUp);
+    if (excerpt) {
+      citationContext = `\n\n## Case Law References\nThe following judgment excerpt was retrieved for "${caseFollowUp}":\n${excerpt}`;
+      console.log(`[Citation Resolver] Resolved ${excerpt.length} chars for "${caseFollowUp}"`);
+    }
+  }
+
   const shouldSearch = !privacyMode;
   // Run web search + RAG + statutes in parallel (Feature 1)
   const webSearchPromise = shouldSearch
@@ -225,7 +262,7 @@ export async function POST(req: Request) {
     : [];
   const documentContext = documentContexts.filter(Boolean).join("");
   const documentPreamble = documentContext
-    ? "\n\nDOCUMENT CONTEXT:\nThe lawyer has attached the following document(s) for you to analyse. Read them carefully and answer the user's question based on their content. If they say \"analyse this\" or similar, provide a thorough analysis of the document content." + documentContext
+    ? "\n\n## Attached Documents\nThe lawyer has attached the following document(s) for you to analyse. Read them carefully and answer the user's question based on their content. If they say \"analyse this\" or similar, provide a thorough analysis of the document content." + documentContext
     : "";
   const thinkingEnabled =
     typeof thinkingMode === "boolean" ? thinkingMode : thinking === true;
@@ -256,7 +293,7 @@ export async function POST(req: Request) {
     ? `\n\n## Legal Concept Background\n${legalResults.wikiSummary}`
     : "";
 
-  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}`;
+  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}${citationContext}`;
   if (documentPreamble) {
     console.log(`[Chat] Document context injected: ${documentPreamble.length} chars`);
   }
@@ -1025,6 +1062,17 @@ async function streamAnthropicResponse({
   console.log("[Anthropic URL]", baseUrl);
   console.log("[Anthropic Model]", model);
 
+  // Fix 15: Enable prompt caching for supported Claude models
+  const supportsCaching = model !== "claude-haiku-4-5-20251001";
+  const systemPayload = supportsCaching
+    ? { system: [{ type: "text" as const, text: systemMessage, cache_control: { type: "ephemeral" as const } }] }
+    : {};
+  const messagesPayload = [
+    ...(supportsCaching ? [] : [{ role: "system" as const, content: systemMessage }]),
+    ...initialMessages.slice(-8),
+    { role: "user" as const, content: userMessage },
+  ];
+
   const response = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -1036,11 +1084,8 @@ async function streamAnthropicResponse({
       model,
       stream: true,
       max_tokens: maxTokens,
-      messages: [
-        { role: "system", content: systemMessage },
-        ...initialMessages.slice(-8),
-        { role: "user", content: userMessage },
-      ],
+      ...systemPayload,
+      messages: messagesPayload,
     }),
   });
 
@@ -1398,23 +1443,29 @@ const tokenFlushState: WeakMap<
 > = new WeakMap();
 
 async function getWebSearchContext(query: string): Promise<{ context: string; sources: WebSearchSource[] }> {
-  const apiKey = getConfiguredApiKey("SERPER_API_KEY");
+  const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
 
   if (!apiKey?.trim()) {
     return {
-      context: "\n\nWeb search is unavailable because SERPER_API_KEY is not configured.",
+      context: "\n\nWeb search is unavailable because TAVILY_API_KEY is not configured.",
       sources: [],
     };
   }
 
   try {
-    const response = await fetch("https://google.serper.dev/search", {
+    const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": apiKey.trim(),
       },
-      body: JSON.stringify({ q: query, num: 5 }),
+      body: JSON.stringify({
+        api_key: apiKey.trim(),
+        query,
+        search_depth: "advanced",
+        include_answer: true,
+        include_raw_content: false,
+        max_results: 5,
+      }),
     });
 
     if (!response.ok) {
@@ -1422,18 +1473,19 @@ async function getWebSearchContext(query: string): Promise<{ context: string; so
     }
 
     const data = await response.json();
-    const results = Array.isArray(data?.organic) ? data.organic.slice(0, 5) : [];
+    const results = Array.isArray(data?.results) ? data.results.slice(0, 5) : [];
+    const answer = typeof data?.answer === "string" ? data.answer : "";
 
-    if (results.length === 0) return { context: "", sources: [] };
+    if (results.length === 0 && !answer) return { context: "", sources: [] };
 
     const sources = results
-      .map((result: { title?: string; link?: string }) => {
-        if (!result.link) return null;
+      .map((result: { title?: string; url?: string; content?: string }) => {
+        if (!result.url) return null;
         try {
-          const domain = new URL(result.link).hostname.replace(/^www\./, "");
+          const domain = new URL(result.url).hostname.replace(/^www\./, "");
           return {
             title: result.title || domain,
-            url: result.link,
+            url: result.url,
             domain,
           };
         } catch {
@@ -1442,15 +1494,21 @@ async function getWebSearchContext(query: string): Promise<{ context: string; so
       })
       .filter((source: WebSearchSource | null): source is WebSearchSource => Boolean(source));
 
-    return {
-      context: `\n\nWeb search results for '${query}':\n${results
+    let context = "\n\n## Web Search Results";
+    if (answer) {
+      context += `\n**Answer:** ${answer}`;
+    }
+    if (results.length > 0) {
+      context += "\n\n**Sources:**\n" + results
         .map(
-          (result: { title?: string; snippet?: string; link?: string }, index: number) =>
-            `${index + 1}. ${result.title || "Untitled"}\n${result.snippet || ""}\n${result.link || ""}`
+          (result: { title?: string; content?: string; url?: string }, index: number) =>
+            `${index + 1}. ${result.title || "Untitled"} — ${result.url || ""}\n   ${result.content || ""}`
         )
-        .join("\n\n")}\n\nUse these results to inform your response if relevant.`,
-      sources,
-    };
+        .join("\n\n");
+    }
+    context += "\n\nUse these results to inform your response if relevant.";
+
+    return { context, sources };
   } catch {
     return { context: "\n\nWeb search is unavailable right now.", sources: [] };
   }

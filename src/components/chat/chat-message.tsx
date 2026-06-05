@@ -360,38 +360,119 @@ function extractCitations(content: string): ParsedCitation[] {
   return citations;
 }
 
-function CitationsPanel({ content }: { content: string }) {
-  const [isOpen, setIsOpen] = useState(false);
+function expandSectionReference(text: string): string {
+  return text
+    .replace(/\bss\.\s*(\d+)/g, (_, num) => `Sections ${num}`)
+    .replace(/\bs\.\s*(\d+)/g, (_, num) => `Section ${num}`)
+    .replace(/\bSection\s+(\d+)\s*,\s*Section\s+(\d+)/g, "Sections $1, $2");
+}
+
+function CitationsPanel({ content, attachedDocuments }: { content: string; attachedDocuments?: { filename: string }[] }) {
+  const [citationsOpen, setCitationsOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [feedbackIdx, setFeedbackIdx] = useState<number | null>(null);
+  const [submittedFeedback, setSubmittedFeedback] = useState<Record<number, string>>({});
   const citations = useMemo(() => extractCitations(content), [content]);
-  if (citations.length === 0) return null;
+  const hasDocuments = attachedDocuments && attachedDocuments.length > 0;
+  const hasCitations = citations.length > 0;
+
+  if (!hasCitations && !hasDocuments) return null;
 
   return (
-    <div className="mt-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface-muted)]">
-      <button
-        type="button"
-        onClick={() => setIsOpen((v) => !v)}
-        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
-          <path d="M3 6h18M3 12h18M3 18h18" />
-        </svg>
-        <span className="font-medium">{citations.length} citation{citations.length !== 1 ? "s" : ""}</span>
-        <ChevronRight className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
-      </button>
-      {isOpen && (
-        <div className="border-t border-[var(--border)] px-3 py-2">
-          {citations.map((c, idx) => (
-            <div key={idx} className="flex items-start gap-2 py-1">
-              <span className="shrink-0 text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums" style={{ minWidth: "18px" }}>{idx + 1}.</span>
-              <span className="text-[13px] text-[var(--text-primary)]">{c.text}</span>
-              {c.jurisdiction && (
-                <span className="shrink-0 rounded bg-[var(--accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]">{c.jurisdiction}</span>
-              )}
-              {c.year && (
-                <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">{c.year}</span>
-              )}
+    <div className="mt-3 space-y-2">
+      {hasDocuments && (
+        <div className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface-muted)]">
+          <button
+            type="button"
+            onClick={() => setDocsOpen((v) => !v)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+          >
+            <File className="h-3.5 w-3.5 shrink-0" />
+            <span className="font-medium">Documents in context</span>
+            <ChevronRight className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${docsOpen ? "rotate-90" : ""}`} />
+          </button>
+          {docsOpen && (
+            <div className="border-t border-[var(--border)] px-3 py-2">
+              {attachedDocuments.map((doc, idx) => (
+                <div key={idx} className="flex items-center gap-2 py-1 text-[13px] text-[var(--text-primary)]">
+                  <FileText className="h-3 w-3 shrink-0 text-[var(--text-muted)]" />
+                  <span>{doc.filename}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+        </div>
+      )}
+      {hasCitations && (
+        <div className="rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface-muted)]">
+          <button
+            type="button"
+            onClick={() => setCitationsOpen((v) => !v)}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+            <span className="font-medium">{citations.length} citation{citations.length !== 1 ? "s" : ""}</span>
+            <ChevronRight className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${citationsOpen ? "rotate-90" : ""}`} />
+          </button>
+          {citationsOpen && (
+            <div className="border-t border-[var(--border)] px-3 py-2">
+              {citations.map((c, idx) => (
+                <div key={idx} className="py-1">
+                  <div className="flex items-start gap-2">
+                    <span className="shrink-0 text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums" style={{ minWidth: "18px" }}>{idx + 1}.</span>
+                    <a
+                      href={`https://www.google.com/search?q=${encodeURIComponent(c.text + " law")}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[13px] text-[var(--text-primary)] hover:underline cursor-pointer"
+                    >
+                      {expandSectionReference(c.text)}
+                      <span className="text-xs opacity-50">↗</span>
+                    </a>
+                    {c.jurisdiction && (
+                      <span className="shrink-0 rounded bg-[var(--accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]">{c.jurisdiction}</span>
+                    )}
+                    {c.year && (
+                      <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">{c.year}</span>
+                    )}
+                    {submittedFeedback[idx] ? (
+                      <span className="ml-auto shrink-0 text-[10px] text-[var(--text-tertiary)]">{submittedFeedback[idx]}</span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setFeedbackIdx(feedbackIdx === idx ? null : idx)}
+                        className="ml-auto shrink-0 text-[12px] text-[var(--text-tertiary)] opacity-50 transition-opacity hover:opacity-100"
+                        title="Flag this citation"
+                      >
+                        🚩
+                      </button>
+                    )}
+                  </div>
+                  {feedbackIdx === idx && !submittedFeedback[idx] && (
+                    <div className="ml-6 mt-1 flex items-center gap-2 text-[11px]">
+                      <span className="text-[var(--text-muted)]">Accurate?</span>
+                      {(["✓ Correct", "✗ Wrong case", "? Unverified"] as const).map((option) => (
+                        <button
+                          key={option}
+                          type="button"
+                          onClick={() => {
+                            console.log("[Citation Feedback]", { citation: c.text, feedback: option, timestamp: new Date().toISOString() });
+                            setSubmittedFeedback((prev) => ({ ...prev, [idx]: option }));
+                            setFeedbackIdx(null);
+                          }}
+                          className="rounded border border-[var(--border)] px-2 py-0.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text)]"
+                        >
+                          {option}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -744,7 +825,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                 />
               </div>
             )}
-            {!isCurrentlyStreaming && <CitationsPanel content={cleanContent} />}
+            {!isCurrentlyStreaming && <CitationsPanel content={cleanContent} attachedDocuments={message.attachedDocuments} />}
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
               {timestamp && <div>{timestamp}</div>}
               {documentAnalyzed.map((match) => (

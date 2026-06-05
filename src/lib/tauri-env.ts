@@ -7,7 +7,7 @@ const API_KEYS_FILE = "api-keys.json";
 
 export const API_KEY_NAMES = [
   "GROQ_API_KEY",
-  "SERPER_API_KEY",
+  "TAVILY_API_KEY",
   "GEMINI_API_KEY",
   "OLLAMA_API_KEY",
   "CEREBRAS_API_KEY",

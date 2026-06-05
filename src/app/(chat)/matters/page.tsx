@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Briefcase, MoreHorizontal, Plus, X } from "lucide-react";
+import { Briefcase, MessageSquare, MoreHorizontal, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
+import useChatStore from "@/app/hooks/useChatStore";
 import { generateUUID } from "@/lib/utils";
+import { getFixedDropdownPosition, type DropdownPosition } from "@/lib/dropdown-position";
 import {
   MATTER_STATUSES,
   MATTER_TYPES,
   Matter,
   readMatters,
   writeMatters,
+  writeMatterLinks,
+  readMatterLinks,
 } from "@/lib/matters";
 
 export default function MattersPage() {
@@ -59,6 +62,22 @@ export default function MattersPage() {
     setEditingMatter(matter);
     setModalOpen(true);
     setOpenMenuId(null);
+  };
+
+  const openInLex = async (matter: Matter) => {
+    const chatId = generateUUID();
+    const links = readMatterLinks(matter.id);
+    writeMatterLinks(matter.id, { ...links, chats: [...links.chats, chatId] });
+    const chatStore = useChatStore.getState();
+    chatStore.setPendingComposerText(`I'm working on the matter "${matter.name}" (${matter.type}, ${matter.client || "no client"}). What do you need to know?`);
+    await chatStore.saveMessages(chatId, [{
+      id: generateUUID(),
+      role: "assistant",
+      content: `I have the context for **${matter.name}** (${matter.type}, ${matter.status}). ${matter.client ? `Client: ${matter.client}. ` : ""}What would you like to work on?`,
+      createdAt: new Date(),
+    }]);
+    setOpenMenuId(null);
+    router.push(`/c/${chatId}`);
   };
 
   return (
@@ -111,6 +130,7 @@ export default function MattersPage() {
                 matter={matter}
                 menuOpen={openMenuId === matter.id}
                 onOpen={() => router.push(`/matters/${matter.id}`)}
+                onOpenInLex={() => openInLex(matter)}
                 onToggleMenu={(button) => {
                   if (openMenuId === matter.id) {
                     setOpenMenuId(null);
@@ -163,6 +183,7 @@ function MatterRow({
   menuOpen,
   menuPosition,
   onOpen,
+  onOpenInLex,
   onToggleMenu,
   onEdit,
   onDelete,
@@ -171,6 +192,7 @@ function MatterRow({
   menuOpen: boolean;
   menuPosition: DropdownPosition | null;
   onOpen: () => void;
+  onOpenInLex: () => void;
   onToggleMenu: (button: HTMLButtonElement) => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -217,6 +239,17 @@ function MatterRow({
               className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
             >
               Open
+            </button>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenInLex();
+              }}
+              className="flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]"
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              Open in Lex
             </button>
             <button
               type="button"
