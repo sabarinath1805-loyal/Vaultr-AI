@@ -3,7 +3,7 @@ use tauri::Manager;
 
 const API_KEY_NAMES: [&str; 4] = [
     "GROQ_API_KEY",
-    "SERPER_API_KEY",
+    "TAVILY_API_KEY",
     "GEMINI_API_KEY",
     "OLLAMA_API_KEY",
 ];

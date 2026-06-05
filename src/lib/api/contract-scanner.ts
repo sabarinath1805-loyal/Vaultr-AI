@@ -67,7 +67,7 @@ export async function scanContractFormData(formData: FormData) {
       });
     } catch (primaryErr) {
       if (mode === "cloud") {
-        console.warn(`[Contract Scanner] Cerebras failed, falling back to Groq`, primaryErr);
+        console.warn(`[Contract Scanner] Claude failed, falling back to Groq`, primaryErr);
         responseBody = await requestContractAnalysis({
           mode,
           model: GROQ_DEFAULT_MODEL,
@@ -159,12 +159,13 @@ async function requestContractAnalysis({
   ollamaUrl: string;
   prompt: string;
 }) {
-  const isCerebras = mode === "cloud" && [ANTHROPIC_CORE_MODEL, "gpt-oss-120b-low", "glm-4.7", "qwen3-235b"].includes(model);
-  const cloudUrl = isCerebras
-    ? "https://api.cerebras.ai/v1/chat/completions"
+  const isAnthropic = mode === "cloud" && model === ANTHROPIC_CORE_MODEL;
+  const anthropicBaseUrl = (process.env.ANTHROPIC_BASE_URL?.trim()?.replace(/\/$/, "") || "https://api.claudeopus.pro");
+  const cloudUrl = isAnthropic
+    ? `${anthropicBaseUrl}/v1/chat/completions`
     : "https://api.groq.com/openai/v1/chat/completions";
-  const cloudKey = isCerebras
-    ? getConfiguredApiKey("CEREBRAS_API_KEY")
+  const cloudKey = isAnthropic
+    ? getConfiguredApiKey("CLAUDEOPUS_API_KEY")
     : getConfiguredApiKey("GROQ_API_KEY");
   const response = await fetch(
     mode === "private" ? `${ollamaUrl}/v1/chat/completions` : cloudUrl,
