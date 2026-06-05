@@ -23,8 +23,8 @@ export interface GroqModel {
   description: string;
 }
 
-export const ANTHROPIC_CORE_MODEL = "claude-3-haiku";
-export const ANTHROPIC_PRO_MODEL = "claude-sonnet-4-5";
+export const ANTHROPIC_CORE_MODEL = "claude-haiku-4-5-20251001";
+export const ANTHROPIC_PRO_MODEL = "claude-sonnet-4-5-20250929";
 export const ANTHROPIC_ULTRA_MODEL = "claude-sonnet-4-6";
 export const ANTHROPIC_MAX_MODEL = "claude-opus-4-6";
 export const CEREBRAS_CORE_MODEL = "llama4-scout";
