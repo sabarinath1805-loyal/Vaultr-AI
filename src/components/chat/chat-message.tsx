@@ -306,9 +306,24 @@ function LexAvatar() {
 // 4. Court report citations: "[2013] SGCA 8", "[1994] 3 SLR 452"
 const CITATION_REGEX = /(?:(?:[A-Z][a-zA-Z']+)(?:\s+(?:v\.?|vs\.?|versus)\s+)(?:[A-Z][a-zA-Z']+(?:\s+[A-Z][a-zA-Z']+)*))|(?:[A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]*)+(?:\s+(?:Act|Code|Ordinance|Regulation|Rules|Laws?|SFA|Civil\s+Procedure|Evidence\s+Act|Criminal\s+Procedure|Companies?|Constitution))(?:\s+(?:Cap\.?|Chapter|Act|No\.?|\d+(?:\([a-z0-9]+\))?))?)|(?:\bs\.?\s*\d+[a-z]?(?:\([a-z0-9]+\))?(?:[\s,]*(?:s\.?\s*\d+[a-z]?(?:\([a-z0-9]+\))?))*)|(?:\[\d{4}\]\s*\d+\s*[A-Z]{2,}\s*\d+(?:\([a-z]+\))?)|(?:\[\d{4}\]\s*[A-Z]{2,}\s*\d+)|(?:\b\d+\s+[A-Z]{2,}\s*\d{3}(?:[\s,]+\d+\s+[A-Z]{2,}\s*\d{3})*)/g;
 
+const JURISDICTION_BADGES: Record<string, string> = {
+  "SGCA": "SG", "SGHC": "SG", "SGDC": "SG", "SGX": "SG", "SSO": "SG",
+  "EWCA": "UK", "EWHC": "UK", "UKSC": "UK", "UKHL": "UK",
+  "HCA": "AU", "FCA": "AU", "NSWCA": "AU", "VSC": "AU",
+  "SCC": "CA", "FCC": "CA",
+  "US": "US", "F.": "US", "S.Ct": "US",
+  "CJEU": "EU", "ECJ": "EU",
+};
+
 // Secondary filters: reject non-legal fragments like headings or sentence mid-points
 const NON_CITATION_WORDS = /^(?:the|this|that|which|where|when|what|who|how|and|but|or|for|with|from|have|has|be|was|are|been|being|been|not|all|some|any|each|every|such|said|stated|found|noted|held|given|under|above|below|into|through|during|after|before|since|until|while|upon|against|among|between|during|under|over|across|behind|beyond|within|without|along|around|about|towards|upon|since)$/i;
 const IS_HEADING_WORD = /^(?:background|facts|analysis|discussion|conclusion|summary|introduction|overview|details?|examples?|issues?|options?|recommendations?|next steps?|references?|further|additional|related|relevant|following|above|below|please|here|there|also|however|therefore|thus|hence|whereas|whereby|therefore|according|regarding|concerning|insofar)$/i;
+
+interface ParsedCitation {
+  text: string;
+  jurisdiction: string;
+  year: string;
+}
 
 function isRealCitation(text: string): boolean {
   const t = text.trim();
