@@ -71,7 +71,7 @@ export function Sidebar() {
           title="Vaultr"
           onClick={() => resetComposerState()}
         >
-          <span style={{ fontSize: '36px', fontFamily: 'serif', lineHeight: 1, position: 'relative', top: '-2px' }}>✳</span>
+          <span style={{ fontSize: '36px', fontFamily: 'serif', lineHeight: 1, position: 'relative', top: '-2px', color: '#3a3632', fontWeight: 300 }}>✳</span>
           {!collapsed && <span className="text-[18px] font-medium leading-none">Vaultr</span>}
         </Link>
         <button

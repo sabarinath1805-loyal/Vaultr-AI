@@ -299,6 +299,82 @@ function LexAvatar() {
   );
 }
 
+// Citation extraction patterns
+const CITATION_REGEX = /(?:\b(?:[A-Z][a-z]+(?:\s+(?:v|vs?|and|&)\s+|\s+))+[A-Z][a-z]+\b(?:\s+\[\d{4}\]\s*[A-Z]+\s*\d+|\s+\(\d{4}\)\s*\d*\s*[A-Z]+\s*\d+|\s+\d+\s+[A-Z.]+\s*\d+)?)|(?:\[?\d{4}\]?\s+\d*\s*[A-Z]+(?:\s*\([A-Za-z]+\))?\s+\d+)/g;
+
+const JURISDICTION_BADGES: Record<string, string> = {
+  "SGCA": "SG", "SGHC": "SG", "SGDC": "SG", "SGX": "SG", "SSO": "SG",
+  "EWCA": "UK", "EWHC": "UK", "UKSC": "UK", "UKHL": "UK",
+  "HCA": "AU", "FCA": "AU", "NSWCA": "AU", "VSC": "AU",
+  "SCC": "CA", "FCC": "CA",
+  "US": "US", "F.": "US", "S.Ct": "US",
+  "CJEU": "EU", "ECJ": "EU",
+};
+
+interface ParsedCitation {
+  text: string;
+  jurisdiction: string;
+  year: string;
+}
+
+function extractCitations(content: string): ParsedCitation[] {
+  const matches = content.match(CITATION_REGEX);
+  if (!matches) return [];
+  const seen = new Set<string>();
+  const citations: ParsedCitation[] = [];
+  for (const raw of matches) {
+    const text = raw.trim();
+    if (text.length < 8 || seen.has(text)) continue;
+    seen.add(text);
+    const yearMatch = text.match(/\[?(\d{4})\]?/);
+    const year = yearMatch ? yearMatch[1] : "";
+    let jurisdiction = "";
+    for (const [key, badge] of Object.entries(JURISDICTION_BADGES)) {
+      if (text.includes(key)) { jurisdiction = badge; break; }
+    }
+    citations.push({ text, jurisdiction, year });
+  }
+  return citations;
+}
+
+function CitationsPanel({ content }: { content: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const citations = useMemo(() => extractCitations(content), [content]);
+  if (citations.length === 0) return null;
+
+  return (
+    <div className="mt-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface-muted)]">
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="shrink-0">
+          <path d="M3 6h18M3 12h18M3 18h18" />
+        </svg>
+        <span className="font-medium">{citations.length} citation{citations.length !== 1 ? "s" : ""}</span>
+        <ChevronRight className={`ml-auto h-3.5 w-3.5 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-90" : ""}`} />
+      </button>
+      {isOpen && (
+        <div className="border-t border-[var(--border)] px-3 py-2">
+          {citations.map((c, idx) => (
+            <div key={idx} className="flex items-start gap-2 py-1">
+              <span className="shrink-0 text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums" style={{ minWidth: "18px" }}>{idx + 1}.</span>
+              <span className="text-[13px] text-[var(--text-primary)]">{c.text}</span>
+              {c.jurisdiction && (
+                <span className="shrink-0 rounded bg-[var(--accent)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--accent)]">{c.jurisdiction}</span>
+              )}
+              {c.year && (
+                <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">{c.year}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export type ChatMessageProps = {
   message: Message & {
     attachedDocuments?: Pick<LocalDocument, "id" | "filename" | "fileType" | "sizeBytes">[];
@@ -637,12 +713,15 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
             {webSearchUsed && sourceFooterDomains.length > 0 && (
               <SourcesFooter domains={sourceFooterDomains} urls={searchUrls} />
             )}
-            {(effectiveLegalSources || (!isCurrentlyStreaming && isSearchingLegal)) && (
-              <LegalSourcesPanel
-                searchResult={effectiveLegalSources || null}
-                isLoading={isSearchingLegal && !effectiveLegalSources || false}
-              />
+            {!isCurrentlyStreaming && (effectiveLegalSources || isSearchingLegal) && (
+              <div className="animate-fade-in">
+                <LegalSourcesPanel
+                  searchResult={effectiveLegalSources || null}
+                  isLoading={isSearchingLegal && !effectiveLegalSources || false}
+                />
+              </div>
             )}
+            {!isCurrentlyStreaming && <CitationsPanel content={cleanContent} />}
             <div className="message-actions pt-1 text-left text-[11px] text-[var(--text-tertiary)]">
               {timestamp && <div>{timestamp}</div>}
               {documentAnalyzed.map((match) => (
