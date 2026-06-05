@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { isSupabaseConfigured, getSessionUser } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   try {
+    // Auth gate — require authenticated user when Supabase is configured
+    if (isSupabaseConfigured()) {
+      const authHeader = request.headers.get("authorization");
+      const user = await getSessionUser(authHeader);
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    }
+
     const { message } = await request.json();
     if (!message || typeof message !== "string") {
       return NextResponse.json({ query: "" }, { status: 400 });

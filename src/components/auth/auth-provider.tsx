@@ -93,7 +93,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const data = await res.json();
       setBetaApproved(data.approved === true);
     } catch {
-      setBetaApproved(true); // Allow if check fails
+      setBetaApproved(false); // Fail-closed: deny access if beta check fails
     } finally {
       setLoading(false);
     }
