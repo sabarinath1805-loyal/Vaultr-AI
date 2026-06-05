@@ -107,9 +107,8 @@ export async function POST(request: NextRequest) {
     const hash = crypto.randomBytes(4).toString("hex");
 
     if (format === "pdf") {
-      // Generate a simple text-based PDF
       const pdfContent = buildSimplePdf(content, exportTitle);
-      const filename = `${slug}-${hash}.pdf`;
+      const filename = generatePDFFilename(content);
       const filePath = path.join(DOWNLOAD_DIR, filename);
       fs.writeFileSync(filePath, pdfContent);
       return NextResponse.json({ url: `/api/download/${filename}`, filename });
@@ -136,15 +135,38 @@ export async function POST(request: NextRequest) {
   }
 }
 
+function generatePDFFilename(responseText: string): string {
+  const words = responseText
+    .replace(/[^a-zA-Z\s]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 3)
+    .slice(0, 5)
+    .join("-")
+    .toLowerCase();
+  const date = new Date().toISOString().split("T")[0];
+  return `Lex - ${words || "response"} - ${date}.pdf`;
+}
+
+function sanitizeSpecialChars(text: string): string {
+  return text
+    .replace(/\u2014/g, "--")
+    .replace(/\u2013/g, "-")
+    .replace(/[\u2018\u2019\u0060\u00B4]/g, "'")
+    .replace(/[\u201C\u201D]/g, '"')
+    .replace(/\u2026/g, "...")
+    .replace(/\u00A0/g, " ");
+}
+
 function buildSimplePdf(markdown: string, title: string): Buffer {
-  // Minimal valid PDF with text content
-  const plainText = markdown
-    .replace(/#{1,6}\s+/g, "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/`(.+?)`/g, "$1")
-    .replace(/```[\s\S]*?```/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  const plainText = sanitizeSpecialChars(
+    markdown
+      .replace(/#{1,6}\s+/g, "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/`(.+?)`/g, "$1")
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+  );
 
   const lines = [`${title}`, "", ...plainText.split("\n")];
   const escapedLines = lines.map((line) =>
