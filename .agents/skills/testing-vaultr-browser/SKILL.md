@@ -8,7 +8,7 @@ description: Test Vaultr browser flows end-to-end. Use when verifying chat, Clou
 ## Devin Secrets Needed
 
 - `GROQ_API_KEY` — required for live Cloud Mode chat streaming through Groq.
-- `SERPER_API_KEY` — required only when a test needs real web-search results.
+- `TAVILY_API_KEY` — required only when a test needs real web-search results.
 
 ## Setup
 
