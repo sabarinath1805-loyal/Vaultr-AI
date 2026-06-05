@@ -1398,23 +1398,29 @@ const tokenFlushState: WeakMap<
 > = new WeakMap();
 
 async function getWebSearchContext(query: string): Promise<{ context: string; sources: WebSearchSource[] }> {
-  const apiKey = getConfiguredApiKey("SERPER_API_KEY");
+  const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
 
   if (!apiKey?.trim()) {
     return {
-      context: "\n\nWeb search is unavailable because SERPER_API_KEY is not configured.",
+      context: "\n\nWeb search is unavailable because TAVILY_API_KEY is not configured.",
       sources: [],
     };
   }
 
   try {
-    const response = await fetch("https://google.serper.dev/search", {
+    const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-API-KEY": apiKey.trim(),
       },
-      body: JSON.stringify({ q: query, num: 5 }),
+      body: JSON.stringify({
+        api_key: apiKey.trim(),
+        query,
+        search_depth: "advanced",
+        include_answer: true,
+        include_raw_content: false,
+        max_results: 5,
+      }),
     });
 
     if (!response.ok) {
@@ -1422,18 +1428,19 @@ async function getWebSearchContext(query: string): Promise<{ context: string; so
     }
 
     const data = await response.json();
-    const results = Array.isArray(data?.organic) ? data.organic.slice(0, 5) : [];
+    const results = Array.isArray(data?.results) ? data.results.slice(0, 5) : [];
+    const answer = typeof data?.answer === "string" ? data.answer : "";
 
-    if (results.length === 0) return { context: "", sources: [] };
+    if (results.length === 0 && !answer) return { context: "", sources: [] };
 
     const sources = results
-      .map((result: { title?: string; link?: string }) => {
-        if (!result.link) return null;
+      .map((result: { title?: string; url?: string; content?: string }) => {
+        if (!result.url) return null;
         try {
-          const domain = new URL(result.link).hostname.replace(/^www\./, "");
+          const domain = new URL(result.url).hostname.replace(/^www\./, "");
           return {
             title: result.title || domain,
-            url: result.link,
+            url: result.url,
             domain,
           };
         } catch {
@@ -1442,15 +1449,21 @@ async function getWebSearchContext(query: string): Promise<{ context: string; so
       })
       .filter((source: WebSearchSource | null): source is WebSearchSource => Boolean(source));
 
-    return {
-      context: `\n\nWeb search results for '${query}':\n${results
+    let context = "\n\n## Web Search Results";
+    if (answer) {
+      context += `\n**Answer:** ${answer}`;
+    }
+    if (results.length > 0) {
+      context += "\n\n**Sources:**\n" + results
         .map(
-          (result: { title?: string; snippet?: string; link?: string }, index: number) =>
-            `${index + 1}. ${result.title || "Untitled"}\n${result.snippet || ""}\n${result.link || ""}`
+          (result: { title?: string; content?: string; url?: string }, index: number) =>
+            `${index + 1}. ${result.title || "Untitled"} — ${result.url || ""}\n   ${result.content || ""}`
         )
-        .join("\n\n")}\n\nUse these results to inform your response if relevant.`,
-      sources,
-    };
+        .join("\n\n");
+    }
+    context += "\n\nUse these results to inform your response if relevant.";
+
+    return { context, sources };
   } catch {
     return { context: "\n\nWeb search is unavailable right now.", sources: [] };
   }
