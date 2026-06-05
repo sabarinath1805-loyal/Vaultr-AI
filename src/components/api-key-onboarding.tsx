@@ -71,7 +71,7 @@ export function ApiKeyOnboarding({ children }: { children: React.ReactNode }) {
       const nextStatus = { ...emptyStatus, ...savedStatus };
       setStatus(nextStatus);
       if (!REQUIRED_API_KEY_NAMES.every((name) => nextStatus[name])) {
-        setError("Groq and Serper keys are required for Cloud Mode legal research.");
+        setError("Groq and Tavily keys are required for Cloud Mode legal research.");
       }
     } catch {
       setError("Vaultr could not save these keys. Please try again.");
@@ -89,7 +89,7 @@ export function ApiKeyOnboarding({ children }: { children: React.ReactNode }) {
         </h1>
         <p className="mt-3 text-[14px] leading-6 text-[var(--text-muted)]">
           Vaultr stores these keys locally in your app data folder. Groq powers Lex chat
-          and Contract Scanner; Serper powers verified legal web search.
+          and Contract Scanner; Tavily powers verified legal web search.
         </p>
 
         <form onSubmit={saveKeys} className="mt-8 space-y-4">

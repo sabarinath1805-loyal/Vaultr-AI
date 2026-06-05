@@ -39,4 +39,6 @@ next-env.d.ts
 .env
 
 # local app data
-/.vaultr/
+/.vaultr/test-plan-*
+test-report-*
+test-screenshots/
