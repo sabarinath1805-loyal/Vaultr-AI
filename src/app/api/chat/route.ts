@@ -1062,6 +1062,17 @@ async function streamAnthropicResponse({
   console.log("[Anthropic URL]", baseUrl);
   console.log("[Anthropic Model]", model);
 
+  // Fix 15: Enable prompt caching for supported Claude models
+  const supportsCaching = model !== "claude-haiku-4-5-20251001";
+  const systemPayload = supportsCaching
+    ? { system: [{ type: "text" as const, text: systemMessage, cache_control: { type: "ephemeral" as const } }] }
+    : {};
+  const messagesPayload = [
+    ...(supportsCaching ? [] : [{ role: "system" as const, content: systemMessage }]),
+    ...initialMessages.slice(-8),
+    { role: "user" as const, content: userMessage },
+  ];
+
   const response = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
     headers: {
@@ -1073,11 +1084,8 @@ async function streamAnthropicResponse({
       model,
       stream: true,
       max_tokens: maxTokens,
-      messages: [
-        { role: "system", content: systemMessage },
-        ...initialMessages.slice(-8),
-        { role: "user", content: userMessage },
-      ],
+      ...systemPayload,
+      messages: messagesPayload,
     }),
   });
 
