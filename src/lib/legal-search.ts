@@ -16,6 +16,7 @@ export interface LegalSearchResult {
   cases: LegalCase[];
   databases_searched: string[];
   offline: boolean;
+  wikiSummary?: string;
 }
 
 async function extractLegalQuery(userMessage: string): Promise<string> {
@@ -404,6 +405,27 @@ async function searchAULegislation(query: string): Promise<LegalCase[]> {
   }
 }
 
+// Wikipedia summary for legal doctrine/concept grounding
+async function fetchWikipediaSummary(query: string): Promise<string> {
+  try {
+    const conceptPatterns = /\b(?:doctrine|principle|rule|test|standard|theory|maxim|concept|statute|act)\b/i;
+    if (!conceptPatterns.test(query)) return "";
+    const searchTerms = query.replace(/\b(?:case|v\.?|vs?\.?)\b/gi, "").trim().split(/\s+/).slice(0, 4).join("_");
+    const response = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(searchTerms)}`,
+      { signal: AbortSignal.timeout(5000) }
+    );
+    if (!response.ok) return "";
+    const data = await response.json();
+    const extract = (data.extract as string) || "";
+    if (!extract || extract.length < 50) return "";
+    const tokens = extract.split(/\s+/);
+    return tokens.slice(0, 300).join(" ");
+  } catch {
+    return "";
+  }
+}
+
 // India Code — indiacode.nic.in
 async function searchIndiaCode(query: string): Promise<LegalCase[]> {
   try {
@@ -541,36 +563,45 @@ export async function searchLegalDatabases(
 
   const extractedQuery = await extractLegalQuery(query);
 
-  // Auto-detect jurisdiction from query keywords, falling back to explicit or "all" (search everything)
+  // Auto-detect jurisdiction from query keywords, falling back to explicit or "all"
   const detectedJurisdiction = detectJurisdiction(query) || jurisdiction;
   const priority = JURISDICTION_DB_PRIORITY[detectedJurisdiction || "all"] || [];
-  const allDbKeys = Object.keys(dbMap);
-  const orderedKeys = [
-    ...priority,
-    ...allDbKeys.filter((k) => !priority.includes(k)),
-  ];
 
-  const results = await Promise.allSettled(
-    orderedKeys.map((key) => dbMap[key](extractedQuery))
-  );
+  // Per-jurisdiction: only search priority databases (max 4), not all 10+
+  const dbKeysToSearch = priority.length > 0
+    ? priority.slice(0, 4)
+    : ["courtlistener", "worldlii", "bailii"];
 
-  const priorityCases: LegalCase[] = [];
-  const otherCases: LegalCase[] = [];
-  results.forEach((result, index) => {
+  const [results, wikiSummary] = await Promise.all([
+    Promise.allSettled(dbKeysToSearch.map((key) => dbMap[key]?.(extractedQuery) ?? Promise.resolve([]))),
+    fetchWikipediaSummary(query),
+  ]);
+
+  const allCases: LegalCase[] = [];
+  results.forEach((result) => {
     if (result.status !== "fulfilled") return;
-    if (index < priority.length) {
-      priorityCases.push(...result.value);
-    } else {
-      otherCases.push(...result.value);
-    }
+    allCases.push(...result.value);
   });
 
-  const allCases = [...priorityCases, ...otherCases];
+  // Score and rank results by relevance
+  const scoredCases = allCases.map((c) => {
+    let score = 0;
+    const lowerQuery = query.toLowerCase();
+    const lowerTitle = c.title.toLowerCase();
+    if (lowerQuery.split(/\s+/).some((w) => w.length > 3 && lowerTitle.includes(w))) score += 3;
+    if (detectedJurisdiction && c.jurisdiction.toLowerCase().includes(detectedJurisdiction)) score += 2;
+    const year = parseInt(c.year, 10);
+    if (year && year >= new Date().getFullYear() - 10) score += 1;
+    return { ...c, _score: score };
+  });
+  scoredCases.sort((a, b) => b._score - a._score);
+  const topCases = scoredCases.slice(0, 5).map(({ _score, ...rest }) => rest);
 
   return {
-    cases: allCases.slice(0, 12),
-    databases_searched: orderedKeys.map((k) => dbNames[k]),
+    cases: topCases,
+    databases_searched: dbKeysToSearch.map((k) => dbNames[k] || k),
     offline: false,
+    wikiSummary: wikiSummary || undefined,
   };
 }
 
