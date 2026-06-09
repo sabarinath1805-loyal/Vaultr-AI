@@ -27,7 +27,7 @@ export function ThinkingIndicator({ visible, activeModel }: ThinkingIndicatorPro
           width: isMax ? '28px' : '24px',
           height: isMax ? '28px' : '24px',
           position: 'relative',
-          top: '-1px',
+          top: '0px',
           fontWeight: isMax ? 600 : 400,
           color: isMax ? 'var(--text-primary)' : 'var(--text-secondary)',
         }}
