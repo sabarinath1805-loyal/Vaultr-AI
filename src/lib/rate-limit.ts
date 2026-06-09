@@ -1,13 +1,18 @@
 /**
  * Per-model IP-based rate limiting.
  * Tracks daily request limits per IP address per model tier.
+ *
+ * @module rate-limit
  */
 
 import { ANTHROPIC_CORE_MODEL, ANTHROPIC_PRO_MODEL, ANTHROPIC_ULTRA_MODEL, ANTHROPIC_MAX_MODEL } from "./models";
 
+/**
+ * An in-memory entry tracking request count and reset time for a specific IP-model combination.
+ */
 interface RateLimitEntry {
   count: number;
-  resetAt: number; // timestamp when the day resets
+  resetAt: number;
 }
 
 // In-memory store (resets on server restart — fine for Phase 10, Supabase later)
@@ -37,6 +42,19 @@ function getDayReset(): number {
   return tomorrow.getTime();
 }
 
+/**
+ * Check if requests from an IP address are within the rate limit for a given model.
+ * Returns an allowance object with optional downgrade suggestion if limit is exceeded.
+ *
+ * @param ip - The client IP address associated with the request.
+ * @param model - The model ID (e.g., "lex-max", "lex-ultra") being requested.
+ * @returns An object containing `allowed` (true if within limit), optional `downgradeModel` (suggested lower-tier model), and optional `message` (user-facing explanation).
+ * @example
+ * const result = checkRateLimit("192.168.1.1", "lex-ultra");
+ * if (!result.allowed && result.downgradeModel) {
+ *   console.log(`Try ${result.downgradeModel} instead`);
+ * }
+ */
 export function checkRateLimit(ip: string, model: string): { allowed: boolean; downgradeModel?: string; message?: string } {
   const limit = MODEL_LIMITS[model];
   if (limit === undefined || limit === Infinity) {
@@ -81,6 +99,16 @@ export function checkRateLimit(ip: string, model: string): { allowed: boolean; d
   return { allowed: true };
 }
 
+/**
+ * Record a request for rate limiting purposes.
+ * Increments the counter for the given IP-model pair if within the limit window.
+ *
+ * @param ip - The client IP address making the request.
+ * @param model - The model ID that was used for this request.
+ * @returns Nothing.
+ * @example
+ * recordUsage("192.168.1.1", "lex-ultra");
+ */
 export function recordUsage(ip: string, model: string): void {
   const limit = MODEL_LIMITS[model];
   if (limit === undefined || limit === Infinity) return;

@@ -12,6 +12,12 @@ interface TavilyResponse {
   answer?: string;
 }
 
+/**
+ * Resolve a legal citation (e.g. `"Donoghue v Stevenson [1932] AC 562"`) into a snippet of the underlying judgment via the Tavily web search API.
+ *
+ * @param citation - Free-form citation string. Appended to `" full judgment Singapore law"` server-side.
+ * @returns Up to 2000 characters of judgment text, or `null` if Tavily returns no usable content, the `TAVILY_API_KEY` is missing, or the request fails.
+ */
 export async function resolveCitation(citation: string): Promise<string | null> {
   const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
   if (!apiKey?.trim()) return null;
@@ -56,6 +62,12 @@ const CASE_FOLLOW_UP_PATTERNS = [
   /can you elaborate on (.+)/i,
 ];
 
+/**
+ * Detect whether a user message is a follow-up question about a previously cited case (e.g. "tell me more about Donoghue v Stevenson").
+ *
+ * @param userMessage - The raw user-typed message.
+ * @returns The extracted case name / subject (without surrounding quotes or trailing punctuation) if the message matches a known follow-up pattern, otherwise `null`.
+ */
 export function detectCaseFollowUp(userMessage: string): string | null {
   const trimmed = userMessage.trim().replace(/[?.!]+$/, "");
   for (const pattern of CASE_FOLLOW_UP_PATTERNS) {

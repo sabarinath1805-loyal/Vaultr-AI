@@ -2,8 +2,12 @@
 // Queries multiple legal databases in parallel and returns relevant cases
 
 /**
- * Sanitize user input to prevent injection attacks on external APIs.
- * Removes control characters, limits length, and escapes special characters.
+ * Sanitize a free-text search query to prevent injection into external legal APIs.
+ *
+ * @param input - The raw user-supplied search string. Non-string or empty values yield "".
+ * @param maxLength - Maximum allowed length in characters. Defaults to 200.
+ * @returns Sanitized string with control characters removed, length capped, and trimmed.
+ *          Returns "" for non-string or empty input.
  */
 function sanitizeSearchQuery(input: string, maxLength: number = 200): string {
   if (typeof input !== "string" || !input) return "";
@@ -38,6 +42,14 @@ export interface LegalSearchResult {
   wikiSummary?: string;
 }
 
+/**
+ * Extract 3-5 key legal search terms from a natural-language user message using Groq's Llama 3.3 70B.
+ * Falls back to returning the original message unchanged if the API call fails or no key is configured.
+ *
+ * @param userMessage - The user's raw natural-language query.
+ * @returns A short search phrase (under ~10 words) suitable for legal database queries.
+ *          Returns the original `userMessage` on any error or when `GROQ_API_KEY` is missing.
+ */
 async function extractLegalQuery(userMessage: string): Promise<string> {
   try {
     const apiKey = process.env.GROQ_API_KEY;
@@ -66,7 +78,8 @@ async function extractLegalQuery(userMessage: string): Promise<string> {
     if (!response.ok) return userMessage;
     const data = await response.json();
     return data.choices?.[0]?.message?.content?.trim() || userMessage;
-  } catch {
+  } catch (error) {
+    console.error(`[legal-search] extractLegalQuery failed for query: "${userMessage.slice(0, 100)}"`, error);
     return userMessage;
   }
 }
@@ -105,7 +118,8 @@ async function searchCourtListener(query: string): Promise<LegalCase[]> {
       url: `https://www.courtlistener.com${(item.absolute_url as string) || ""}`,
       source: "CourtListener",
     }));
-  } catch {
+  } catch (error) {
+    console.error(`[legal-search] CourtListener failed for query: "${query.slice(0, 100)}"`, error);
     return [];
   }
 }
@@ -139,7 +153,8 @@ async function searchCaseLaw(query: string): Promise<LegalCase[]> {
         source: "Caselaw Access Project",
       };
     });
-  } catch {
+  } catch (error) {
+    console.error(`[legal-search] searchCaseLaw failed for query: "${query.slice(0, 100)}"`, error);
     return [];
   }
 }
@@ -535,6 +550,38 @@ function detectJurisdiction(query: string): string | undefined {
   return undefined;
 }
 
+// In-memory cache for legal search results — 5-minute TTL
+// Keyed by sanitized query + jurisdiction to avoid leaking unrelated results
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const searchCache = new Map<string, { result: LegalSearchResult; expiresAt: number }>();
+
+function getCacheKey(query: string, jurisdiction?: string): string {
+  return `${query.trim().toLowerCase()}|${(jurisdiction || "all").toLowerCase()}`;
+}
+
+function getCachedResult(query: string, jurisdiction?: string): LegalSearchResult | null {
+  const key = getCacheKey(query, jurisdiction);
+  const entry = searchCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    searchCache.delete(key);
+    return null;
+  }
+  return entry.result;
+}
+
+function setCachedResult(query: string, jurisdiction: string | undefined, result: LegalSearchResult): void {
+  const key = getCacheKey(query, jurisdiction);
+  searchCache.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS });
+  // Evict expired entries when cache grows
+  if (searchCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of searchCache) {
+      if (now > v.expiresAt) searchCache.delete(k);
+    }
+  }
+}
+
 // Main search function — queries all databases in parallel
 export async function searchLegalDatabases(
   query: string,
@@ -549,6 +596,10 @@ export async function searchLegalDatabases(
   if (!isLegalQuery(sanitizedQuery)) {
     return { cases: [], databases_searched: [], offline: false };
   }
+
+  // Check cache first
+  const cached = getCachedResult(sanitizedQuery, jurisdiction);
+  if (cached) return cached;
 
   const online = await isOnline();
   if (!online) {
@@ -589,9 +640,7 @@ export async function searchLegalDatabases(
     indiacode: "India Code",
   };
 
-  const extractedQuery = await extractLegalQuery(safeQuery);
-
-  // Auto-detect jurisdiction from query keywords, falling back to explicit or "all"
+  // Auto-detect jurisdiction from query keywords (cheap, runs in parallel with LLM call)
   const detectedJurisdiction = detectJurisdiction(safeQuery) || jurisdiction;
   const priority = JURISDICTION_DB_PRIORITY[detectedJurisdiction || "all"] || [];
 
@@ -600,10 +649,19 @@ export async function searchLegalDatabases(
     ? priority.slice(0, 4)
     : ["courtlistener", "worldlii", "bailii"];
 
-  const [results, wikiSummary] = await Promise.all([
-    Promise.allSettled(dbKeysToSearch.map((key) => dbMap[key]?.(extractedQuery) ?? Promise.resolve([]))),
+  // Run extractLegalQuery in parallel with the rest of the setup
+  const [extractedQueryRaw, wikiSummary] = await Promise.all([
+    extractLegalQuery(safeQuery).catch((err) => {
+      console.error("[legal-search] extractLegalQuery failed, using raw query", err);
+      return safeQuery;
+    }),
     fetchWikipediaSummary(safeQuery),
   ]);
+  const extractedQuery = sanitizeSearchQuery(extractedQueryRaw, 200);
+
+  const results = await Promise.allSettled(
+    dbKeysToSearch.map((key) => dbMap[key]?.(extractedQuery) ?? Promise.resolve([]))
+  );
 
   const allCases: LegalCase[] = [];
   results.forEach((result) => {
@@ -611,8 +669,14 @@ export async function searchLegalDatabases(
     allCases.push(...result.value);
   });
 
-  // Score and rank results by relevance
-  const scoredCases = allCases.map((c) => {
+  // Score and rank results by relevance, with URL-based deduplication
+  const seenUrls = new Set<string>();
+  const scoredCases: (LegalCase & { _score: number })[] = [];
+  for (const c of allCases) {
+    // Skip duplicates by URL
+    if (c.url && seenUrls.has(c.url)) continue;
+    if (c.url) seenUrls.add(c.url);
+
     let score = 0;
     const lowerQuery = safeQuery.toLowerCase();
     const lowerTitle = c.title.toLowerCase();
@@ -620,17 +684,25 @@ export async function searchLegalDatabases(
     if (detectedJurisdiction && c.jurisdiction.toLowerCase().includes(detectedJurisdiction)) score += 2;
     const year = parseInt(c.year, 10);
     if (year && year >= new Date().getFullYear() - 10) score += 1;
-    return { ...c, _score: score };
-  });
+
+    scoredCases.push({ ...c, _score: score });
+  }
   scoredCases.sort((a, b) => b._score - a._score);
   const topCases = scoredCases.slice(0, 5).map(({ _score, ...rest }) => rest);
 
-  return {
+  const result = {
     cases: topCases,
     databases_searched: dbKeysToSearch.map((k) => dbNames[k] || k),
     offline: false,
     wikiSummary: wikiSummary || undefined,
   };
+
+  // Cache the result if we got valid cases
+  if (topCases.length > 0) {
+    setCachedResult(sanitizedQuery, jurisdiction, result);
+  }
+
+  return result;
 }
 
 // Format cases for injection into Lex's context window

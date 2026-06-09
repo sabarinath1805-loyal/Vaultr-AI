@@ -12,7 +12,9 @@ import * as crypto from "crypto";
 
 export const runtime = "nodejs";
 
-const DOWNLOAD_DIR = "/tmp/vaultr-downloads";
+// Configurable download directory — production deployments should set DOWNLOAD_DIR.
+// Falls back to a per-user temp directory when not set.
+const DOWNLOAD_DIR = process.env.DOWNLOAD_DIR || path.join(process.env.TMPDIR || "/tmp", "vaultr-downloads");
 
 function ensureDownloadDir() {
   if (!fs.existsSync(DOWNLOAD_DIR)) {

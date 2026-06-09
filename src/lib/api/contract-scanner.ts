@@ -22,7 +22,7 @@ Do not include commentary.
 Every key and string value must use double quotes.
 Do not emit control characters.`;
 
-export async function scanContractFormData(formData: FormData) {
+export async function scanContractFormData(formData: FormData, userId?: string) {
   const file = formData.get("file");
   const mode = formData.get("mode") === "private" ? "private" : "cloud";
   const requestedOllamaUrl = formData.get("ollamaUrl");
@@ -79,7 +79,21 @@ export async function scanContractFormData(formData: FormData) {
       }
     }
 
-    const payload = JSON.parse(responseBody);
+    let payload: unknown;
+    try {
+      payload = JSON.parse(responseBody);
+    } catch (parseError) {
+      console.error("Contract scanner failed to parse model response", {
+        mode,
+        model: modelId,
+        error: parseError,
+        bodyPreview: responseBody.slice(0, 500),
+      });
+      return NextResponse.json(
+        { error: "Lex returned an unexpected response. Please try again." },
+        { status: 502 }
+      );
+    }
     const responseText = getOpenAiResponseText(payload);
 
     if (!responseText) {
@@ -110,7 +124,17 @@ export async function scanContractFormData(formData: FormData) {
         ollamaUrl,
         prompt: `${prompt}${JSON_RETRY_PROMPT_SUFFIX}`,
       });
-      const retryPayload = JSON.parse(retryBody);
+      let retryPayload: unknown;
+      try {
+        retryPayload = JSON.parse(retryBody);
+      } catch (parseError) {
+        console.error("Contract scanner retry parse failed", {
+          mode,
+          model: modelId,
+          error: parseError,
+        });
+        throw error;
+      }
       const retryText = getOpenAiResponseText(retryPayload);
 
       if (!retryText) {
