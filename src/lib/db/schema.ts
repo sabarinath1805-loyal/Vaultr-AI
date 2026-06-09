@@ -5,6 +5,7 @@ export const chats = sqliteTable("chats", {
   title: text("title").notNull(),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
+  ownerId: text("owner_id").notNull(), // Supabase user ID
 });
 
 export const messages = sqliteTable("messages", {

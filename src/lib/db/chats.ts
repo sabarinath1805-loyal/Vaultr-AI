@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from ".";
 import { chats, messages } from "./schema";
@@ -8,6 +8,7 @@ export interface ChatRecord {
   title: string;
   createdAt: number;
   updatedAt: number;
+  ownerId: string;
 }
 
 export interface MessageRecord {
@@ -29,6 +30,12 @@ export interface ChatWithMessages extends ChatRecord {
   messages: MessageRecord[];
 }
 
+export interface ChatInput {
+  id?: string;
+  title?: string;
+  ownerId?: string;
+}
+
 const now = () => Math.floor(Date.now() / 1000);
 
 const titleFromContent = (content: string) => {
@@ -36,12 +43,20 @@ const titleFromContent = (content: string) => {
   return title.length > 60 ? `${title.slice(0, 57)}...` : title || "New chat";
 };
 
-export function listChats(): ChatRecord[] {
+export function listChats(ownerId?: string): ChatRecord[] {
   const db = getDb();
+  if (ownerId) {
+    return db
+      .select()
+      .from(chats)
+      .where(eq(chats.ownerId, ownerId))
+      .orderBy(desc(chats.updatedAt))
+      .all();
+  }
   return db.select().from(chats).orderBy(desc(chats.updatedAt)).all();
 }
 
-export function createChat(id = uuidv4()): ChatRecord {
+export function createChat(id: string = uuidv4(), ownerId: string = "anonymous"): ChatRecord {
   const db = getDb();
   const timestamp = now();
   const chat = {
@@ -49,6 +64,7 @@ export function createChat(id = uuidv4()): ChatRecord {
     title: "New chat",
     createdAt: timestamp,
     updatedAt: timestamp,
+    ownerId,
   };
 
   db.insert(chats).values(chat).onConflictDoNothing().run();
@@ -56,9 +72,12 @@ export function createChat(id = uuidv4()): ChatRecord {
   return chat;
 }
 
-export function getChat(id: string): ChatWithMessages | null {
+export function getChat(id: string, ownerId?: string): ChatWithMessages | null {
   const db = getDb();
-  const chat = db.select().from(chats).where(eq(chats.id, id)).get();
+  const conditions = ownerId
+    ? and(eq(chats.id, id), eq(chats.ownerId, ownerId))
+    : eq(chats.id, id);
+  const chat = db.select().from(chats).where(conditions).get();
 
   if (!chat) {
     return null;
@@ -77,9 +96,10 @@ export function getChat(id: string): ChatWithMessages | null {
   };
 }
 
-export function listChatsWithMessages(): ChatWithMessages[] {
+export function listChatsWithMessages(ownerId?: string): ChatWithMessages[] {
   const db = getDb();
-  return listChats().map((chat) => ({
+  const chatList = ownerId ? listChats(ownerId) : listChats();
+  return chatList.map((chat) => ({
     ...chat,
     messages: db
       .select()
@@ -90,36 +110,54 @@ export function listChatsWithMessages(): ChatWithMessages[] {
   }));
 }
 
-export function deleteChat(id: string) {
+export function deleteChat(id: string, ownerId?: string): boolean {
   const db = getDb();
-  db.delete(chats).where(eq(chats.id, id)).run();
+  const conditions = ownerId
+    ? and(eq(chats.id, id), eq(chats.ownerId, ownerId))
+    : eq(chats.id, id);
+  const result = db.delete(chats).where(conditions).run();
+  return result.changes > 0;
 }
 
-export function renameChat(id: string, title: string) {
+export function renameChat(id: string, title: string, ownerId?: string): boolean {
   const db = getDb();
   const timestamp = now();
-  db.update(chats)
+  const conditions = ownerId
+    ? and(eq(chats.id, id), eq(chats.ownerId, ownerId))
+    : eq(chats.id, id);
+  const result = db
+    .update(chats)
     .set({ title, updatedAt: timestamp })
-    .where(eq(chats.id, id))
+    .where(conditions)
     .run();
+  return result.changes > 0;
 }
 
-export function deleteAllChats() {
+export function addMessage(
+  chatId: string,
+  message: MessageInput,
+  ownerId?: string
+): MessageRecord {
   const db = getDb();
-  db.delete(chats).run();
-}
 
-export function addMessage(chatId: string, message: MessageInput): MessageRecord {
-  const db = getDb();
-  const timestamp = message.createdAt ?? now();
-  const chat = db.select().from(chats).where(eq(chats.id, chatId)).get();
+  // Verify chat exists and (if ownerId provided) belongs to the user
+  const conditions = ownerId
+    ? and(eq(chats.id, chatId), eq(chats.ownerId, ownerId))
+    : eq(chats.id, chatId);
+  const chat = db.select().from(chats).where(conditions).get();
 
   if (!chat) {
+    // If chat doesn't exist and no ownerId, create with anonymous owner
+    // If ownerId provided, this is a security violation
+    if (ownerId) {
+      throw new Error("Chat not found or access denied");
+    }
     createChat(chatId);
   }
 
+  const timestamp = message.createdAt ?? now();
   const messageRecord = {
-    id: message.id || uuidv4(),
+    id: uuidv4(), // Always generate server-side
     chatId,
     role: message.role,
     content: message.content,
@@ -152,19 +190,28 @@ export function addMessage(chatId: string, message: MessageInput): MessageRecord
 
 export function replaceMessages(
   chatId: string,
-  replacementMessages: MessageInput[]
+  replacementMessages: MessageInput[],
+  ownerId?: string
 ): MessageRecord[] {
   const db = getDb();
-  const timestamp = now();
-  const chat = db.select().from(chats).where(eq(chats.id, chatId)).get();
+
+  // Verify chat exists and (if ownerId provided) belongs to the user
+  const conditions = ownerId
+    ? and(eq(chats.id, chatId), eq(chats.ownerId, ownerId))
+    : eq(chats.id, chatId);
+  const chat = db.select().from(chats).where(conditions).get();
 
   if (!chat) {
+    if (ownerId) {
+      throw new Error("Chat not found or access denied");
+    }
     createChat(chatId);
   }
 
+  const timestamp = now();
   const messageRecords: MessageRecord[] = replacementMessages.map(
     (message, index) => ({
-      id: message.id || uuidv4(),
+      id: uuidv4(), // Always generate server-side
       chatId,
       role: message.role,
       content: message.content,
