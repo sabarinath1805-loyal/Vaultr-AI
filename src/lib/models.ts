@@ -1,3 +1,19 @@
+/**
+ * Model configuration for local Lex (Ollama) models.
+ * @interface LexModel
+ * @property {string} id - Unique identifier for this model tier
+ * @property {string} tierId - Short tier identifier (e.g., "flash", "core", "pro")
+ * @property {string} tierName - Display name including tier (e.g., "Lex Flash (Private)")
+ * @property {string} ollamaId - The Ollama model ID to use when pulling/ringing
+ * @property {string} name - Short display name
+ * @property {string} badge - Badge text shown in UI (e.g., "Flash")
+ * @property {string} color - Hex color for visual identification
+ * @property {string} ramRequired - Human-readable RAM requirement
+ * @property {string} description - Feature description for users
+ * @property {number} speed - Relative speed score (0-100)
+ * @property {number} reasoning - Relative reasoning score (0-100)
+ * @property {number} legalDepth - Relative legal analysis depth score (0-100)
+ */
 export interface LexModel {
   id: string;
   tierId: string;
@@ -13,6 +29,17 @@ export interface LexModel {
   legalDepth: number;
 }
 
+/**
+ * Model configuration for cloud-hosted models via Groq.
+ * @interface GroqModel
+ * @property {string} id - UI identifier (e.g., "anthropic-core")
+ * @property {string} name - Display name (e.g., "Lex Core")
+ * @property {string} groqId - Groq-assigned model identifier
+ * @property {"anthropic" | "cerebras" | "groq" | "gemini" | "ollama-cloud"} provider - The underlying LLM provider
+ * @property {string} badge - Badge text shown in UI (e.g., "Core")
+ * @property {string} color - Hex color for visual identification
+ * @property {string} description - Feature description for users
+ */
 export interface GroqModel {
   id: string;
   name: string;
@@ -123,60 +150,116 @@ function getLexModelIds(): string[] {
   return LEX_MODELS.map((model) => model.ollamaId);
 }
 
+/**
+ * Get a list of all Anthropic model IDs available via Groq.
+ * @returns An array of Groq model IDs (e.g., "claude-haiku-4-5-20251001").
+ */
 export function getAnthropicModelIds(): string[] {
   return GROQ_MODELS.filter((model) => model.provider === "anthropic").map(
     (model) => model.groqId
   );
 }
 
+/**
+ * Check whether a given model ID is an Anthropic model routed through Groq.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model is an Anthropic model via Groq, `false` otherwise.
+ */
 export function isAnthropicModel(modelId: string | null | undefined): boolean {
   return !!modelId && getAnthropicModelIds().includes(modelId);
 }
 
+/**
+ * Get a list of all Cerebras model IDs available via Groq.
+ * @returns An array of Groq model IDs.
+ */
 export function getCerebrasModelIds(): string[] {
   return GROQ_MODELS.filter((model) => model.provider === "cerebras").map(
     (model) => model.groqId
   );
 }
 
+/**
+ * Check whether a given model ID is a Cerebras model routed through Groq.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model is a Cerebras model via Groq, `false` otherwise.
+ */
 export function isCerebrasModel(modelId: string | null | undefined): boolean {
   return !!modelId && getCerebrasModelIds().includes(modelId);
 }
 
+/**
+ * Get a list of all native Groq model IDs.
+ * @returns An array of Groq model IDs.
+ */
 export function getGroqModelIds(): string[] {
   return GROQ_MODELS.filter((model) => model.provider === "groq").map(
     (model) => model.groqId
   );
 }
 
+/**
+ * Check whether a given model ID is a native Groq model.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model is a native Groq model, `false` otherwise.
+ */
 export function isGroqModel(modelId: string | null | undefined): boolean {
   return !!modelId && getGroqModelIds().includes(modelId);
 }
 
+/**
+ * Get a list of all cloud model IDs (Anthropic, Cerebras, Groq, Gemini, Ollama Cloud).
+ * @returns An array of all Groq model IDs.
+ */
 export function getCloudModelIds(): string[] {
   return GROQ_MODELS.map((model) => model.groqId);
 }
 
+/**
+ * Check whether a given model ID is any cloud model.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model is a cloud model, `false` otherwise.
+ */
 export function isCloudModel(modelId: string | null | undefined): boolean {
   return !!modelId && getCloudModelIds().includes(modelId);
 }
 
+/**
+ * Check whether a given model ID is a Google Gemini model.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model is a Gemini model, `false` otherwise.
+ */
 export function isGeminiModel(modelId: string | null | undefined): boolean {
   return !!modelId && GROQ_MODELS.some(
     (model) => model.provider === "gemini" && model.groqId === modelId
   );
 }
 
+/**
+ * Check whether a given model ID is an Ollama Cloud model.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model is an Ollama Cloud model, `false` otherwise.
+ */
 export function isOllamaCloudModel(modelId: string | null | undefined): boolean {
   return !!modelId && GROQ_MODELS.some(
     (model) => model.provider === "ollama-cloud" && model.groqId === modelId
   );
 }
 
+/**
+ * Convert a Groq model ID to its Lex display name.
+ * @param groqId - The Groq model ID (e.g., "claude-haiku-4-5-20251001").
+ * @returns The Lex display name (e.g., "Lex Core"), or "Lex Core" if not found.
+ */
 export function groqIdToLexName(groqId: string): string {
   return GROQ_MODELS.find((model) => model.groqId === groqId)?.name || "Lex Core";
 }
 
+/**
+ * Get a human-readable label for a cloud provider.
+ * @param provider - The provider type from the GroqModel.
+ * @returns A display string (e.g., "Anthropic", "Google", "Cerebras").
+ */
 export function getCloudProviderLabel(provider: GroqModel["provider"]) {
   if (provider === "anthropic") return "Anthropic";
   if (provider === "cerebras") return "Cerebras";
@@ -191,6 +274,11 @@ export const OLLAMA_CLOUD_FALLBACK_MODELS = [
   "glm-5:cloud",
 ];
 
+/**
+ * Get display metadata for any model ID (cloud or local Lex).
+ * @param modelId - The model ID to look up.
+ * @returns An object with `badge`, `color`, `name`, `modelId`, and `provider` fields for UI rendering.
+ */
 export function getModelDisplayMetadata(modelId: string) {
   const groqModel = GROQ_MODELS.find((model) => model.groqId === modelId);
   if (groqModel) {
@@ -223,6 +311,11 @@ export function getModelDisplayMetadata(modelId: string) {
   };
 }
 
+/**
+ * Convert an Ollama model ID to its Lex display name.
+ * @param ollamaId - The Ollama model ID (e.g., "phi4-mini").
+ * @returns The Lex display name (e.g., "Lex Core (Private)"), or "Lex Model" if not found.
+ */
 export function ollamaIdToLexName(ollamaId: string): string {
   const tierModel = LEX_MODELS.find((model) => model.ollamaId === ollamaId);
   if (tierModel) return tierModel.name;
@@ -230,31 +323,61 @@ export function ollamaIdToLexName(ollamaId: string): string {
   return "Lex Model";
 }
 
+/**
+ * Convert a Lex display name to its Ollama model ID.
+ * @param lexName - The Lex display name (e.g., "Lex Core (Private)").
+ * @returns The Ollama model ID, or `undefined` if not found.
+ */
 export function lexNameToOllamaId(lexName: string): string | undefined {
   const model = LEX_MODELS.find((m) => m.name === lexName);
   return model?.ollamaId;
 }
 
+/**
+ * Check whether a given model ID is a local Lex (Ollama) model.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model is a local Lex model, `false` otherwise.
+ */
 export function isLexModel(modelId: string | null | undefined): boolean {
   return !!modelId && getLexModelIds().includes(modelId);
 }
 
+/**
+ * Get the default Lex model (first in the tier list).
+ * @returns The default LexModel configuration.
+ */
 export function getDefaultModel(): LexModel {
   return LEX_MODELS[0];
 }
 
+/**
+ * Sort model IDs according to Lex tier priority (Flash → Core → Pro).
+ * Filters to only include models that are actually installed.
+ * @param modelIds - An array of model IDs to sort.
+ * @returns Sorted array of model IDs.
+ */
 export function sortModelsByLexOrder(modelIds: string[]): string[] {
   const installed = new Set(modelIds);
   const ordered = getLexModelIds().filter((modelId) => installed.has(modelId));
   return Array.from(new Set(ordered));
 }
 
+/**
+ * Model IDs that support extended thinking/reasoning streams.
+ * These emit `<think>` tokens that are displayed in a collapsible UI panel.
+ * @constant {string[]}
+ */
 export const THINKING_CAPABLE_MODEL_IDS = [
   "gemma4:e2b",
   "phi4-mini",
   "qwen3:8b",
 ];
 
+/**
+ * Check whether a model supports extended thinking streams.
+ * @param modelId - The model ID to check.
+ * @returns `true` if the model emits thinking tokens, `false` otherwise.
+ */
 export function isThinkingCapableModel(modelId: string | null | undefined): boolean {
   return !!modelId && THINKING_CAPABLE_MODEL_IDS.includes(modelId);
 }

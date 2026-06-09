@@ -60,6 +60,14 @@ export const RISK_ORDER: Record<ContractRisk, number> = {
   LOW: 3,
 };
 
+/**
+ * Augment an LLM-generated contract analysis with hard-coded predatory-clause detections that the LLM sometimes misses.
+ * Always runs after the main JSON parse — it patches clauses by title / excerpt.
+ *
+ * @param text - The original contract text (lowercased for pattern matching).
+ * @param analysis - The parsed JSON from the LLM (as a plain object). May contain a `clauses` array; must have a `clauses` field or this is a no-op.
+ * @returns The same object with additional predatory clauses prepended to `clauses` when the corresponding regex matches the contract text.
+ */
 export function patchPredatoryClauseFindings(text: string, analysis: unknown) {
   if (!isRecord(analysis)) return analysis;
   const lowerText = text.toLowerCase();
@@ -119,6 +127,13 @@ export function patchPredatoryClauseFindings(text: string, analysis: unknown) {
   return { ...analysis, clauses };
 }
 
+/**
+ * Parse a contract-analysis JSON payload from a model response, stripping common LLM wrappers (code fences, control chars).
+ *
+ * @param text - The raw model output. May be wrapped in ```` ```json ... ``` ```` fences.
+ * @returns The parsed JSON value. The caller is responsible for validating it conforms to the `ContractAnalysis` shape.
+ * @throws SyntaxError if `text` is not valid JSON after stripping.
+ */
 export function parseContractAnalysisJson(text: string) {
   const trimmed = text
     .trim()
@@ -132,10 +147,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
+/**
+ * Sort a clause array by risk severity (CRITICAL → HIGH → MEDIUM → LOW).
+ *
+ * @param clauses - Array to sort in-place.
+ * @returns A new array with the same clauses, sorted by risk. The original array is unchanged.
+ */
 export function sortClausesByRisk(clauses: ContractClause[]) {
   return [...clauses].sort((a, b) => RISK_ORDER[a.risk] - RISK_ORDER[b.risk]);
 }
 
+/**
+ * Tally clauses by risk level. CRITICAL is intentionally omitted from the count object (it is treated as a "stop the deal" signal, not a row to count).
+ *
+ * @param clauses - Array of clauses to tally.
+ * @returns An object with `{ high, medium, low, standard }`. `standard` mirrors `low` for backwards compatibility with the scan-reports schema.
+ */
 export function getRiskCounts(clauses: ContractClause[]) {
   const high = clauses.filter((clause) => clause.risk === "HIGH").length;
   const medium = clauses.filter((clause) => clause.risk === "MEDIUM").length;

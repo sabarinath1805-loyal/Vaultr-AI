@@ -168,6 +168,10 @@ export async function POST(req: Request) {
       }
     );
   }
+  // Privacy mode with no requested model falls back to a default Lex model
+  if (privacyMode && !requestedModel) {
+    console.warn("[chat] Privacy mode active but no model specified, defaulting to first Lex model");
+  }
   const ollamaUrl = requestedOllamaUrl || process.env.OLLAMA_URL || OLLAMA_DEFAULT_URL;
   const cloudModel = isCloudModel(requestedModel)
     ? requestedModel
@@ -228,11 +232,9 @@ export async function POST(req: Request) {
   const caseFollowUp = detectCaseFollowUp(userMessage);
   let citationContext = "";
   if (caseFollowUp) {
-    console.log(`[Citation Resolver] Detected case follow-up: "${caseFollowUp}"`);
     const excerpt = await resolveCitation(caseFollowUp);
     if (excerpt) {
       citationContext = `\n\n## Case Law References\nThe following judgment excerpt was retrieved for "${caseFollowUp}":\n${excerpt}`;
-      console.log(`[Citation Resolver] Resolved ${excerpt.length} chars for "${caseFollowUp}"`);
     }
   }
 
@@ -262,10 +264,9 @@ export async function POST(req: Request) {
               console.error(`Failed to extract text from ${document.filename}:`, error);
             }
             if (!extractedText) {
-              console.warn(`[Document] No text extracted for ${document.filename} (extractedText: ${!!document.extractedText}, content: ${!!document.content}, dataUrl: ${!!document.dataUrl})`);
+              console.warn(`[Document] No text extracted for ${document.filename}`);
               return "";
             }
-            console.log(`[Document] Extracted ${extractedText.length} chars from ${document.filename}`);
             return `\n\n--- ATTACHED DOCUMENT: ${document.filename} ---\n${extractedText}\n--- END DOCUMENT ---`;
           }
         )
@@ -305,9 +306,6 @@ export async function POST(req: Request) {
     : "";
 
   let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}${citationContext}`;
-  if (documentPreamble) {
-    console.log(`[Chat] Document context injected: ${documentPreamble.length} chars`);
-  }
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },
@@ -323,6 +321,13 @@ export async function POST(req: Request) {
   let geminiToGroqFallbackTier: string | null = null;
 
   let fallbackModelUsed: string | null = null;
+  let timeoutCleared = false;
+  const clearChatTimeout = () => {
+    if (!timeoutCleared) {
+      clearTimeout(timeout);
+      timeoutCleared = true;
+    }
+  };
 
   try {
     // Anthropic primary provider (ClaudeOpus.pro — OpenAI-compatible)
@@ -392,7 +397,6 @@ export async function POST(req: Request) {
       }
       // Gemini 503/timeout — fall back to Groq
       const failedTierName = geminiModel === GEMINI_MAX_MODEL ? "Lex Max" : "Lex Ultra";
-      console.log(`[Gemini] ${failedTierName} unavailable, falling back to Groq`);
       activeModel = GROQ_DEFAULT_MODEL;
       usesCloudReasoning = false;
       geminiToGroqFallbackTier = failedTierName;
@@ -436,14 +440,13 @@ export async function POST(req: Request) {
               attachedDocuments,
               abortSignal: abortController.signal,
             });
-            console.log(`[Ollama Cloud] Fallback to ${fallbackModel} succeeded`);
+            console.log(`[Ollama Cloud] Fallback to ${fallbackModel} succeeded`); // intentional operational log
             return fbResponse;
-          } catch {
-            console.error(`[Ollama Cloud] Fallback ${fallbackModel} also failed`);
+          } catch (error) {
+            console.error(`[Ollama Cloud] Fallback ${fallbackModel} failed:`, error);
           }
         }
         // All Ollama Cloud models failed — fall through to Groq
-        console.log("[Ollama Cloud] All models failed, falling back to Groq");
         activeModel = GROQ_DEFAULT_MODEL;
       }
     }
@@ -481,7 +484,6 @@ export async function POST(req: Request) {
       if (res.status === 429 && retries > 0) {
         const retryAfter = parseInt(res.headers.get("retry-after") || "2", 10);
         const waitMs = Math.min(retryAfter * 1000, 5000);
-        console.log(`[Groq] Rate limited (429), retrying in ${waitMs}ms (${retries} retries left)`);
         await new Promise((r) => setTimeout(r, waitMs));
         return fetchGroqWithRetry(retries - 1);
       }
@@ -592,9 +594,10 @@ export async function POST(req: Request) {
       responseHeaders["X-Fallback-Model"] = fallbackModelUsed;
     }
     recordUsageForProvider(req, activeModel, authenticatedUserId);
+    clearChatTimeout();
     return new Response(stream, { headers: responseHeaders });
   } catch (primaryError) {
-    clearTimeout(timeout);
+    clearChatTimeout();
     // If not privacy mode, try Ollama Cloud as last-resort fallback
     if (!privacyMode) {
       for (const fallbackModel of OLLAMA_CLOUD_FALLBACK_MODELS) {
@@ -614,10 +617,9 @@ export async function POST(req: Request) {
             abortSignal: fbAbort.signal,
           });
           clearTimeout(fbTimeout);
-          console.log(`[Fallback] Ollama Cloud (${fallbackModel}) succeeded`);
           return fbResponse;
-        } catch {
-          console.error(`[Fallback] Ollama Cloud (${fallbackModel}) also failed`);
+        } catch (fallbackError) {
+          console.error(`[Fallback] Ollama Cloud (${fallbackModel}) failed:`, fallbackError);
         }
       }
     }
@@ -630,6 +632,7 @@ export async function POST(req: Request) {
     } else {
       errMsg = "Lex is temporarily unavailable. Please try again in a moment.";
     }
+    clearChatTimeout();
     return new Response(
       `3:${JSON.stringify(errMsg)}\n`,
       {
@@ -1069,9 +1072,6 @@ async function streamAnthropicResponse({
 
   const baseUrl = getAnthropicBaseUrl();
   const maxTokens = model === "claude-opus-4-6" ? 16384 : 8192;
-
-  console.log("[Anthropic URL]", baseUrl);
-  console.log("[Anthropic Model]", model);
 
   // Fix 15: Enable prompt caching for supported Claude models
   const supportsCaching = model !== "claude-haiku-4-5-20251001";

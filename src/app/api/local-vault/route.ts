@@ -9,6 +9,9 @@ export const runtime = "nodejs";
 
 const dataDir = getVaultrDataDir();
 const dbPath = getVaultrDbPath();
+const MAX_PUT_BODY_SIZE = 25 * 1024 * 1024; // 25MB
+const MAX_DOCUMENTS = 1000;
+const MAX_PROJECTS = 200;
 
 interface LocalVaultRow {
   id: string;
@@ -86,6 +89,12 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  // Validate body size before parsing
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > MAX_PUT_BODY_SIZE) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
+
   const body = await req.json().catch(() => null);
   if (!isRecord(body)) {
     return NextResponse.json({ error: "Valid JSON body is required" }, { status: 400 });
@@ -95,6 +104,14 @@ export async function PUT(req: Request) {
     ? body.documents.filter(isLocalDocument)
     : [];
   const projects = Array.isArray(body.projects) ? body.projects.filter(isLocalProject) : [];
+
+  if (documents.length > MAX_DOCUMENTS || projects.length > MAX_PROJECTS) {
+    return NextResponse.json(
+      { error: `Too many records (max ${MAX_DOCUMENTS} documents, ${MAX_PROJECTS} projects)` },
+      { status: 413 }
+    );
+  }
+
   const sqlite = openLocalVaultDb();
 
   try {
