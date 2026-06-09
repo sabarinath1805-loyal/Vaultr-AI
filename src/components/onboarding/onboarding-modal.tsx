@@ -39,7 +39,6 @@ export function completeOnboarding(
   safeStorage.setItem("vaultr-onboarding-jurisdiction", jurisdiction);
   safeStorage.setItem("vaultr-onboarding-practice-area", practiceArea);
   safeStorage.setItem("vaultr-onboarding-referral", referralSource);
-  console.log("[Onboarding]", { jurisdiction, practiceArea, referralSource });
 }
 
 export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
