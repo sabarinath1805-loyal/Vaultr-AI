@@ -98,6 +98,15 @@ interface WebSearchSource {
 }
 
 export async function POST(req: Request) {
+  // Validate request size to prevent DoS attacks
+  const contentLength = req.headers.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > 100 * 1024) {
+    return new Response(
+      JSON.stringify({ error: "Request body too large. Maximum size is 100KB." }),
+      { status: 413, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   const {
     messages,
     selectedModel,
@@ -139,7 +148,9 @@ export async function POST(req: Request) {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
     recordUsage(ip, model);
     if (userId) {
-      logUsage(userId, model, ip).catch(() => {});
+      logUsage(userId, model, ip).catch((err) => {
+        console.error("[Usage Log Error] Failed to log usage:", err);
+      });
     }
   }
 
@@ -168,8 +179,8 @@ export async function POST(req: Request) {
   const anthropicModel = isAnthropicModel(activeModel) ? activeModel : null;
   const cerebrasModel = isCerebrasModel(activeModel) ? activeModel : null;
 
-  // Per-model rate limiting — Supabase-backed when auth is available, else IP-based in-memory
-  if (!privacyMode && activeModel) {
+  // Rate limiting applies to all requests (even privacy mode)
+  if (activeModel) {
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
     const rateLimitResult = checkRateLimit(clientIp, activeModel);
     if (!rateLimitResult.allowed) {
