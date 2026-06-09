@@ -458,7 +458,6 @@ function CitationsPanel({ content, attachedDocuments }: { content: string; attac
                           key={option}
                           type="button"
                           onClick={() => {
-                            console.log("[Citation Feedback]", { citation: c.text, feedback: option, timestamp: new Date().toISOString() });
                             setSubmittedFeedback((prev) => ({ ...prev, [idx]: option }));
                             setFeedbackIdx(null);
                           }}

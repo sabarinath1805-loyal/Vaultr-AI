@@ -241,7 +241,7 @@ export function ComposerCard({
           extractedText = await extractServerDocumentText(doc);
         }
         if (extractedText) {
-          console.log("📄 DOCUMENT CONTENT:", extractedText.substring(0, 200));
+          // Document text extracted successfully
         }
         return {
           ...doc,

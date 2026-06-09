@@ -28,6 +28,11 @@ export interface MatterLinks {
   scans: string[];
 }
 
+/**
+ * Read the matter list from `localStorage` (with in-memory fallback via `safeStorage`).
+ *
+ * @returns The parsed `Matter[]` array, or `[]` if nothing is stored or the stored JSON is malformed.
+ */
 export function readMatters(): Matter[] {
   try {
     const saved = safeStorage.getItem(MATTERS_STORAGE_KEY);
@@ -37,10 +42,21 @@ export function readMatters(): Matter[] {
   }
 }
 
+/**
+ * Persist the matter list to `localStorage` as a JSON string.
+ *
+ * @param matters - The full matter array to write (replaces the entire stored list).
+ */
 export function writeMatters(matters: Matter[]) {
   safeStorage.setItem(MATTERS_STORAGE_KEY, JSON.stringify(matters));
 }
 
+/**
+ * Read the links (documents, chats, scans) associated with a single matter.
+ *
+ * @param matterId - The matter id to look up.
+ * @returns A `MatterLinks` object with empty arrays as defaults. Returns the default object if no links are stored.
+ */
 export function readMatterLinks(matterId: string): MatterLinks {
   try {
     const saved = safeStorage.getItem(MATTER_LINKS_STORAGE_KEY);
@@ -51,6 +67,12 @@ export function readMatterLinks(matterId: string): MatterLinks {
   }
 }
 
+/**
+ * Persist the links for a single matter, preserving the links of all other matters.
+ *
+ * @param matterId - The matter id to update.
+ * @param links - The new `MatterLinks` object. Overwrites any previously stored links for this matter.
+ */
 export function writeMatterLinks(matterId: string, links: MatterLinks) {
   const saved = safeStorage.getItem(MATTER_LINKS_STORAGE_KEY);
   const allLinks = saved ? JSON.parse(saved) : {};
