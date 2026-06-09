@@ -24,8 +24,23 @@ try {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
+      updated_at INTEGER NOT NULL,
+      owner_id TEXT NOT NULL DEFAULT 'anonymous'
     );
+  `);
+
+  // Backward compatibility: add owner_id column if it doesn't exist
+  try {
+    const columns = sqlite.prepare("PRAGMA table_info(chats)").all() as Array<{ name: string }>;
+    const hasOwnerId = columns.some((col) => col.name === "owner_id");
+    if (!hasOwnerId) {
+      sqlite.exec(`ALTER TABLE chats ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`);
+    }
+  } catch (error) {
+    console.error("Failed to add owner_id column to chats table:", error);
+  }
+
+  sqlite.exec(`
 
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY,
