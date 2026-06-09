@@ -7,6 +7,12 @@ export async function POST(request: NextRequest) {
     if (!query || typeof query !== "string") {
       return NextResponse.json({ error: "Query required" }, { status: 400 });
     }
+
+    // Validate input length
+    if (query.length > 200) {
+      return NextResponse.json({ error: "Query too long" }, { status: 400 });
+    }
+
     const results = await searchLegalDatabases(query, jurisdiction);
     return NextResponse.json(results);
   } catch {

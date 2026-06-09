@@ -1,6 +1,25 @@
 // Legal database search service
 // Queries multiple legal databases in parallel and returns relevant cases
 
+/**
+ * Sanitize user input to prevent injection attacks on external APIs.
+ * Removes control characters, limits length, and escapes special characters.
+ */
+function sanitizeSearchQuery(input: string, maxLength: number = 200): string {
+  if (typeof input !== "string" || !input) return "";
+
+  // Remove control characters
+  // eslint-disable-next-line no-control-regex
+  let sanitized = input.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, "");
+
+  // Limit length
+  if (sanitized.length > maxLength) {
+    sanitized = sanitized.slice(0, maxLength);
+  }
+
+  return sanitized.trim();
+}
+
 export interface LegalCase {
   title: string;
   citation: string;
@@ -521,7 +540,13 @@ export async function searchLegalDatabases(
   query: string,
   jurisdiction?: string
 ): Promise<LegalSearchResult> {
-  if (!isLegalQuery(query)) {
+  // Sanitize input to prevent injection attacks
+  const sanitizedQuery = sanitizeSearchQuery(query, 200);
+  if (!sanitizedQuery) {
+    return { cases: [], databases_searched: [], offline: false };
+  }
+
+  if (!isLegalQuery(sanitizedQuery)) {
     return { cases: [], databases_searched: [], offline: false };
   }
 
@@ -529,6 +554,9 @@ export async function searchLegalDatabases(
   if (!online) {
     return { cases: [], databases_searched: [], offline: true };
   }
+
+  // Use sanitized query for all downstream calls
+  const safeQuery = sanitizedQuery;
 
   const dbMap: Record<string, (q: string) => Promise<LegalCase[]>> = {
     courtlistener: searchCourtListener,
@@ -561,10 +589,10 @@ export async function searchLegalDatabases(
     indiacode: "India Code",
   };
 
-  const extractedQuery = await extractLegalQuery(query);
+  const extractedQuery = await extractLegalQuery(safeQuery);
 
   // Auto-detect jurisdiction from query keywords, falling back to explicit or "all"
-  const detectedJurisdiction = detectJurisdiction(query) || jurisdiction;
+  const detectedJurisdiction = detectJurisdiction(safeQuery) || jurisdiction;
   const priority = JURISDICTION_DB_PRIORITY[detectedJurisdiction || "all"] || [];
 
   // Per-jurisdiction: only search priority databases (max 4), not all 10+
@@ -574,7 +602,7 @@ export async function searchLegalDatabases(
 
   const [results, wikiSummary] = await Promise.all([
     Promise.allSettled(dbKeysToSearch.map((key) => dbMap[key]?.(extractedQuery) ?? Promise.resolve([]))),
-    fetchWikipediaSummary(query),
+    fetchWikipediaSummary(safeQuery),
   ]);
 
   const allCases: LegalCase[] = [];
@@ -586,7 +614,7 @@ export async function searchLegalDatabases(
   // Score and rank results by relevance
   const scoredCases = allCases.map((c) => {
     let score = 0;
-    const lowerQuery = query.toLowerCase();
+    const lowerQuery = safeQuery.toLowerCase();
     const lowerTitle = c.title.toLowerCase();
     if (lowerQuery.split(/\s+/).some((w) => w.length > 3 && lowerTitle.includes(w))) score += 3;
     if (detectedJurisdiction && c.jurisdiction.toLowerCase().includes(detectedJurisdiction)) score += 2;
