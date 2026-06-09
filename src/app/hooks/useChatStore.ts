@@ -359,7 +359,7 @@ const useChatStore = create<State & Actions>()(
       },
       saveMessages: async (chatId, messages) => {
         set((state) => {
-          const existingChat = state.chats[chatId];
+          const existingChat = state.chats?.[chatId];
           const now = new Date().toISOString();
 
           return {

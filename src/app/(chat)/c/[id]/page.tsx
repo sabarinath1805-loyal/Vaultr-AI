@@ -10,8 +10,8 @@ export default function Page({ params }: { params: Promise<{ id: string }> }) {
 
   const chats = useChatStore((state) => state.chats);
   const loadChatById = useChatStore((state) => state.loadChatById);
-  const chat = chats[id];
-  const [isLoadingChat, setIsLoadingChat] = React.useState(!chat);
+  const chat = chats?.[id];
+  const [isLoadingChat, setIsLoadingChat] = React.useState(true);
 
   React.useEffect(() => {
     if (chat) {
