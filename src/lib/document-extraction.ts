@@ -1,7 +1,22 @@
+/**
+ * Document text extraction utilities.
+ * Supports PDF, DOCX, and plain text files, with caching of pre-extracted text.
+ * @module document-extraction
+ */
+
 import mammoth from "mammoth";
 import { extractPdfText } from "@/lib/file-extraction/pdf-extractor";
 import { extractFileContent } from "@/lib/extract-file-content";
 
+/**
+ * A document ready for text extraction.
+ * @interface DocumentForExtraction
+ * @property {string} filename - The original filename including extension.
+ * @property {string | null} [fileType] - MIME type (e.g., "application/pdf").
+ * @property {string} [extractedText] - Pre-extracted text for caching.
+ * @property {string} [content] - Base64-encoded content.
+ * @property {string} [dataUrl] - data: URL containing Base64 content.
+ */
 interface DocumentForExtraction {
   filename: string;
   fileType?: string | null;
@@ -22,6 +37,12 @@ function fileFromDocument(document: DocumentForExtraction) {
   });
 }
 
+/**
+ * Extract text content from a document.
+ * Tries pre-extracted text if available, otherwise extracts based on file type.
+ * @param document - The document to extract text from.
+ * @returns Extracted text content, or empty string on failure.
+ */
 export async function extractDocumentText(document: DocumentForExtraction) {
   if (document.extractedText?.trim()) return document.extractedText.trim();
 

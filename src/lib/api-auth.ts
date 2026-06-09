@@ -23,9 +23,12 @@ export class AuthError extends Error {
 }
 
 /**
- * Require authentication for an API route.
- * Returns the authenticated user ID and email.
- * Throws AuthError if not authenticated or not approved.
+ * Require authentication for an API route. Reads the `Authorization: Bearer <jwt>` header, validates it with Supabase, and returns the authenticated user.
+ *
+ * @param req - The incoming `Request`. Must include a `Bearer` token in the `Authorization` header.
+ * @returns A `{ userId, email }` object identifying the authenticated user.
+ * @throws AuthError(503) if Supabase is not configured.
+ * @throws AuthError(401) if the header is missing, malformed, or the token does not resolve to a valid user.
  */
 export async function requireAuth(req: Request): Promise<{
   userId: string;
@@ -56,8 +59,10 @@ export async function requireAuth(req: Request): Promise<{
 }
 
 /**
- * Validate request body size to prevent DoS attacks.
- * Returns null if valid, or a Response with 413 if too large.
+ * Validate the size of a request body. Uses the `Content-Length` header first, then falls back to reading the body (via `req.clone()`) to handle chunked requests with no `Content-Length`.
+ *
+ * @param req - The incoming `Request`.
+ * @returns A 413 `NextResponse` if the body exceeds the 50KB cap, otherwise `null` to indicate the request should proceed.
  */
 export async function validateRequestSize(req: Request): Promise<NextResponse | null> {
   const contentLength = req.headers.get("content-length");
@@ -89,8 +94,11 @@ export async function validateRequestSize(req: Request): Promise<NextResponse | 
 }
 
 /**
- * Sanitize a user-provided string to prevent injection attacks.
- * Removes control characters and limits length.
+ * Sanitize a user-provided string for safe inclusion in HTML, JSON, or SQL. Strips C0/C1 control characters (preserving newlines and tabs), caps length, and trims.
+ *
+ * @param input - The raw user-supplied string.
+ * @param maxLength - Maximum length in characters. Defaults to 1000.
+ * @returns The sanitized string, or `""` if `input` is not a string.
  */
 export function sanitizeString(input: string, maxLength: number = 1000): string {
   if (typeof input !== "string") return "";
@@ -108,7 +116,10 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
 }
 
 /**
- * Validate a UUID format to prevent injection.
+ * Check whether a string is a valid lowercase or uppercase UUID v4.
+ *
+ * @param id - The candidate id.
+ * @returns `true` if `id` matches the canonical UUID v4 format, `false` otherwise (including non-string input).
  */
 export function isValidUUID(id: string): boolean {
   if (typeof id !== "string") return false;

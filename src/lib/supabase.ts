@@ -17,6 +17,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
+/**
+ * Check whether the Supabase project URL and anon key are both configured via environment variables.
+ *
+ * @returns `true` if both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set, `false` otherwise.
+ */
 export function isSupabaseConfigured(): boolean {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 }
@@ -25,6 +30,11 @@ export function isSupabaseConfigured(): boolean {
 
 let browserClient: SupabaseClient | null = null;
 
+/**
+ * Create a Supabase client for browser use (respects RLS). Uses the anon key and is safe to expose in client-side bundles.
+ *
+ * @returns A `SupabaseClient` instance, or `null` if Supabase is not configured.
+ */
 export function createBrowserSupabaseClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) return null;
   if (browserClient) return browserClient;
@@ -42,6 +52,11 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
 
 let serverClient: SupabaseClient | null = null;
 
+/**
+ * Create a Supabase client for server-side use (bypasses RLS). Requires the service role key (not safe for client bundles).
+ *
+ * @returns A `SupabaseClient` instance with elevated permissions, or `null` if Supabase is not configured with a service key.
+ */
 export function createServerSupabaseClient(): SupabaseClient | null {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (!SUPABASE_URL || !serviceKey) return null;
@@ -54,6 +69,12 @@ export function createServerSupabaseClient(): SupabaseClient | null {
 
 // ---------- Beta user check ----------
 
+/**
+ * Check whether a given email is on the approved beta-users list in Supabase.
+ *
+ * @param email - The email to check. Case-insensitive.
+ * @returns `true` if the email is found and `approved = true`. Returns `true` for all emails when Supabase is not configured (local-dev fallback). Returns `false` if the lookup fails or the user is not approved.
+ */
 export async function isBetaUser(email: string): Promise<boolean> {
   const client = createServerSupabaseClient();
   if (!client) return true; // Allow all when Supabase not configured
@@ -68,6 +89,14 @@ export async function isBetaUser(email: string): Promise<boolean> {
 
 // ---------- Usage logging ----------
 
+/**
+ * Insert a row into the `usage_logs` table for audit / analytics. Silent no-op if Supabase is not configured.
+ *
+ * @param userId - The Supabase user id (or `"anonymous"` for local dev).
+ * @param model - The model id used (e.g. `claude-opus-4-6`).
+ * @param ip - The originating client IP (used for fraud / abuse analysis).
+ * @returns Resolves once the row is inserted (or immediately if Supabase is unconfigured).
+ */
 export async function logUsage(userId: string, model: string, ip: string): Promise<void> {
   const client = createServerSupabaseClient();
   if (!client) return;

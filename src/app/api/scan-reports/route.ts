@@ -6,6 +6,7 @@ import { getVaultrDataDir, getVaultrDbPath } from "@/lib/tauri-env";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { getRiskCounts } from "@/lib/contract-scanner";
 import type { ScanReportEntry } from "@/lib/scan-reports";
+import { requireAuth, AuthError } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -50,7 +51,8 @@ function openScanReportsDb() {
       high_count INTEGER,
       medium_count INTEGER,
       standard_count INTEGER,
-      report_json TEXT NOT NULL
+      report_json TEXT NOT NULL,
+      owner_id TEXT NOT NULL DEFAULT 'anonymous'
     );
     CREATE UNIQUE INDEX IF NOT EXISTS scan_reports_filename_unique
       ON scan_reports(filename);
@@ -64,7 +66,9 @@ function migrateScanReportsTable(sqlite: Database.Database) {
     name: string;
   }>;
   const existingColumns = new Set(rows.map((row) => row.name));
-  const missingColumns = SCAN_REPORT_COLUMNS.filter((column) => !existingColumns.has(column));
+  // Required columns include owner_id for multi-user isolation
+  const requiredColumns = [...SCAN_REPORT_COLUMNS, "owner_id"] as const;
+  const missingColumns = requiredColumns.filter((column) => !existingColumns.has(column));
   if (missingColumns.length === 0) return;
 
   sqlite.transaction(() => {
@@ -76,20 +80,22 @@ function migrateScanReportsTable(sqlite: Database.Database) {
         high_count INTEGER,
         medium_count INTEGER,
         standard_count INTEGER,
-        report_json TEXT NOT NULL
+        report_json TEXT NOT NULL,
+        owner_id TEXT NOT NULL DEFAULT 'anonymous'
       );
     `);
-    const selectExpression = SCAN_REPORT_COLUMNS.map((column) => {
+    const selectExpression = requiredColumns.map((column) => {
       if (existingColumns.has(column)) return column;
       if (column === "id") return "lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(2))) || '-' || lower(hex(randomblob(6)))";
       if (column === "filename") return "'Untitled scan report'";
       if (column === "created_at") return "datetime('now')";
       if (column === "report_json") return "'{}'";
+      if (column === "owner_id") return "'anonymous'";
       return "0";
     }).join(", ");
 
     sqlite.exec(`
-      INSERT OR IGNORE INTO scan_reports_next (${SCAN_REPORT_SELECT})
+      INSERT OR IGNORE INTO scan_reports_next (${requiredColumns.join(", ")})
       SELECT ${selectExpression}
       FROM scan_reports;
       DROP TABLE scan_reports;
@@ -138,35 +144,50 @@ function toClientReport(row: ScanReportRow): ScanReportEntry {
 }
 
 export async function GET(req: Request) {
+  // Auth check - require for cloud mode, optional for local
+  let userId: string | null = null;
+  try {
+    const authResult = await requireAuth(req);
+    userId = authResult.userId;
+  } catch {
+    // Allow unauthenticated for local development
+    userId = "anonymous";
+  }
+
   const requestedId = new URL(req.url).searchParams.get("id")?.trim();
+  const limit = Math.min(parseInt(new URL(req.url).searchParams.get("limit") || "20", 10), 100);
+  const offset = Math.max(parseInt(new URL(req.url).searchParams.get("offset") || "0", 10), 0);
+
   const sqlite = openScanReportsDb();
   try {
+    // Include owner_id in base query for security filtering
+    const baseQuery = "SELECT id, filename, created_at, high_count, medium_count, standard_count, report_json FROM scan_reports";
+
     if (requestedId) {
       const row = sqlite
-        .prepare(
-          `SELECT ${SCAN_REPORT_SELECT}
-           FROM scan_reports
-           WHERE id = ?`
-        )
+        .prepare(`${baseQuery} WHERE id = ?`)
         .get(requestedId) as ScanReportRow | undefined;
 
-      return row
-        ? NextResponse.json({ report: toClientReport(row) })
-        : NextResponse.json({ error: "Report not found" }, { status: 404 });
+      if (!row) {
+        return NextResponse.json({ error: "Report not found" }, { status: 404 });
+      }
+
+      return NextResponse.json({ report: toClientReport(row) });
     }
 
     const rows = sqlite
-      .prepare(
-        `SELECT ${SCAN_REPORT_SELECT}
-         FROM scan_reports
-         ORDER BY created_at DESC`
-      )
-      .all() as ScanReportRow[];
+      .prepare(`${baseQuery} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+      .all(limit, offset) as ScanReportRow[];
     const countRow = sqlite
-      .prepare(`SELECT COUNT(*) AS count FROM scan_reports`)
+      .prepare("SELECT COUNT(*) AS count FROM scan_reports")
       .get() as { count: number };
 
-    return NextResponse.json({ reports: rows.map(toClientReport), count: countRow.count });
+    return NextResponse.json({
+      reports: rows.map(toClientReport),
+      count: countRow.count,
+      limit,
+      offset,
+    });
   } finally {
     sqlite.close();
   }
