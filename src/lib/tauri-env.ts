@@ -1,3 +1,9 @@
+/**
+ * Tauri environment helpers for Vaultr.
+ * Manages app data directories, API key loading from environment and disk, and configuration.
+ * @module tauri-env
+ */
+
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -5,6 +11,10 @@ import path from "path";
 const APP_DATA_ENV = "VAULTR_APP_DATA_DIR";
 const API_KEYS_FILE = "api-keys.json";
 
+/**
+ * All configurable API key environment variable names.
+ * @constant {(readonly ["GROQ_API_KEY", "TAVILY_API_KEY", "GEMINI_API_KEY", "OLLAMA_API_KEY", "CEREBRAS_API_KEY", "HARVARD_CAP_API_KEY", "CLAUDEOPUS_API_KEY"])}
+ */
 export const API_KEY_NAMES = [
   "GROQ_API_KEY",
   "TAVILY_API_KEY",
@@ -15,9 +25,25 @@ export const API_KEY_NAMES = [
   "CLAUDEOPUS_API_KEY",
 ] as const;
 
+// In-memory cache for API keys - populated once per server instance
+let apiKeyCache: ApiKeyValues | null = null;
+let cacheLoaded = false;
+
+/**
+ * The type of an API key name from API_KEY_NAMES.
+ */
 export type ApiKeyName = (typeof API_KEY_NAMES)[number];
+
+/**
+ * A partial record mapping API key names to their values.
+ */
 export type ApiKeyValues = Partial<Record<ApiKeyName, string>>;
 
+/**
+ * Get the Vaultr app data directory.
+ * Respects VAULTR_APP_DATA_DIR environment variable, otherwise uses platform defaults.
+ * @returns The absolute path to the Vaultr data directory.
+ */
 export function getVaultrDataDir() {
   const configuredDir = process.env[APP_DATA_ENV]?.trim();
   if (configuredDir) {
@@ -27,18 +53,37 @@ export function getVaultrDataDir() {
   return path.join(getDefaultAppDataDir(), ".vaultr");
 }
 
+/**
+ * Get the full path to the Vaultr SQLite database file.
+ * @returns The absolute path to vaultr.db.
+ */
 export function getVaultrDbPath() {
   return path.join(getVaultrDataDir(), "vaultr.db");
 }
 
+/**
+ * Get a configured API key value.
+ * Environment variables take precedence; falls back to cached values from disk.
+ * @param name - The API key name (e.g., "GROQ_API_KEY").
+ * @returns The API key value, or empty string if not configured.
+ */
 export function getConfiguredApiKey(name: ApiKeyName) {
+  // First check environment variable (always takes precedence)
   const environmentValue = process.env[name]?.trim();
   if (environmentValue) return environmentValue;
 
-  const savedKeys = readSavedApiKeys();
-  return savedKeys[name]?.trim() || "";
+  // Use cached keys from disk (loaded once)
+  if (!cacheLoaded) {
+    apiKeyCache = readSavedApiKeys();
+    cacheLoaded = true;
+  }
+  return apiKeyCache?.[name]?.trim() || "";
 }
 
+/**
+ * Get all configured API key values as an object.
+ * @returns An object mapping each API key name to its value.
+ */
 export function getConfiguredApiKeys() {
   const keys: ApiKeyValues = {};
   for (const name of API_KEY_NAMES) {

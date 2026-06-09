@@ -22,6 +22,12 @@ export interface ThinkStripState {
   searchPreambleComplete: boolean;
 }
 
+/**
+ * Extract any `<think>…</think>` content from a complete assistant message as a single concatenated string.
+ *
+ * @param content - The full assistant message text. May be the concatenation of all streamed chunks.
+ * @returns The joined think-block contents trimmed and separated by `\n`, or `null` if no think blocks were found.
+ */
 export function extractThinkContent(content: string) {
   const matches = Array.from(content.matchAll(THINK_BLOCK_REGEX));
   return matches.length > 0
@@ -33,6 +39,13 @@ export function extractThinkContent(content: string) {
     : null;
 }
 
+/**
+ * Strip all internal markup and process noise from a complete assistant message in one pass.
+ * Combines: think-block removal, web-search markers, document-analyzed markers, legal-sources markers, system-prompt leakage, search-preamble stripping, and tool-call JSON.
+ *
+ * @param content - The full assistant message.
+ * @returns The same text with internal markup removed and preambles stripped.
+ */
 export function stripAssistantMarkup(content: string) {
   const cleaned = content
     .replace(THINK_BLOCK_REGEX, "")
@@ -50,6 +63,12 @@ export function stripAssistantMarkup(content: string) {
   return stripPreamble(cleaned);
 }
 
+/**
+ * Allocate a fresh streaming state object for the think-block / search-preamble strippers.
+ * The state is mutated by `stripThinkFromStreamChunk`, `stripSearchPreambleFromStreamChunk`, and `flushThinkStripState`.
+ *
+ * @returns A new `ThinkStripState` with all flags at their default (no-strip-yet) values.
+ */
 export function createThinkStripState(): ThinkStripState {
   return {
     insideThink: false,
@@ -60,6 +79,13 @@ export function createThinkStripState(): ThinkStripState {
   };
 }
 
+/**
+ * Streaming-friendly version of think-block stripping. Carries partial-tag state in `state` so that a `<think>` open-tag split across two chunks is still detected.
+ *
+ * @param chunk - The next text chunk from the model stream.
+ * @param state - Mutable state object from `createThinkStripState()`. Updated in place.
+ * @returns The text to flush to the client after stripping any think content. May be `""` while inside a think block.
+ */
 export function stripThinkFromStreamChunk(
   chunk: string,
   state: ThinkStripState
@@ -110,6 +136,13 @@ export function stripThinkFromStreamChunk(
   return output;
 }
 
+/**
+ * Apply both think-block and search-preamble strippers to a streaming chunk in one call. Mutates `state`.
+ *
+ * @param chunk - The next text chunk from the model stream.
+ * @param state - Mutable state object from `createThinkStripState()`. Updated in place.
+ * @returns The text safe to flush to the client.
+ */
 export function stripAssistantStreamChunk(chunk: string, state: ThinkStripState) {
   return stripSearchPreambleFromStreamChunk(
     stripThinkFromStreamChunk(chunk, state),
@@ -117,6 +150,12 @@ export function stripAssistantStreamChunk(chunk: string, state: ThinkStripState)
   );
 }
 
+/**
+ * Flush any pending partial content from the strip state at end-of-stream. Use this when the model indicates the response is complete to make sure any pending preamble / partial-tag content is released.
+ *
+ * @param state - Mutable state object from `createThinkStripState()`. Resets internal flags.
+ * @returns Any text that was held in the state but not yet emitted. Empty string if the state was already complete.
+ */
 export function flushThinkStripState(state: ThinkStripState) {
   const output = state.insideThink ? "" : state.pending + state.searchPreambleBuffer;
   state.pending = "";
@@ -241,6 +280,12 @@ const PREAMBLE_PATTERNS = [
   /^Keep in mind[,.]\s*/i,
 ];
 
+/**
+ * Strip the most common one-line conversational preambles Lex models tend to emit ("What's landed on your desk?", "Talk to me.", etc.).
+ *
+ * @param content - The full assistant message after markup stripping.
+ * @returns The text with leading preambles removed. If the result is still very short (< 200 chars), the original content is returned to avoid losing meaningful content.
+ */
 export function stripPreamble(content: string): string {
   let result = content;
   for (const pattern of PREAMBLE_PATTERNS) {
