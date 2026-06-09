@@ -23,7 +23,7 @@ const nextConfig = {
         headers: [
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.supabase.co https://api.tavily.com https://api.anthropic.com https://api.claudeopus.pro https://api.groq.com https://api.cerebras.ai https://generativelanguage.googleapis.com https://ollama.com https://api.case.law https://www.courtlistener.com https://en.wikipedia.org; img-src 'self' data: blob:; font-src 'self' data:;",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://*.supabase.co https://api.tavily.com https://api.anthropic.com https://api.claudeopus.pro https://api.groq.com https://api.cerebras.ai https://generativelanguage.googleapis.com https://ollama.com https://api.case.law https://www.courtlistener.com https://en.wikipedia.org; img-src 'self' data: blob:; font-src 'self' data: https://fonts.gstatic.com;",
           },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
