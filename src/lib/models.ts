@@ -51,8 +51,8 @@ export interface GroqModel {
 }
 
 export const ANTHROPIC_CORE_MODEL = "claude-haiku-4-5-20251001";
-export const ANTHROPIC_PRO_MODEL = "claude-sonnet-4-5-20250929";
-export const ANTHROPIC_ULTRA_MODEL = "claude-sonnet-4-6";
+export const ANTHROPIC_PRO_MODEL = "claude-sonnet-4-6";
+export const ANTHROPIC_ULTRA_MODEL = "claude-opus-4-8";
 export const ANTHROPIC_MAX_MODEL = "claude-fable-5";
 export const CEREBRAS_CORE_MODEL = "llama4-scout";
 export const CEREBRAS_PRO_MODEL = "gpt-oss-120b-low";
@@ -79,7 +79,7 @@ export const GROQ_MODELS: GroqModel[] = [
     provider: "anthropic",
     badge: "Pro",
     color: "#7F77DD",
-    description: "Claude Sonnet 4.5 — powerful analysis for complex legal work.",
+    description: "Claude Sonnet 4.6 — powerful analysis for complex legal work.",
   },
   {
     id: "anthropic-ultra",
@@ -88,7 +88,7 @@ export const GROQ_MODELS: GroqModel[] = [
     provider: "anthropic",
     badge: "Ultra",
     color: "#9A6BFF",
-    description: "Claude Sonnet 4.6 — advanced reasoning for contract analysis.",
+    description: "Claude Opus 4.8 — advanced reasoning for contract analysis.",
   },
   {
     id: "anthropic-max",

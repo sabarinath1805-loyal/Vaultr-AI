@@ -93,7 +93,7 @@ export async function isBetaUser(email: string): Promise<boolean> {
  * Insert a row into the `usage_logs` table for audit / analytics. Silent no-op if Supabase is not configured.
  *
  * @param userId - The Supabase user id (or "anonymous" for local dev).
- * @param model - The model id used (e.g. "claude-opus-4-6").
+ * @param model - The model id used (e.g. "claude-opus-4-8").
  * @param ip - The originating client IP (used for fraud / abuse analysis).
  * @param responseTimeMs - Optional response time in milliseconds.
  * @param jurisdiction - Optional jurisdiction string (e.g. "sg", "uk", "us").

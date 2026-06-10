@@ -1063,11 +1063,25 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
             ) : (
               <div className="grid gap-3">
                 {linkedDocuments.map((doc) => (
-                  <div key={doc.id} className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-4">
-                    <div className="text-sm font-medium text-[var(--text)]">{doc.filename}</div>
-                    <div className="mt-1 text-xs text-[var(--text-muted)]">
-                      {formatBytes(doc.sizeBytes)} · Uploaded {new Date(doc.createdAt).toLocaleDateString()}
+                  <div key={doc.id} className="group flex items-center justify-between rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] p-4">
+                    <div>
+                      <div className="text-sm font-medium text-[var(--text)]">{doc.filename}</div>
+                      <div className="mt-1 text-xs text-[var(--text-muted)]">
+                        {formatBytes(doc.sizeBytes)} · Uploaded {new Date(doc.createdAt).toLocaleDateString()}
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedDocs = links.documents.filter((id) => id !== doc.id);
+                        persistLinks({ ...links, documents: updatedDocs });
+                        updateMatter((m) => m, "document", `Document unlinked: ${doc.filename}`);
+                      }}
+                      className="shrink-0 flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] opacity-0 transition-opacity hover:bg-[var(--surface)] hover:text-[var(--danger)] group-hover:opacity-100"
+                      title="Unlink document"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 ))}
               </div>

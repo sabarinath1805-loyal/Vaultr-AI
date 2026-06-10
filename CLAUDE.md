@@ -16,11 +16,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Testing**: Jest with ts-jest (`pnpm test`, `pnpm test:watch`)
 - **LLM Providers** (routed in `/api/chat`):
   - **Lex models** (local Ollama): Flash/Core/Pro via `http://localhost:11434`
-  - **Anthropic via Groq**: Claude Haiku, Sonnet 4.5, Sonnet 4.6, Opus 4.6
+  - **Anthropic via Groq**: Claude Haiku 4.5, Sonnet 4.6, Opus 4.8
   - **Cerebras via Groq**: ``, ``, `llama4-scout`
   - **Google Gemini**: `gemini-2.5-flash`, `gemini-3.0-flash`
   - **Ollama Cloud**: `-m2.5`, ``, ``, `llama4-scout`
-  - **Anthropic Direct**: `claude-opus-4-6` via custom endpoint
+  - **Anthropic Direct**: `claude-opus-4-8` via custom endpoint
 - **Database (server)**: SQLite via `better-sqlite3` + Drizzle ORM
 - **Auth/Rate-limiting (cloud)**: Supabase — beta user whitelist, per-request usage logging, daily rate limits
 - **Desktop**: Tauri v2 with clipboard, dialog, and shell plugins
