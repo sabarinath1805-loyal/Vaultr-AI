@@ -124,13 +124,16 @@ function AppearanceSettings() {
     if (saved === "small" || saved === "medium" || saved === "large") setFontSize(saved);
   }, []);
 
+  useEffect(() => {
+    const root = document.documentElement;
+    if (fontSize === "small") root.style.fontSize = "14px";
+    else if (fontSize === "large") root.style.fontSize = "18px";
+    else root.style.fontSize = "16px";
+  }, [fontSize]);
+
   const changeFontSize = (size: "small" | "medium" | "large") => {
     setFontSize(size);
     safeStorage.setItem("vaultr-font-size", size);
-    const root = document.documentElement;
-    if (size === "small") root.style.fontSize = "14px";
-    else if (size === "large") root.style.fontSize = "18px";
-    else root.style.fontSize = "16px";
   };
 
   return (

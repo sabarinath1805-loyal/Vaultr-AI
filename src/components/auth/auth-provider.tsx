@@ -41,6 +41,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [loading, setLoading] = useState(true);
   const [betaApproved, setBetaApproved] = useState<boolean | null>(null);
 
+  const checkBetaStatus = React.useCallback(async (email: string) => {
+    try {
+      const res = await fetch("/api/auth/check-beta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      setBetaApproved(data.approved === true);
+    } catch {
+      setBetaApproved(false); // Fail-closed: deny access if beta check fails
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isSupabaseConfigured()) {
       setLoading(false);
@@ -81,23 +97,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
-
-  async function checkBetaStatus(email: string) {
-    try {
-      const res = await fetch("/api/auth/check-beta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-      const data = await res.json();
-      setBetaApproved(data.approved === true);
-    } catch {
-      setBetaApproved(false); // Fail-closed: deny access if beta check fails
-    } finally {
-      setLoading(false);
-    }
-  }
+  }, [checkBetaStatus]);
 
   const signOut = async () => {
     const supabase = createBrowserSupabaseClient();
