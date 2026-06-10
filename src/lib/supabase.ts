@@ -92,18 +92,22 @@ export async function isBetaUser(email: string): Promise<boolean> {
 /**
  * Insert a row into the `usage_logs` table for audit / analytics. Silent no-op if Supabase is not configured.
  *
- * @param userId - The Supabase user id (or `"anonymous"` for local dev).
- * @param model - The model id used (e.g. `claude-opus-4-6`).
+ * @param userId - The Supabase user id (or "anonymous" for local dev).
+ * @param model - The model id used (e.g. "claude-opus-4-6").
  * @param ip - The originating client IP (used for fraud / abuse analysis).
+ * @param responseTimeMs - Optional response time in milliseconds.
+ * @param jurisdiction - Optional jurisdiction string (e.g. "sg", "uk", "us").
  * @returns Resolves once the row is inserted (or immediately if Supabase is unconfigured).
  */
-export async function logUsage(userId: string, model: string, ip: string): Promise<void> {
+export async function logUsage(userId: string, model: string, ip: string, responseTimeMs?: number, jurisdiction?: string): Promise<void> {
   const client = createServerSupabaseClient();
   if (!client) return;
   await client.from("usage_logs").insert({
     user_id: userId,
     model,
     ip_address: ip,
+    response_time_ms: responseTimeMs ?? null,
+    jurisdiction: jurisdiction ?? null,
   });
 }
 
