@@ -9,7 +9,7 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
-import { ANTHROPIC_CORE_MODEL, isLexModel } from "@/lib/models";
+import { ANTHROPIC_CORE_MODEL, isLexModel, groqIdToLexName } from "@/lib/models";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { createBrowserSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -392,8 +392,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         }
         const fallbackModel = response.headers.get("X-Fallback-Model");
         if (fallbackModel) {
-          const modelName = selectedModel || "Lex";
-          toast(`${modelName} is under high demand — responding with ${fallbackModel} instead.`, {
+          const requestedName = selectedModel ? groqIdToLexName(selectedModel) : "Lex";
+          const fallbackName = groqIdToLexName(fallbackModel);
+          toast(`${requestedName} is under high demand — responding with ${fallbackName} instead.`, {
             duration: 6000,
             style: { backgroundColor: "var(--surface)", color: "var(--text)", border: "1px solid #d97706" },
           });
