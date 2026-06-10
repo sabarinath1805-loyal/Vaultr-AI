@@ -170,7 +170,10 @@ export function addTimelineEntry(
   description: string
 ): Matter {
   const entry: TimelineEntry = {
-    id: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    id:
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     timestamp: new Date().toISOString(),
     type,
     description,

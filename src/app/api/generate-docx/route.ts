@@ -16,8 +16,28 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import { requireAuth, validateRequestSize, AuthError } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
+
+const MAX_BODY_BYTES = 1 * 1024 * 1024; // 1MB
+
+// Per-user hourly cap on docx generation (in-memory; resets on server restart).
+const hourlyUsage = new Map<string, { count: number; resetAt: number }>();
+const HOURLY_LIMIT = 20;
+const HOURLY_WINDOW_MS = 60 * 60 * 1000;
+
+function checkUserHourlyCap(userId: string): boolean {
+  const now = Date.now();
+  const entry = hourlyUsage.get(userId);
+  if (!entry || now > entry.resetAt) {
+    hourlyUsage.set(userId, { count: 1, resetAt: now + HOURLY_WINDOW_MS });
+    return true;
+  }
+  if (entry.count >= HOURLY_LIMIT) return false;
+  entry.count++;
+  return true;
+}
 
 interface TableRow_ {
   [key: string]: string;
@@ -35,14 +55,15 @@ interface DocxRequest {
   landscape?: boolean;
 }
 
-// Configurable download directory — production deployments should set DOWNLOAD_DIR.
-// Falls back to a per-user temp directory when not set.
-const DOWNLOAD_DIR = process.env.DOWNLOAD_DIR || path.join(process.env.TMPDIR || "/tmp", "vaultr-downloads");
+const DOWNLOAD_ROOT =
+  process.env.DOWNLOAD_DIR || path.join(process.env.TMPDIR || process.cwd(), "vaultr-downloads");
 
-function ensureDownloadDir() {
-  if (!fs.existsSync(DOWNLOAD_DIR)) {
-    fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
-  }
+function userDownloadDir(userId: string): string {
+  return path.join(DOWNLOAD_ROOT, "users", userId);
+}
+
+function ensureDir(dir: string) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function buildDocument(req: DocxRequest): Document {
@@ -141,12 +162,27 @@ function buildDocument(req: DocxRequest): Document {
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await requireAuth(request);
+
+    // Per-user hourly cap
+    if (!checkUserHourlyCap(userId)) {
+      return NextResponse.json(
+        { error: "Hourly docx-generation limit exceeded" },
+        { status: 429 }
+      );
+    }
+
+    // Size cap
+    const sizeError = await validateRequestSize(request, MAX_BODY_BYTES);
+    if (sizeError) return sizeError;
+
     const body = (await request.json()) as DocxRequest;
     if (!body.title || !Array.isArray(body.sections)) {
       return NextResponse.json({ error: "title and sections required" }, { status: 400 });
     }
 
-    ensureDownloadDir();
+    const userDir = userDownloadDir(userId);
+    ensureDir(userDir);
 
     const doc = buildDocument(body);
     const buffer = await Packer.toBuffer(doc);
@@ -157,14 +193,17 @@ export async function POST(request: NextRequest) {
       .toLowerCase();
     const hash = crypto.randomBytes(4).toString("hex");
     const filename = `${slug}-${hash}.docx`;
-    const filePath = path.join(DOWNLOAD_DIR, filename);
+    const filePath = path.join(userDir, filename);
     fs.writeFileSync(filePath, buffer);
 
     return NextResponse.json({
-      url: `/api/download/${filename}`,
+      url: `/api/download/${userId}/${filename}`,
       filename,
     });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
     console.error("DOCX generation error:", error);
     return NextResponse.json({ error: "Failed to generate document" }, { status: 500 });
   }

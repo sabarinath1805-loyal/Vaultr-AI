@@ -9,17 +9,20 @@ import {
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
+import { requireAuth, AuthError } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 
-// Configurable download directory — production deployments should set DOWNLOAD_DIR.
-// Falls back to a per-user temp directory when not set.
-const DOWNLOAD_DIR = process.env.DOWNLOAD_DIR || path.join(process.env.TMPDIR || "/tmp", "vaultr-downloads");
+// User-scoped download directory; production should set DOWNLOAD_DIR.
+const DOWNLOAD_ROOT =
+  process.env.DOWNLOAD_DIR || path.join(process.env.TMPDIR || process.cwd(), "vaultr-downloads");
 
-function ensureDownloadDir() {
-  if (!fs.existsSync(DOWNLOAD_DIR)) {
-    fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
-  }
+function userDownloadDir(userId: string): string {
+  return path.join(DOWNLOAD_ROOT, "users", userId);
+}
+
+function ensureDir(dir: string) {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function markdownToDocxChildren(markdown: string): (Paragraph)[] {
@@ -97,12 +100,15 @@ function markdownToDocxChildren(markdown: string): (Paragraph)[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const { userId } = await requireAuth(request);
+
     const { content, format, title } = await request.json();
     if (!content || typeof content !== "string") {
       return NextResponse.json({ error: "content required" }, { status: 400 });
     }
 
-    ensureDownloadDir();
+    const userDir = userDownloadDir(userId);
+    ensureDir(userDir);
 
     const exportTitle = typeof title === "string" && title.trim() ? title.trim() : "Lex Response";
     const slug = exportTitle.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60).toLowerCase();
@@ -111,9 +117,9 @@ export async function POST(request: NextRequest) {
     if (format === "pdf") {
       const pdfContent = buildSimplePdf(content, exportTitle);
       const filename = generatePDFFilename(content);
-      const filePath = path.join(DOWNLOAD_DIR, filename);
+      const filePath = path.join(userDir, filename);
       fs.writeFileSync(filePath, pdfContent);
-      return NextResponse.json({ url: `/api/download/${filename}`, filename });
+      return NextResponse.json({ url: `/api/download/${userId}/${filename}`, filename });
     }
 
     // Default: DOCX
@@ -128,10 +134,13 @@ export async function POST(request: NextRequest) {
     });
     const buffer = await Packer.toBuffer(doc);
     const filename = `${slug}-${hash}.docx`;
-    const filePath = path.join(DOWNLOAD_DIR, filename);
+    const filePath = path.join(userDir, filename);
     fs.writeFileSync(filePath, buffer);
-    return NextResponse.json({ url: `/api/download/${filename}`, filename });
+    return NextResponse.json({ url: `/api/download/${userId}/${filename}`, filename });
   } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
     console.error("Export error:", error);
     return NextResponse.json({ error: "Export failed" }, { status: 500 });
   }

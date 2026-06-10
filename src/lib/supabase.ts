@@ -6,22 +6,21 @@
  * - NEXT_PUBLIC_SUPABASE_ANON_KEY: Supabase anon/public key (browser-safe)
  * - SUPABASE_SERVICE_ROLE_KEY: Service role key (server-side only, bypasses RLS)
  *
- * Tables (see supabase/migrations/001_initial_schema.sql):
- * - beta_users: email whitelist for approved beta testers
- * - usage_logs: per-request logging (user, model, timestamp)
- * - rate_limits: daily request counts per user per model
+ * PII handling:
+ * - Browser session persistence is OFF by default. Set
+ *   NEXT_PUBLIC_SUPABASE_PERSIST_SESSION=true to opt back in (NOT recommended
+ *   for legal deployments — chat content in IndexedDB is unencrypted at rest).
+ * - logUsage() masks the client IP to /24 (v4) / /48 (v6) before storage.
+ * - usage_logs rows have a 90-day retention policy (see migration 002).
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const PERSIST_SESSION =
+  process.env.NEXT_PUBLIC_SUPABASE_PERSIST_SESSION === "true";
 
-/**
- * Check whether the Supabase project URL and anon key are both configured via environment variables.
- *
- * @returns `true` if both `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set, `false` otherwise.
- */
 export function isSupabaseConfigured(): boolean {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 }
@@ -30,19 +29,15 @@ export function isSupabaseConfigured(): boolean {
 
 let browserClient: SupabaseClient | null = null;
 
-/**
- * Create a Supabase client for browser use (respects RLS). Uses the anon key and is safe to expose in client-side bundles.
- *
- * @returns A `SupabaseClient` instance, or `null` if Supabase is not configured.
- */
 export function createBrowserSupabaseClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) return null;
   if (browserClient) return browserClient;
   browserClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
+      // PII: client sessions in localStorage is a risk for legal deployments.
+      persistSession: PERSIST_SESSION,
+      autoRefreshToken: PERSIST_SESSION,
+      detectSessionInUrl: PERSIST_SESSION,
     },
   });
   return browserClient;
@@ -52,11 +47,6 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
 
 let serverClient: SupabaseClient | null = null;
 
-/**
- * Create a Supabase client for server-side use (bypasses RLS). Requires the service role key (not safe for client bundles).
- *
- * @returns A `SupabaseClient` instance with elevated permissions, or `null` if Supabase is not configured with a service key.
- */
 export function createServerSupabaseClient(): SupabaseClient | null {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (!SUPABASE_URL || !serviceKey) return null;
@@ -67,17 +57,41 @@ export function createServerSupabaseClient(): SupabaseClient | null {
   return serverClient;
 }
 
-// ---------- Beta user check ----------
+// ---------- IP masking (PII) ----------
 
 /**
- * Check whether a given email is on the approved beta-users list in Supabase.
+ * Mask a client IP to a /24 (IPv4) or /48 (IPv6) prefix. The host bits are
+ * zeroed, which is sufficient for fraud/abuse analytics but does not
+ * constitute personal data under most PDPA / GDPR readings.
  *
- * @param email - The email to check. Case-insensitive.
- * @returns `true` if the email is found and `approved = true`. Returns `true` for all emails when Supabase is not configured (local-dev fallback). Returns `false` if the lookup fails or the user is not approved.
+ * `null` and unknown-shape inputs return `null` (we don't store the IP at
+ * all in that case).
  */
+export function maskIpAddress(ip: string | null | undefined): string | null {
+  if (!ip || typeof ip !== "string") return null;
+  const trimmed = ip.trim();
+  if (!trimmed) return null;
+
+  // IPv4 — zero the last octet
+  const v4 = /^(\d{1,3}\.\d{1,3}\.\d{1,3})\.\d{1,3}$/.exec(trimmed);
+  if (v4) return `${v4[1]}.0`;
+
+  // IPv6 — keep the first 48 bits, zero the rest
+  if (trimmed.includes(":")) {
+    const parts = trimmed.split(":");
+    // Pad to 8 hextets
+    const head = parts.slice(0, 3).join(":");
+    return `${head}::`;
+  }
+
+  return null;
+}
+
+// ---------- Beta user check ----------
+
 export async function isBetaUser(email: string): Promise<boolean> {
   const client = createServerSupabaseClient();
-  if (!client) return true; // Allow all when Supabase not configured
+  if (!client) return true; // dev fallback
   const { data, error } = await client
     .from("beta_users")
     .select("approved")
@@ -87,25 +101,27 @@ export async function isBetaUser(email: string): Promise<boolean> {
   return data.approved === true;
 }
 
-// ---------- Usage logging ----------
+// ---------- Usage logging (PII-scrubbing) ----------
 
 /**
- * Insert a row into the `usage_logs` table for audit / analytics. Silent no-op if Supabase is not configured.
- *
- * @param userId - The Supabase user id (or "anonymous" for local dev).
- * @param model - The model id used (e.g. "claude-opus-4-8").
- * @param ip - The originating client IP (used for fraud / abuse analysis).
- * @param responseTimeMs - Optional response time in milliseconds.
- * @param jurisdiction - Optional jurisdiction string (e.g. "sg", "uk", "us").
- * @returns Resolves once the row is inserted (or immediately if Supabase is unconfigured).
+ * Insert a row into `usage_logs`. IPs are masked to /24 (v4) / /48 (v6) before
+ * storage. Rows are subject to a 90-day retention cron — see
+ * supabase/migrations/002_data_lifecycle.sql.
  */
-export async function logUsage(userId: string, model: string, ip: string, responseTimeMs?: number, jurisdiction?: string): Promise<void> {
+export async function logUsage(
+  userId: string,
+  model: string,
+  ip: string,
+  responseTimeMs?: number,
+  jurisdiction?: string
+): Promise<void> {
   const client = createServerSupabaseClient();
   if (!client) return;
+  const maskedIp = maskIpAddress(ip);
   await client.from("usage_logs").insert({
     user_id: userId,
     model,
-    ip_address: ip,
+    ip_address: maskedIp,
     response_time_ms: responseTimeMs ?? null,
     jurisdiction: jurisdiction ?? null,
   });
@@ -135,7 +151,6 @@ export async function checkSupabaseRateLimit(
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString();
 
-  // Get or create today's rate limit entry
   const { data: existing } = await client
     .from("rate_limits")
     .select("id, count, reset_at")
@@ -148,7 +163,6 @@ export async function checkSupabaseRateLimit(
     if (existing.count >= limit) {
       return { allowed: false, count: existing.count, limit, resetsAt: existing.reset_at };
     }
-    // Increment count
     await client
       .from("rate_limits")
       .update({ count: existing.count + 1 })
@@ -156,7 +170,6 @@ export async function checkSupabaseRateLimit(
     return { allowed: true, count: existing.count + 1, limit, resetsAt: existing.reset_at };
   }
 
-  // Create new entry for today
   await client.from("rate_limits").insert({
     user_id: userId,
     model,

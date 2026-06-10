@@ -1,40 +1,57 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
+import { requireAuth, AuthError } from "@/lib/api-auth";
+import { consumeDownloadToken } from "@/lib/download-tokens";
 
 export const runtime = "nodejs";
 
-// Configurable download directory via DOWNLOAD_DIR env var
-// Defaults to system temp directory for security
-const DOWNLOAD_DIR = process.env.DOWNLOAD_DIR || path.join(process.env.TMPDIR || "/tmp", "vaultr-downloads");
+const DOWNLOAD_ROOT =
+  process.env.DOWNLOAD_DIR || path.join(process.env.TMPDIR || process.cwd(), "vaultr-downloads");
 
-// Ensure download directory exists
-try {
-  fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
-} catch (error) {
-  console.error("Failed to create download directory:", error);
+function ensureDir(dir: string) {
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  } catch { /* ignore */ }
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ filename: string }> }
 ) {
   const { filename } = await params;
+  const token = request.nextUrl.searchParams.get("token");
+
+  let userId: string;
+  try {
+    const auth = await requireAuth(request);
+    userId = auth.userId;
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
 
   if (!filename || /[/\\]/.test(filename)) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
 
-  // Additional security: prevent path traversal
   if (filename.includes("..") || filename.startsWith(".")) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
 
-  const filePath = path.join(DOWNLOAD_DIR, filename);
+  // Check signed token
+  if (!token || !consumeDownloadToken(token, userId, filename)) {
+    return NextResponse.json({ error: "Invalid or expired download token" }, { status: 403 });
+  }
 
-  // Verify the resolved path is within DOWNLOAD_DIR
+  const userDir = path.join(DOWNLOAD_ROOT, "users", userId);
+  ensureDir(userDir);
+  const filePath = path.join(userDir, filename);
+
   const resolvedPath = path.resolve(filePath);
-  const resolvedDir = path.resolve(DOWNLOAD_DIR);
+  const resolvedDir = path.resolve(userDir);
   if (!resolvedPath.startsWith(resolvedDir)) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
@@ -47,9 +64,9 @@ export async function GET(
 
   return new NextResponse(buffer, {
     headers: {
-      "Content-Type":
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "Content-Type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       "Content-Disposition": `attachment; filename="${filename}"`,
+      "Cache-Control": "private, no-store",
     },
   });
 }
