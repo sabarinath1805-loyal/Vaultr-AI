@@ -429,7 +429,8 @@ export async function POST(req: Request) {
         return geminiResponse;
       }
       // Gemini 503/timeout — fall back to Groq
-      const failedTierName = geminiModel === GEMINI_MAX_MODEL ? "Lex Max" : "Lex Ultra";
+      // (Lex Max = Fable 5, Lex Ultra = Opus; Gemini is its own tier name.)
+      const failedTierName = groqIdToLexName(geminiModel);
       activeModel = GROQ_DEFAULT_MODEL;
       usesCloudReasoning = false;
       geminiToGroqFallbackTier = failedTierName;

@@ -141,7 +141,8 @@ export default function MattersPage() {
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[var(--text-faint)]" />
             <input
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => setSearchQuery(e.target.value.slice(0, 200))}
+              maxLength={200}
               placeholder="Search matters, clients, tags, parties..."
               className="w-full rounded-[var(--radius-sm)] border border-[var(--border)] py-2 pl-8 pr-3 text-[13px] text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
             />

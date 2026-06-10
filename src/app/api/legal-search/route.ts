@@ -1,15 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchLegalDatabases } from "@/lib/legal-search";
+import { requireAuth, AuthError } from "@/lib/api-auth";
 
 const MAX_BODY_SIZE = 10 * 1024; // 10KB
-
-// IP-based rate limiting: 20 requests/minute
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_CAP = 5000;
 const RATE_LIMIT = 20;
 const RATE_WINDOW_MS = 60_000;
 
+// IP-based rate limiting with LRU cap and periodic sweep.
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+let sweepCounter = 0;
+
+function sweepExpired(now: number) {
+  sweepCounter++;
+  if (sweepCounter % 256 === 0) {
+    for (const [k, v] of rateLimitMap) {
+      if (now > v.resetAt) rateLimitMap.delete(k);
+    }
+    if (rateLimitMap.size > RATE_LIMIT_CAP) {
+      const overflow = rateLimitMap.size - RATE_LIMIT_CAP;
+      let dropped = 0;
+      for (const k of rateLimitMap.keys()) {
+        rateLimitMap.delete(k);
+        if (++dropped >= overflow) break;
+      }
+    }
+  }
+}
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
+  sweepExpired(now);
   const entry = rateLimitMap.get(ip);
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
@@ -27,6 +48,16 @@ function getClientIp(req: Request): string {
 }
 
 export async function POST(request: NextRequest) {
+  // Require auth — this is a PII route (legal queries can name parties).
+  try {
+    await requireAuth(request);
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   // Rate limit check
   const clientIp = getClientIp(request);
   if (!checkRateLimit(clientIp)) {
@@ -45,7 +76,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Query required" }, { status: 400 });
     }
 
-    // Validate input length
     if (query.length > 200) {
       return NextResponse.json({ error: "Query too long" }, { status: 400 });
     }

@@ -23,6 +23,45 @@ export interface ThinkStripState {
 }
 
 /**
+ * Scrub obvious PII / secrets from a value before it reaches console / logs.
+ * Walks strings and recurses shallowly into arrays/objects. This is best-effort
+ * — not a substitute for never logging PII in the first place.
+ */
+export function scrubPII(value: unknown, depth = 0): unknown {
+  if (depth > 5) return "[max-depth]";
+  if (value == null) return value;
+  if (typeof value === "string") {
+    return value
+      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[email]")
+      .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, "[jwt]")
+      .replace(/(?:sk-|gho_|ghp_|ghu_|ghs_|ghr_|pk-|rk-)[A-Za-z0-9_-]{20,}/g, "[api-key]")
+      .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, (m) => {
+        const parts = m.split(".");
+        if (parts.length === 4) return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+        return m;
+      });
+  }
+  if (Array.isArray(value)) return value.map((v) => scrubPII(v, depth + 1));
+  if (typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = scrubPII(v, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
+/**
+ * Safe wrapper for console.error that scrubs obvious PII before logging.
+ * Use this instead of raw console.error in API routes that handle user input.
+ */
+export function safeError(...args: unknown[]): void {
+  // eslint-disable-next-line no-console
+  console.error(...args.map((a) => scrubPII(a)));
+}
+
+/**
  * Extract any `<think>…</think>` content from a complete assistant message as a single concatenated string.
  *
  * @param content - The full assistant message text. May be the concatenation of all streamed chunks.

@@ -3,6 +3,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import { getVaultrDataDir, getVaultrDbPath } from "@/lib/tauri-env";
 import type { LocalDocument, LocalProject } from "@/lib/local-documents";
+import { requireAuth, AuthError } from "@/lib/api-auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -20,6 +21,7 @@ interface LocalVaultRow {
   size_bytes: number;
   created_at: string;
   project_id: string | null;
+  owner_id: string;
   content: string | null;
   data_url: string | null;
 }
@@ -30,6 +32,7 @@ interface LocalVaultProjectRow {
   cm_number: string | null;
   document_ids: string;
   created_at: string;
+  owner_id: string;
 }
 
 function openLocalVaultDb() {
@@ -38,11 +41,12 @@ function openLocalVaultDb() {
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS local_vault_documents (
       id TEXT PRIMARY KEY,
-      filename TEXT NOT NULL UNIQUE,
+      filename TEXT NOT NULL,
       file_type TEXT,
       size_bytes INTEGER NOT NULL,
       created_at TEXT NOT NULL,
       project_id TEXT,
+      owner_id TEXT NOT NULL DEFAULT 'anonymous',
       content TEXT,
       data_url TEXT
     );
@@ -52,32 +56,62 @@ function openLocalVaultDb() {
       name TEXT NOT NULL,
       cm_number TEXT,
       document_ids TEXT NOT NULL DEFAULT '[]',
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      owner_id TEXT NOT NULL DEFAULT 'anonymous'
     );
 
     CREATE INDEX IF NOT EXISTS local_vault_documents_project_idx
       ON local_vault_documents(project_id);
+    CREATE INDEX IF NOT EXISTS local_vault_documents_owner_idx
+      ON local_vault_documents(owner_id);
+    CREATE INDEX IF NOT EXISTS local_vault_projects_owner_idx
+      ON local_vault_projects(owner_id);
   `);
+  // Backfill owner_id column for older installs
+  const docCols = sqlite.prepare("PRAGMA table_info(local_vault_documents)").all() as Array<{ name: string }>;
+  if (!docCols.some((c) => c.name === "owner_id")) {
+    sqlite.exec(`ALTER TABLE local_vault_documents ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS local_vault_documents_owner_idx ON local_vault_documents(owner_id)`);
+  }
+  const projCols = sqlite.prepare("PRAGMA table_info(local_vault_projects)").all() as Array<{ name: string }>;
+  if (!projCols.some((c) => c.name === "owner_id")) {
+    sqlite.exec(`ALTER TABLE local_vault_projects ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`);
+    sqlite.exec(`CREATE INDEX IF NOT EXISTS local_vault_projects_owner_idx ON local_vault_projects(owner_id)`);
+  }
   return sqlite;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Require auth — return only the caller's own vault.
+  let userId: string;
+  try {
+    const authResult = await requireAuth(req);
+    userId = authResult.userId;
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   const sqlite = openLocalVaultDb();
   try {
     const documents = sqlite
       .prepare(
-        `SELECT id, filename, file_type, size_bytes, created_at, project_id, content, data_url
+        `SELECT id, filename, file_type, size_bytes, created_at, project_id, owner_id, content, data_url
          FROM local_vault_documents
+         WHERE owner_id = ?
          ORDER BY created_at DESC`
       )
-      .all() as LocalVaultRow[];
+      .all(userId) as LocalVaultRow[];
     const projects = sqlite
       .prepare(
-        `SELECT id, name, cm_number, document_ids, created_at
+        `SELECT id, name, cm_number, document_ids, created_at, owner_id
          FROM local_vault_projects
+         WHERE owner_id = ?
          ORDER BY created_at DESC`
       )
-      .all() as LocalVaultProjectRow[];
+      .all(userId) as LocalVaultProjectRow[];
 
     return NextResponse.json({
       documents: documents.map(toClientDocument),
@@ -89,6 +123,18 @@ export async function GET() {
 }
 
 export async function PUT(req: Request) {
+  // Require auth BEFORE doing anything else — anonymous PUT would wipe the vault.
+  let userId: string;
+  try {
+    const authResult = await requireAuth(req);
+    userId = authResult.userId;
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   // Validate body size before parsing
   const contentLength = req.headers.get("content-length");
   if (contentLength && parseInt(contentLength, 10) > MAX_PUT_BODY_SIZE) {
@@ -115,15 +161,16 @@ export async function PUT(req: Request) {
   const sqlite = openLocalVaultDb();
 
   try {
+    // Partition by owner_id: replace only this user's vault rows.
     sqlite.transaction(() => {
-      sqlite.prepare("DELETE FROM local_vault_documents").run();
-      sqlite.prepare("DELETE FROM local_vault_projects").run();
+      sqlite.prepare("DELETE FROM local_vault_documents WHERE owner_id = ?").run(userId);
+      sqlite.prepare("DELETE FROM local_vault_projects WHERE owner_id = ?").run(userId);
 
       const insertDocument = sqlite.prepare(
         `INSERT INTO local_vault_documents
-          (id, filename, file_type, size_bytes, created_at, project_id, content, data_url)
+          (id, filename, file_type, size_bytes, created_at, project_id, owner_id, content, data_url)
          VALUES
-          (@id, @filename, @fileType, @sizeBytes, @createdAt, @projectId, @content, @dataUrl)`
+          (@id, @filename, @fileType, @sizeBytes, @createdAt, @projectId, @ownerId, @content, @dataUrl)`
       );
       for (const document of documents) {
         insertDocument.run({
@@ -133,6 +180,7 @@ export async function PUT(req: Request) {
           sizeBytes: document.sizeBytes,
           createdAt: document.createdAt,
           projectId: document.projectId,
+          ownerId: userId,
           content: document.content ?? null,
           dataUrl: document.dataUrl ?? null,
         });
@@ -140,9 +188,9 @@ export async function PUT(req: Request) {
 
       const insertProject = sqlite.prepare(
         `INSERT INTO local_vault_projects
-          (id, name, cm_number, document_ids, created_at)
+          (id, name, cm_number, document_ids, created_at, owner_id)
          VALUES
-          (@id, @name, @cmNumber, @documentIds, @createdAt)`
+          (@id, @name, @cmNumber, @documentIds, @createdAt, @ownerId)`
       );
       for (const project of projects) {
         insertProject.run({
@@ -151,6 +199,7 @@ export async function PUT(req: Request) {
           cmNumber: project.cmNumber,
           documentIds: JSON.stringify(project.documentIds),
           createdAt: project.createdAt,
+          ownerId: userId,
         });
       }
     })();

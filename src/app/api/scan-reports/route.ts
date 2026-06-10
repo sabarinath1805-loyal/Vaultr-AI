@@ -144,14 +144,16 @@ function toClientReport(row: ScanReportRow): ScanReportEntry {
 }
 
 export async function GET(req: Request) {
-  // Auth check - require for cloud mode, optional for local
-  let userId: string | null = null;
+  // Auth required — no anonymous fallback. Prevents cross-tenant data leak.
+  let userId: string;
   try {
     const authResult = await requireAuth(req);
     userId = authResult.userId;
-  } catch {
-    // Allow unauthenticated for local development
-    userId = "anonymous";
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
   const requestedId = new URL(req.url).searchParams.get("id")?.trim();
@@ -160,13 +162,13 @@ export async function GET(req: Request) {
 
   const sqlite = openScanReportsDb();
   try {
-    // Include owner_id in base query for security filtering
+    // Filter by owner_id on every query — never return another user's reports
     const baseQuery = "SELECT id, filename, created_at, high_count, medium_count, standard_count, report_json FROM scan_reports";
 
     if (requestedId) {
       const row = sqlite
-        .prepare(`${baseQuery} WHERE id = ?`)
-        .get(requestedId) as ScanReportRow | undefined;
+        .prepare(`${baseQuery} WHERE id = ? AND owner_id = ?`)
+        .get(requestedId, userId) as ScanReportRow | undefined;
 
       if (!row) {
         return NextResponse.json({ error: "Report not found" }, { status: 404 });
@@ -176,11 +178,11 @@ export async function GET(req: Request) {
     }
 
     const rows = sqlite
-      .prepare(`${baseQuery} ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-      .all(limit, offset) as ScanReportRow[];
+      .prepare(`${baseQuery} WHERE owner_id = ? ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+      .all(userId, limit, offset) as ScanReportRow[];
     const countRow = sqlite
-      .prepare("SELECT COUNT(*) AS count FROM scan_reports")
-      .get() as { count: number };
+      .prepare("SELECT COUNT(*) AS count FROM scan_reports WHERE owner_id = ?")
+      .get(userId) as { count: number };
 
     return NextResponse.json({
       reports: rows.map(toClientReport),
@@ -284,6 +286,18 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
+  // Require authentication — no anonymous deletes
+  let userId: string;
+  try {
+    const authResult = await requireAuth(req);
+    userId = authResult.userId;
+  } catch (error) {
+    if (error instanceof AuthError) {
+      return NextResponse.json({ error: error.userMessage }, { status: error.status });
+    }
+    return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+  }
+
   const id = new URL(req.url).searchParams.get("id")?.trim();
   if (!id) {
     return NextResponse.json({ error: "id is required" }, { status: 400 });
@@ -291,7 +305,11 @@ export async function DELETE(req: Request) {
 
   const sqlite = openScanReportsDb();
   try {
-    sqlite.prepare("DELETE FROM scan_reports WHERE id = ?").run(id);
+    // Only delete if the report belongs to the authenticated user
+    const result = sqlite
+      .prepare("DELETE FROM scan_reports WHERE id = ? AND owner_id = ?")
+      .run(id, userId);
+    // Return success regardless of whether a row was deleted (prevents enumeration)
     return NextResponse.json({ ok: true });
   } finally {
     sqlite.close();
