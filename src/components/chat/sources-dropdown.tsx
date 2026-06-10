@@ -3,6 +3,67 @@
 import React from "react";
 import { Globe, X } from "lucide-react";
 
+// Inline SVG flag icons - 20x15 ratio, optimized for dropdown display
+const FLAG_ICONS: Record<string, React.ReactNode> = {
+  sg: (
+    <svg viewBox="0 0 640 480" className="h-3.5 w-5 shrink-0">
+      <path fill="#ed2939" d="M0 0h640v480H0z" />
+      <path fill="#fff" d="M0 0h640v240H0z" />
+      <path fill="#ed2939" d="M0 0h240v240H0z" />
+      <circle cx="180" cy="120" r="60" fill="#fff" />
+      <path fill="#ed2939" d="M150 180c-33.118 0-60-26.882-60-60 0-33.118 26.882-60 60-60 33.118 0 60 26.882 60 60 0 33.118-26.882 60-60 60z" />
+      <path fill="#fff" d="m150 145 5.65 17.4h18.35l-14.85 10.8 5.65 17.4-14.8-10.75-14.85 10.75 5.7-17.4-14.9-10.8h18.4z" />
+    </svg>
+  ),
+  gb: (
+    <svg viewBox="0 0 640 480" className="h-3.5 w-5 shrink-0">
+      <path fill="#012169" d="M0 0h640v480H0z" />
+      <path fill="#fff" d="M0 0h640v240H0z" />
+      <path fill="#c8102e" d="M0 0h640v240H0z" />
+      <path fill="#fff" d="M213.33 0v480M426.67 0v480" />
+      <path fill="#c8102e" d="M213.33 0L0 240M426.67 0L640 240" />
+    </svg>
+  ),
+  au: (
+    <svg viewBox="0 0 1280 960" className="h-3.5 w-5 shrink-0">
+      <path fill="#00008b" d="M0 0h1280v960H0z" />
+      <path fill="#fff" d="M0 0h640v480H0z" />
+      <path fill="#ff0000" d="M0 0h320v320H0z" />
+      <path fill="#00008b" d="M0 480h640v480H0z" />
+      <path fill="#ff0000" d="M0 640h320v320H0z" />
+      <path fill="#fff" d="M320 0v320h320V0zM0 160h320v320H0z" />
+      <path fill="#ff0000" d="M0 0v32l-32 32V0h32zM640 0v32l32 32V0h-32zM0 640v32l-32 32v-32h32zM640 640v32l32 32v-32h-32zM0 960v-32l-32-32v32h32zM640 960v-32l32-32v32h-32zM1280 640v32l32-32v-32h-32zM640 640v32l-32-32v32h32zM1280 960v-32l32 32v32h-32zM640 960v-32l32 32v32h-32z" />
+    </svg>
+  ),
+  ca: (
+    <svg viewBox="0 0 1200 600" className="h-3.5 w-5 shrink-0">
+      <path fill="#ff0000" d="M0 0v600h1200V0H0z" />
+      <path fill="#fff" d="M0 0v600h200V0H0zM400 0v600h400V0H400zM800 0v600h200V0H800z" />
+      <path fill="#ff0000" d="M0 150h1200v300H0z" />
+      <path fill="#fff" d="M350 0h100v600H350zM750 0h100v600H750z" />
+    </svg>
+  ),
+  us: (
+    <svg viewBox="0 0 1235 650" className="h-3.5 w-5 shrink-0">
+      <path fill="#bf0a2c" d="M0 0h1235v650H0z" />
+      <path fill="#fff" d="M0 0h1235v50l-1235 50V0zM0 100h1235v50l-1235 50V100zM0 200h1235v50l-1235 50V200zM0 300h1235v50l-1235 50V300zM0 400h1235v50l-1235 50V400zM0 500h1235v50l-1235 50V500zM0 600h1235v50l-1235 50V600z" />
+      <path fill="#002868" d="M0 0h494v350H0z" />
+      <circle cx="76.9" cy="87.5" r="13.33" fill="#fff" />
+      <circle cx="76.9" cy="131.25" r="13.33" fill="#fff" />
+      <path fill="#fff" d="M0 50h494v350H0z" />
+    </svg>
+  ),
+  intl: (
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 9 15.3 15.3 0 0 1-4 9 15.3 15.3 0 0 1-4-9 15.3 15.3 0 0 1 4-9z" />
+    </svg>
+  ),
+};
+
+function FlagIcon({ jurisdictionId }: { jurisdictionId: string; className?: string }) {
+  return FLAG_ICONS[jurisdictionId] || FLAG_ICONS.intl;
+}
 
 export interface JurisdictionSource {
   id: string;
@@ -76,6 +137,7 @@ function JurisdictionBadge({ source }: { source: JurisdictionSource }) {
         alignItems: "center",
       }}
     >
+      <FlagIcon jurisdictionId={source.id} className="mr-1" />
       {style.label}
     </span>
   );
@@ -146,6 +208,7 @@ export function SourcesDropdown({
                   onChange={() => onToggleSource(source.id)}
                   className="h-3.5 w-3.5 rounded border-[var(--border)] accent-[var(--blue)]"
                 />
+                <FlagIcon jurisdictionId={source.id} />
                 <JurisdictionBadge source={source} />
                 <span className="text-[13px] text-[var(--text-primary)]">
                   {source.name}

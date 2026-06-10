@@ -5,6 +5,7 @@ import { ANTHROPIC_CORE_MODEL, isCloudModel, isLexModel } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 const isSSR = typeof window === "undefined" || typeof indexedDB === "undefined";
 
@@ -132,12 +133,30 @@ interface Actions {
   clearModelDownload: (modelId: string) => void;
 }
 
+// Get auth headers with Bearer token for Supabase-authenticated requests
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (typeof window !== "undefined") {
+    try {
+      const supabase = createBrowserSupabaseClient();
+      if (supabase) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+      }
+    } catch {
+      // Supabase not configured - continue without auth header
+    }
+  }
+  return headers;
+}
+
 const syncChatMessages = async (chatId: string, messages: Message[]) => {
+  const authHeaders = await getAuthHeaders();
   const response = await fetch(`/api/chats/${chatId}/messages`, {
     method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: authHeaders,
     body: JSON.stringify({
       messages: messages.map((message) => ({
         id: message.id,
@@ -323,7 +342,8 @@ const useChatStore = create<State & Actions>()(
         });
       },
       loadChats: async () => {
-        const response = await fetch("/api/chats");
+        const authHeaders = await getAuthHeaders();
+        const response = await fetch("/api/chats", { headers: authHeaders });
         const data = (await response.json()) as { chats: ChatSessions };
 
         set({
@@ -332,7 +352,8 @@ const useChatStore = create<State & Actions>()(
         });
       },
       loadChatById: async (chatId) => {
-        const response = await fetch(`/api/chats/${chatId}`);
+        const authHeaders = await getAuthHeaders();
+        const response = await fetch(`/api/chats/${chatId}`, { headers: authHeaders });
 
         if (!response.ok) {
           return undefined;
@@ -359,7 +380,7 @@ const useChatStore = create<State & Actions>()(
       },
       saveMessages: async (chatId, messages) => {
         set((state) => {
-          const existingChat = state.chats[chatId];
+          const existingChat = state.chats?.[chatId];
           const now = new Date().toISOString();
 
           return {
@@ -412,9 +433,10 @@ const useChatStore = create<State & Actions>()(
           };
         });
 
+        const authHeaders = await getAuthHeaders();
         const response = await fetch(`/api/chats/${chatId}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders,
           body: JSON.stringify({ title: trimmedTitle }),
         });
 
@@ -463,14 +485,18 @@ const useChatStore = create<State & Actions>()(
           return;
         }
 
+        const authHeaders = await getAuthHeaders();
         await fetch(`/api/chats/${chatId}`, {
           method: "DELETE",
+          headers: authHeaders,
         });
       },
       clearAllChats: async () => {
         set({ chats: {}, currentChatId: null, pendingComposerText: null, pendingAttachedDocumentIds: [], pendingWorkflow: null });
+        const authHeaders = await getAuthHeaders();
         await fetch("/api/chats", {
           method: "DELETE",
+          headers: authHeaders,
         });
       },
 
