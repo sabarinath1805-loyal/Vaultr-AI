@@ -6,12 +6,14 @@ import {
   ANTHROPIC_CORE_MODEL,
   GROQ_DEFAULT_MODEL,
   GEMINI_MAX_MODEL,
+  ANTHROPIC_FALLBACK_CHAIN,
   isAnthropicModel,
   isCloudModel,
   isCerebrasModel,
   isGeminiModel,
   isLexModel,
   isOllamaCloudModel,
+  groqIdToLexName,
   OLLAMA_CLOUD_FALLBACK_MODELS,
 } from "@/lib/models";
 import { extractDocumentText } from "@/lib/document-extraction";
@@ -348,10 +350,38 @@ export async function POST(req: Request) {
         recordUsageForProvider(req, anthropicModel, authenticatedUserId);
         return anthropicResponse;
       } catch (anthropicErr) {
-        console.error(`[Anthropic] ${anthropicModel} failed, falling back to Groq`, anthropicErr);
-        fallbackModelUsed = GROQ_DEFAULT_MODEL;
-        activeModel = GROQ_DEFAULT_MODEL;
-        usesCloudReasoning = false;
+        console.error(`[Anthropic] ${anthropicModel} failed, trying next Lex tier`, anthropicErr);
+        const currentIdx = ANTHROPIC_FALLBACK_CHAIN.indexOf(anthropicModel);
+        const fallbackTiers = ANTHROPIC_FALLBACK_CHAIN.slice(currentIdx + 1);
+        let resolved = false;
+        for (const nextModel of fallbackTiers) {
+          try {
+            console.log(`[Anthropic Fallback] Trying ${groqIdToLexName(nextModel)} (${nextModel})`);
+            const fbResponse = await streamAnthropicResponse({
+              model: nextModel,
+              systemMessage,
+              initialMessages: initialMessages.slice(-8),
+              userMessage,
+              shouldSearch,
+              searchSources: webSearch.sources,
+              activeModel: nextModel,
+              attachedDocuments,
+              abortSignal: abortController.signal,
+              legalResults,
+            });
+            fallbackModelUsed = nextModel;
+            recordUsageForProvider(req, nextModel, authenticatedUserId);
+            return fbResponse;
+          } catch (fbErr) {
+            console.error(`[Anthropic Fallback] ${nextModel} also failed`, fbErr);
+          }
+        }
+        if (!resolved) {
+          console.log("[Anthropic Fallback] All Lex tiers failed, falling back to Groq");
+          fallbackModelUsed = GROQ_DEFAULT_MODEL;
+          activeModel = GROQ_DEFAULT_MODEL;
+          usesCloudReasoning = false;
+        }
       }
     }
 
@@ -1071,15 +1101,11 @@ async function streamAnthropicResponse({
   if (!apiKey) throw new Error("Missing CLAUDEOPUS_API_KEY");
 
   const baseUrl = getAnthropicBaseUrl();
-  const maxTokens = model === "claude-opus-4-6" ? 16384 : 8192;
+  const maxTokens = (model === "claude-fable-5" || model === "claude-opus-4-6") ? 16384 : 8192;
 
-  // Fix 15: Enable prompt caching for supported Claude models
-  const supportsCaching = model !== "claude-haiku-4-5-20251001";
-  const systemPayload = supportsCaching
-    ? { system: [{ type: "text" as const, text: systemMessage, cache_control: { type: "ephemeral" as const } }] }
-    : {};
+  // ClaudeOpus.pro is OpenAI-compatible — system message goes in the messages array
   const messagesPayload = [
-    ...(supportsCaching ? [] : [{ role: "system" as const, content: systemMessage }]),
+    { role: "system" as const, content: systemMessage },
     ...initialMessages.slice(-8),
     { role: "user" as const, content: userMessage },
   ];
@@ -1095,7 +1121,6 @@ async function streamAnthropicResponse({
       model,
       stream: true,
       max_tokens: maxTokens,
-      ...systemPayload,
       messages: messagesPayload,
     }),
   });

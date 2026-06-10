@@ -7,7 +7,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { IconFileText } from "@tabler/icons-react";
-import { ChevronRight, Download, Edit3, File, FileText, FileDown, RefreshCcw } from "lucide-react";
+import { ChevronRight, Download, Edit3, File, FileText, FileDown, Flag, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
@@ -446,7 +446,7 @@ function CitationsPanel({ content, attachedDocuments }: { content: string; attac
                         className="ml-auto shrink-0 text-[12px] text-[var(--text-tertiary)] opacity-50 transition-opacity hover:opacity-100"
                         title="Flag this citation"
                       >
-                        🚩
+                        <Flag className="h-3.5 w-3.5" />
                       </button>
                     )}
                   </div>
@@ -618,6 +618,24 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
       >
         {children}
       </a>
+    ),
+    table: ({ children }) => (
+      <div className="my-3 overflow-x-auto">
+        <table className="w-full border-collapse border border-[var(--border)] text-sm">{children}</table>
+      </div>
+    ),
+    thead: ({ children }) => (
+      <thead className="bg-[var(--surface)]">{children}</thead>
+    ),
+    tbody: ({ children }) => <tbody>{children}</tbody>,
+    tr: ({ children }) => (
+      <tr className="border-b border-[var(--border)]">{children}</tr>
+    ),
+    th: ({ children }) => (
+      <th className="border border-[var(--border)] px-3 py-2 text-left font-semibold text-[var(--text-primary)]">{children}</th>
+    ),
+    td: ({ children }) => (
+      <td className="border border-[var(--border)] px-3 py-2 text-[var(--text-primary)]">{children}</td>
     ),
   };
 
