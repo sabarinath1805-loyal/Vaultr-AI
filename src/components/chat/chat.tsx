@@ -10,7 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { ANTHROPIC_CORE_MODEL, isLexModel, groqIdToLexName } from "@/lib/models";
-import { AGENT_STEPS } from "@/components/chat/agent-thinking-indicator";
+import { AGENT_STEP_IDS } from "@/components/chat/agent-step-tracker";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { createBrowserSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -96,8 +96,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const [searchingLegalMessageId, setSearchingLegalMessageId] = React.useState<string | null>(null);
   const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
   const [agentMode, setAgentMode] = React.useState(false);
-  const [agentStepIndex, setAgentStepIndex] = React.useState(0);
+  const [agentCurrentStep, setAgentCurrentStep] = React.useState<string>("");
+  const [agentCompletedSteps, setAgentCompletedSteps] = React.useState<string[]>([]);
+  const [agentElapsedSeconds, setAgentElapsedSeconds] = React.useState(0);
   const [agentThinkingActive, setAgentThinkingActive] = React.useState(false);
+  const agentElapsedRef = React.useRef<NodeJS.Timeout | null>(null);
   React.useEffect(() => {
     setHomeGreeting(getCounselorGreeting());
   }, []);
@@ -366,8 +369,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         createdAt: new Date(),
       };
       activeAssistantMessageRef.current = assistantMessage;
-      setAgentStepIndex(0);
+      setAgentCurrentStep("");
+      setAgentCompletedSteps([]);
+      setAgentElapsedSeconds(0);
       setAgentThinkingActive(true);
+      if (agentElapsedRef.current) clearInterval(agentElapsedRef.current);
+      agentElapsedRef.current = setInterval(() => {
+        setAgentElapsedSeconds((s) => s + 1);
+      }, 1000);
 
       try {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -416,14 +425,19 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             const payload = trimmed.slice(sepIdx + 1);
 
             if (prefix === "2") {
-              // Data annotation — check for agent_step
+              // Data annotation — check for agent_step progress
               try {
                 const annotations = JSON.parse(payload);
                 if (Array.isArray(annotations)) {
                   for (const ann of annotations) {
                     if (ann.type === "agent_step" && typeof ann.step === "string") {
-                      const idx = AGENT_STEPS.indexOf(ann.step);
-                      if (idx >= 0) setAgentStepIndex(idx);
+                      if (ann.status === "active") {
+                        setAgentCurrentStep(ann.step);
+                      } else if (ann.status === "done") {
+                        setAgentCompletedSteps((prev) =>
+                          prev.includes(ann.step) ? prev : [...prev, ann.step]
+                        );
+                      }
                     }
                   }
                 }
@@ -439,6 +453,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 if (typeof text === "string" && text.length > 0) {
                   if (!started) {
                     started = true;
+                    if (agentElapsedRef.current) {
+                      clearInterval(agentElapsedRef.current);
+                      agentElapsedRef.current = null;
+                    }
                     setAgentThinkingActive(false);
                     setResponseFlowState("streaming");
                     setDirectStreamingActive(true);
@@ -459,12 +477,17 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           }
         }
 
+        if (agentElapsedRef.current) {
+          clearInterval(agentElapsedRef.current);
+          agentElapsedRef.current = null;
+        }
         setAgentThinkingActive(false);
         const finalContent = stripAssistantMarkup(bufferedAssistantContentRef.current);
         const finalMsg: Message = {
           ...assistantMessage,
           content: finalContent || "Agent didn't return a response. Please try again.",
-        };
+          agentMode: true,
+        } as Message;
 
         if (isMountedRef.current) {
           const nextMessages = [...requestMessages, finalMsg];
@@ -480,6 +503,10 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         bufferedAssistantContentRef.current = "";
         finishResponseFlowAfterFade();
       } catch (error) {
+        if (agentElapsedRef.current) {
+          clearInterval(agentElapsedRef.current);
+          agentElapsedRef.current = null;
+        }
         setAgentThinkingActive(false);
         activeResponseAbortRef.current = null;
         activeAssistantMessageRef.current = null;
@@ -930,7 +957,9 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             searchingLegalMessageId={searchingLegalMessageId}
             activeModel={selectedModel}
             agentThinkingActive={agentThinkingActive}
-            agentStepIndex={agentStepIndex}
+            agentCurrentStep={agentCurrentStep}
+            agentCompletedSteps={agentCompletedSteps}
+            agentElapsedSeconds={agentElapsedSeconds}
             onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();

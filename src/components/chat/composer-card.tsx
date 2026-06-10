@@ -3,7 +3,7 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Check, File, FileText, FolderOpen, Library, Square, X, Zap } from "lucide-react";
+import { ArrowRight, Check, File, FileText, FolderOpen, Library, Sparkles, Square, X, Zap } from "lucide-react";
 import { IconCloud, IconLock } from "@tabler/icons-react";
 import { useSearchParams } from "next/navigation";
 import { ModelSelector } from "@/components/chat/model-selector";
@@ -391,7 +391,7 @@ export function ComposerCard({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               name="message"
-              placeholder={agentMode ? "Describe a research task for Lex Agent..." : "Ask Lex a legal question..."}
+              placeholder={agentMode ? "Describe a task for Lex Agent..." : "Ask Lex a legal question..."}
               minRows={1}
               maxRows={8}
               className="max-h-48 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] leading-6 text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:outline-none"
@@ -404,10 +404,10 @@ export function ComposerCard({
               <div className="relative shrink-0" ref={modePopoverRef}>
                 <button
                   type="button"
-                  onClick={() => setModePopoverOpen((open) => !open)}
+                  onClick={() => { if (!agentMode) setModePopoverOpen((open) => !open); }}
                   aria-pressed={cloudMode}
-                  title={cloudMode ? "Cloud Mode" : "Private Mode"}
-                  className="flex h-8 items-center justify-center rounded-lg px-[10px] py-[6px] text-[var(--text-faint)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
+                  title={agentMode ? "Cloud Mode (locked in Agent Mode)" : cloudMode ? "Cloud Mode" : "Private Mode"}
+                  className={`flex h-8 items-center justify-center rounded-lg px-[10px] py-[6px] text-[var(--text-faint)] transition-colors ${agentMode ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--surface)] hover:text-[var(--text-muted)]'}`}
                 >
                   {cloudMode ? (
                     <IconCloud className="h-4 w-4" stroke={1.8} />
@@ -528,7 +528,7 @@ export function ComposerCard({
                   aria-label="Toggle Agent Mode"
                   aria-pressed={agentMode}
                 >
-                  <Zap className="h-3.5 w-3.5" />
+                  <Sparkles className="h-4 w-4" />
                   <span className="hidden sm:inline">Agent</span>
                 </button>
               )}
@@ -536,7 +536,17 @@ export function ComposerCard({
             </div>
 
             <div className="ml-auto flex shrink-0 items-center gap-1">
-              <ModelSelector disabled={isLoading} direction={modelSelectorDirection} />
+              {agentMode ? (
+                <div className="flex h-8 items-center gap-1.5 rounded-lg px-[10px] py-[6px]">
+                  <div className="relative">
+                    <IconCloud className="h-4 w-4 text-[var(--text-muted)]" stroke={1.8} />
+                    <IconLock className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 text-[var(--text-muted)]" stroke={2} />
+                  </div>
+                  <span className="text-sm font-medium text-[var(--text-muted)]">Lex Agent</span>
+                </div>
+              ) : (
+                <ModelSelector disabled={isLoading} direction={modelSelectorDirection} />
+              )}
               <button
                 type={isLoading ? "button" : "submit"}
                 onClick={(event) => {
@@ -546,11 +556,17 @@ export function ComposerCard({
                   }
                 }}
                 disabled={!isLoading && !input.trim()}
-                className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-[var(--accent)] text-[var(--bg-primary)] transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:bg-[var(--border)] disabled:text-[var(--text-faint)]"
+                className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:bg-[var(--border)] disabled:text-[var(--text-faint)] ${
+                  agentMode
+                    ? "bg-[var(--accent)] text-[var(--bg-primary)]"
+                    : "bg-[var(--accent)] text-[var(--bg-primary)]"
+                }`}
                 aria-label={isLoading ? "Stop response" : "Send message"}
               >
                 {isLoading ? (
                   <Square className="h-4 w-4" fill="currentColor" strokeWidth={0} />
+                ) : agentMode ? (
+                  <Zap className="h-4 w-4" />
                 ) : (
                   <ArrowRight className="h-4 w-4" />
                 )}
