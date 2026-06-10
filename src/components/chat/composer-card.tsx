@@ -3,7 +3,7 @@
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
 import { ChatRequestOptions } from "ai";
-import { ArrowRight, Check, File, FileText, FolderOpen, Library, Square, X } from "lucide-react";
+import { ArrowRight, Check, File, FileText, FolderOpen, Library, Square, X, Zap } from "lucide-react";
 import { IconCloud, IconLock } from "@tabler/icons-react";
 import { useSearchParams } from "next/navigation";
 import { ModelSelector } from "@/components/chat/model-selector";
@@ -28,6 +28,8 @@ interface ComposerCardProps {
   stop: () => void;
   setInput?: React.Dispatch<React.SetStateAction<string>>;
   modelSelectorDirection?: "up" | "down";
+  agentMode?: boolean;
+  onToggleAgentMode?: () => void;
 }
 
 function decodeBase64Text(base64: string) {
@@ -84,6 +86,8 @@ export function ComposerCard({
   stop,
   setInput,
   modelSelectorDirection = "up",
+  agentMode = false,
+  onToggleAgentMode,
 }: ComposerCardProps) {
   const safeInput = typeof input === "string" ? input : "";
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
@@ -264,6 +268,7 @@ export function ComposerCard({
       usePrivacyMode,
       jurisdictionPrompt,
       selectedSources,
+      agentMode,
     };
 
     handleSubmit(event, {
@@ -386,7 +391,7 @@ export function ComposerCard({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               name="message"
-              placeholder="Ask Lex a legal question..."
+              placeholder={agentMode ? "Describe a research task for Lex Agent..." : "Ask Lex a legal question..."}
               minRows={1}
               maxRows={8}
               className="max-h-48 w-full resize-none overflow-hidden border-0 bg-transparent p-0 text-[15px] leading-6 text-[var(--text)] outline-none placeholder:text-[var(--text-faint)] focus:outline-none"
@@ -511,6 +516,22 @@ export function ComposerCard({
                 )}
                 <span className="hidden sm:inline">Workflows</span>
               </button>
+              {onToggleAgentMode && (
+                <button
+                  type="button"
+                  className={`flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-[10px] py-[6px] text-sm transition-colors ${
+                    agentMode
+                      ? "bg-[var(--accent)] text-[var(--bg-primary)]"
+                      : "text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
+                  }`}
+                  onClick={onToggleAgentMode}
+                  aria-label="Toggle Agent Mode"
+                  aria-pressed={agentMode}
+                >
+                  <Zap className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Agent</span>
+                </button>
+              )}
 
             </div>
 
