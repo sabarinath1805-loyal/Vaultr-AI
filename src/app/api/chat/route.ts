@@ -1104,7 +1104,7 @@ async function streamAnthropicResponse({
   if (!apiKey) throw new Error("Missing CLAUDEOPUS_API_KEY");
 
   const baseUrl = getAnthropicBaseUrl();
-  const maxTokens = (model === "claude-fable-5" || model === "claude-opus-4-6") ? 16384 : 8192;
+  const maxTokens = (model === "claude-fable-5" || model === "claude-opus-4-8") ? 16384 : 8192;
 
   // ClaudeOpus.pro is OpenAI-compatible — system message goes in the messages array
   const messagesPayload = [

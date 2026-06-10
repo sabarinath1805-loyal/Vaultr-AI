@@ -301,7 +301,7 @@ export default function ContractScannerPage() {
                   icon: IconCloud,
                   description: "Uses Lex Core for fast analysis.",
                   time: "~15 seconds",
-                  note: "Processed by Groq. Zero data retention.",
+                  note: "Analysed by Lex. Your documents are not stored or used for training.",
                 },
                 {
                   id: "private" as ScannerMode,
@@ -343,7 +343,7 @@ export default function ContractScannerPage() {
             <div className="mt-3 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-4 py-3 text-[13px] text-[var(--text-muted)]">
               {scannerMode === "private"
                 ? "Your document never leaves your device."
-                : "Processed by Groq. Zero data retention."}
+                : "Analysed by Lex. Your documents are not stored or used for training."}
             </div>
           </div>
           <UploadZone

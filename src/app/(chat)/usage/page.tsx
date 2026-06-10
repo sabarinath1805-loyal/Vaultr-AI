@@ -30,15 +30,17 @@ export default function UsagePage() {
   const [loading, setLoading] = useState(true);
 
   const fetchUsage = useCallback(async () => {
+    const localPlaceholder: UsageMetrics = {
+      totalThisMonth: 0,
+      totalToday: 0,
+      avgResponseTime: "Local",
+      mostUsedModel: "Lex Pro",
+      mostQueriedJurisdiction: "SG",
+      documentsUploaded: 0,
+    };
+
     if (!isSupabaseConfigured()) {
-      setMetrics({
-        totalThisMonth: 0,
-        totalToday: 0,
-        avgResponseTime: "—",
-        mostUsedModel: "—",
-        mostQueriedJurisdiction: "—",
-        documentsUploaded: 0,
-      });
+      setMetrics(localPlaceholder);
       setLoading(false);
       return;
     }
@@ -50,14 +52,7 @@ export default function UsagePage() {
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) {
-        setMetrics({
-          totalThisMonth: 0,
-          totalToday: 0,
-          avgResponseTime: "—",
-          mostUsedModel: "—",
-          mostQueriedJurisdiction: "—",
-          documentsUploaded: 0,
-        });
+        setMetrics(localPlaceholder);
         setLoading(false);
         return;
       }
@@ -118,9 +113,9 @@ export default function UsagePage() {
       setMetrics({
         totalThisMonth: 0,
         totalToday: 0,
-        avgResponseTime: "—",
-        mostUsedModel: "—",
-        mostQueriedJurisdiction: "—",
+        avgResponseTime: "?",
+        mostUsedModel: "?",
+        mostQueriedJurisdiction: "?",
         documentsUploaded: 0,
       });
     } finally {
