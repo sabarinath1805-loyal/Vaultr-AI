@@ -15,9 +15,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { message } = await request.json();
-    if (!message || typeof message !== "string") {
-      return NextResponse.json({ query: "" }, { status: 400 });
+    const body = await request.json().catch(() => ({}));
+    const message = body?.message;
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return NextResponse.json({ error: "Valid message string is required" }, { status: 400 });
     }
 
     const apiKey = process.env.GROQ_API_KEY;
