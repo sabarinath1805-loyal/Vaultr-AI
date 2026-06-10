@@ -32,7 +32,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json({ approved: false, error: "Invalid request body" }, { status: 400 });
+    }
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
     if (!email) {
