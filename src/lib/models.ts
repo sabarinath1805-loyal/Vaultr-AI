@@ -53,7 +53,7 @@ export interface GroqModel {
 export const ANTHROPIC_CORE_MODEL = "claude-haiku-4-5-20251001";
 export const ANTHROPIC_PRO_MODEL = "claude-sonnet-4-5-20250929";
 export const ANTHROPIC_ULTRA_MODEL = "claude-sonnet-4-6";
-export const ANTHROPIC_MAX_MODEL = "claude-opus-4-6";
+export const ANTHROPIC_MAX_MODEL = "claude-fable-5";
 export const CEREBRAS_CORE_MODEL = "llama4-scout";
 export const CEREBRAS_PRO_MODEL = "gpt-oss-120b-low";
 export const CEREBRAS_ULTRA_MODEL = "glm-4.7";
@@ -97,7 +97,7 @@ export const GROQ_MODELS: GroqModel[] = [
     provider: "anthropic",
     badge: "Max",
     color: "#C9A84C",
-    description: "Claude Opus 4.6 — comprehensive deep analysis. Allow 1-2 minutes.",
+    description: "Claude Fable 5 — comprehensive deep analysis. Allow 1-2 minutes.",
   },
 ];
 
@@ -267,6 +267,13 @@ export function getCloudProviderLabel(provider: GroqModel["provider"]) {
   if (provider === "ollama-cloud") return "Ollama Cloud";
   return "Groq";
 }
+
+export const ANTHROPIC_FALLBACK_CHAIN: string[] = [
+  ANTHROPIC_MAX_MODEL,
+  ANTHROPIC_ULTRA_MODEL,
+  ANTHROPIC_PRO_MODEL,
+  ANTHROPIC_CORE_MODEL,
+];
 
 export const OLLAMA_CLOUD_FALLBACK_MODELS = [
   "minimax-m2.5:cloud",
