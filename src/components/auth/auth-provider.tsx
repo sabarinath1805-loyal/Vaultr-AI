@@ -42,6 +42,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [betaApproved, setBetaApproved] = useState<boolean | null>(null);
 
   const checkBetaStatus = React.useCallback(async (email: string) => {
+    setBetaApproved(null); // mark as "still checking" so the loading UI shows
     try {
       const res = await fetch("/api/auth/check-beta", {
         method: "POST",
@@ -137,6 +138,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Not authenticated — show login
   if (!user) {
     return <LoginForm />;
+  }
+
+  // Beta check is still in flight (or was reset). Keep showing a spinner
+  // rather than the "waiting for approval" card, which would be misleading.
+  if (betaApproved === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-[var(--text-muted)]">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--text-muted)] border-t-transparent" />
+            <span className="text-sm">Checking beta access…</span>
+          </div>
+          <p className="max-w-xs text-center text-xs text-[var(--text-faint)]">
+            Confirming beta access. This usually takes a moment.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   // Authenticated but not approved — show waiting screen

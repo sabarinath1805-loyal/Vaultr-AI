@@ -53,6 +53,7 @@ import {
 } from "@/lib/matters";
 import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 import { generateUUID } from "@/lib/utils";
+import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ */
 /*  Types & constants                                                  */
@@ -422,7 +423,11 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
   /* ---------- AI: Extract dates ---------- */
 
   const extractDates = async () => {
-    if (!matter || linkedDocuments.length === 0) return;
+    if (!matter) return;
+    if (linkedDocuments.length === 0) {
+      toast.error("Attach at least one document first");
+      return;
+    }
     setExtractDatesLoading(true);
     try {
       const docContext = linkedDocuments.map((d) => `${d.filename}: ${d.content?.slice(0, 3000) || "(no text extracted)"}`).join("\n\n");
@@ -440,9 +445,12 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]) as { label: string; date: string; description: string }[];
         setSuggestedDates(parsed.map((d) => ({ id: generateUUID(), label: d.label, date: d.date, description: d.description || "" })));
+        toast.success(`Found ${parsed.length} suggested date${parsed.length === 1 ? "" : "s"}`);
+      } else {
+        toast.error("Could not parse dates from the response");
       }
     } catch {
-      // Silently fail
+      toast.error("Failed to extract dates");
     } finally {
       setExtractDatesLoading(false);
     }
@@ -460,7 +468,11 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
   /* ---------- AI: Identify parties ---------- */
 
   const identifyParties = async () => {
-    if (!matter || linkedDocuments.length === 0) return;
+    if (!matter) return;
+    if (linkedDocuments.length === 0) {
+      toast.error("Attach at least one document first");
+      return;
+    }
     setIdentifyPartiesLoading(true);
     try {
       const docContext = linkedDocuments.map((d) => `${d.filename}: ${d.content?.slice(0, 3000) || "(no text extracted)"}`).join("\n\n");
@@ -487,9 +499,12 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
             phone: "",
           }))
         );
+        toast.success(`Found ${parsed.length} suggested ${parsed.length === 1 ? "party" : "parties"}`);
+      } else {
+        toast.error("Could not parse parties from the response");
       }
     } catch {
-      // Silently fail
+      toast.error("Failed to identify parties");
     } finally {
       setIdentifyPartiesLoading(false);
     }
@@ -507,7 +522,11 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
   /* ---------- AI: Draft timeline ---------- */
 
   const draftTimeline = async () => {
-    if (!matter || linkedDocuments.length === 0) return;
+    if (!matter) return;
+    if (linkedDocuments.length === 0) {
+      toast.error("Attach at least one document first");
+      return;
+    }
     setDraftTimelineLoading(true);
     try {
       const docContext = linkedDocuments.map((d) => `${d.filename}: ${d.content?.slice(0, 3000) || "(no text extracted)"}`).join("\n\n");
@@ -521,9 +540,14 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
       const text = await res.text();
       const lines = text.split("\n").filter((l) => l.startsWith("0:"));
       const content = lines.map((l) => JSON.parse(l.slice(2))).join("");
-      setDraftTimelineResult(content);
+      if (content.trim()) {
+        setDraftTimelineResult(content);
+        toast.success("Timeline draft ready");
+      } else {
+        toast.error("Could not generate timeline from documents");
+      }
     } catch {
-      // Silently fail
+      toast.error("Failed to draft timeline");
     } finally {
       setDraftTimelineLoading(false);
     }
@@ -574,7 +598,9 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
 
     const context = contextParts.filter(Boolean).join("\n");
     const store = useChatStore.getState();
-    store.setPendingComposerText(`I'm working on the matter "${matter.name}". Here is the full context:\n\n${context}\n\nWhat would you like to work on?`);
+    // Composer starts empty per product decision. We persist the matter context
+    // on the chat itself so Lex can use it from the system prompt / chat title.
+    void context;
     store.saveMessages(chatId, [{
       id: generateUUID(),
       role: "assistant",
@@ -621,7 +647,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
     }
     if (matter.billingEntries.length > 0) {
       sections.push("\n## Billing");
-      sections.push(`Total: $${totalBillingFees(matter.billingEntries).toFixed(2)} SGD (${totalBillingHours(matter.billingEntries).toFixed(1)}h)`);
+      sections.push(`Total: $${totalBillingFees(matter.billingEntries).toFixed(2)} (${totalBillingHours(matter.billingEntries).toFixed(1)}h)`);
       matter.billingEntries.forEach((e) => sections.push(`- ${e.date}: ${e.description} — ${e.hours}h @ $${e.rate}/h = $${(e.hours * e.rate).toFixed(2)}`));
     }
 
@@ -998,13 +1024,13 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
                 Attach documents to unlock AI-powered analysis.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={extractDates} disabled={extractDatesLoading || linkedDocuments.length === 0} className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text)] hover:bg-[var(--surface)] disabled:opacity-40">
+                <button type="button" onClick={extractDates} disabled={extractDatesLoading} className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text)] hover:bg-[var(--surface)] disabled:opacity-40">
                   <Calendar className="h-3 w-3" /> {extractDatesLoading ? "Extracting..." : "Extract Dates"}
                 </button>
-                <button type="button" onClick={identifyParties} disabled={identifyPartiesLoading || linkedDocuments.length === 0} className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text)] hover:bg-[var(--surface)] disabled:opacity-40">
+                <button type="button" onClick={identifyParties} disabled={identifyPartiesLoading} className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text)] hover:bg-[var(--surface)] disabled:opacity-40">
                   <Users className="h-3 w-3" /> {identifyPartiesLoading ? "Identifying..." : "Identify Parties"}
                 </button>
-                <button type="button" onClick={draftTimeline} disabled={draftTimelineLoading || linkedDocuments.length === 0} className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text)] hover:bg-[var(--surface)] disabled:opacity-40">
+                <button type="button" onClick={draftTimeline} disabled={draftTimelineLoading} className="flex items-center gap-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text)] hover:bg-[var(--surface)] disabled:opacity-40">
                   <Clock className="h-3 w-3" /> {draftTimelineLoading ? "Drafting..." : "Draft Timeline"}
                 </button>
               </div>
@@ -1228,7 +1254,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
               <div className="flex flex-wrap items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div>
                   <div className="text-xs text-[var(--text-muted)]">Total Fees</div>
-                  <div className="text-xl font-medium text-[var(--text)]">${totalBillingFees(matter.billingEntries).toFixed(2)} <span className="text-xs font-normal text-[var(--text-muted)]">SGD</span></div>
+                  <div className="text-xl font-medium text-[var(--text)]">${totalBillingFees(matter.billingEntries).toFixed(2)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-[var(--text-muted)]">Total Hours</div>
@@ -1246,7 +1272,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
                 <input type="date" value={billingForm.date} onChange={(e) => setBillingForm({ ...billingForm, date: e.target.value })} className="rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
                 <input value={billingForm.description} onChange={(e) => setBillingForm({ ...billingForm, description: e.target.value })} placeholder="Description" className="min-w-[200px] flex-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
                 <input type="number" step="0.1" value={billingForm.hours} onChange={(e) => setBillingForm({ ...billingForm, hours: e.target.value })} placeholder="Hours" className="w-20 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
-                <input type="number" step="1" value={billingForm.rate} onChange={(e) => setBillingForm({ ...billingForm, rate: e.target.value })} placeholder="Rate (SGD)" className="w-28 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
+                <input type="number" step="1" value={billingForm.rate} onChange={(e) => setBillingForm({ ...billingForm, rate: e.target.value })} placeholder="Rate" className="w-28 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
                 <button type="button" onClick={addBillingEntry} disabled={!billingForm.date || !billingForm.description || !billingForm.hours} className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-1.5 text-xs text-[var(--bg-primary)] hover:opacity-80 disabled:opacity-50">
                   Add
                 </button>
@@ -1388,10 +1414,15 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
             <div className="flex gap-2 border-t border-[var(--border)] px-5 py-3">
               <button
                 type="button"
-                onClick={() => { navigator.clipboard.writeText(draftTimelineResult); }}
+                onClick={() => {
+                  navigator.clipboard.writeText(draftTimelineResult).then(
+                    () => toast.success("Timeline copied to clipboard"),
+                    () => toast.error("Could not access clipboard")
+                  );
+                }}
                 className="rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-1.5 text-xs text-[var(--text)] hover:bg-[var(--surface)]"
               >
-                Copy
+                Copy as text
               </button>
               <button type="button" onClick={() => setDraftTimelineResult(null)} className="rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-1.5 text-xs text-[var(--bg-primary)] hover:opacity-80">
                 Done
