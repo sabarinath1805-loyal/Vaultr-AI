@@ -145,12 +145,12 @@ export async function POST(req: Request) {
     authenticatedUserId = user.id;
   }
 
-  function recordUsageForProvider(request: Request, model: string | null, userId: string | null) {
+  function recordUsageForProvider(request: Request, model: string | null, userId: string | null, responseTimeMs?: number, jurisdiction?: string) {
     if (!model) return;
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
     recordUsage(ip, model);
     if (userId) {
-      logUsage(userId, model, ip).catch((err) => {
+      logUsage(userId, model, ip, responseTimeMs, jurisdiction).catch((err) => {
         console.error("[Usage Log Error] Failed to log usage:", err);
       });
     }
@@ -241,8 +241,15 @@ export async function POST(req: Request) {
   }
 
   const shouldSearch = !privacyMode;
-  // Run web search + RAG + statutes in parallel (Feature 1)
-  const webSearchPromise = shouldSearch
+  // Run RAG first so we can decide whether Tavily is needed.
+  // Web search is now conditional: only fire on recency/news/RAG-thin signals.
+  const legalSearchPromise = !privacyMode
+    ? searchLegalDatabases(userMessage, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined).catch(() => ({ cases: [], databases_searched: [], offline: false, wikiSummary: undefined }))
+    : Promise.resolve({ cases: [] as LegalCase[], databases_searched: [] as string[], offline: false, wikiSummary: undefined as string | undefined });
+  const legalResults = await legalSearchPromise;
+  const ragResultCount = legalResults.cases?.length || 0;
+  const tavilyEnabled = shouldSearch && tavilyIsWarranted(userMessage, ragResultCount);
+  const webSearchPromise = tavilyEnabled
     ? getWebSearchContext(userMessage)
     : Promise.resolve({ context: "", sources: [] as WebSearchSource[] });
   const workflowTemplatePrompt =
@@ -295,13 +302,8 @@ export async function POST(req: Request) {
   const jurisdictionContext = typeof jurisdictionPrompt === "string" && jurisdictionPrompt.trim()
     ? jurisdictionPrompt.trim()
     : "";
-  // Run legal database search in parallel (non-blocking)
-  const legalSearchPromise = !privacyMode
-    ? searchLegalDatabases(userMessage, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined).catch(() => ({ cases: [], databases_searched: [], offline: false, wikiSummary: undefined }))
-    : Promise.resolve({ cases: [] as LegalCase[], databases_searched: [] as string[], offline: false, wikiSummary: undefined as string | undefined });
-
-  // Await web search + RAG in parallel
-  const [webSearch, legalResults] = await Promise.all([webSearchPromise, legalSearchPromise]);
+  // Run legal database search in parallel (non-blocking) — already awaited above
+  const webSearch = await webSearchPromise;
   const legalContext = formatCasesForContext(legalResults.cases);
   const wikiContext = legalResults.wikiSummary
     ? `\n\n## Legal Concept Background\n${legalResults.wikiSummary}`
@@ -324,6 +326,7 @@ export async function POST(req: Request) {
 
   let fallbackModelUsed: string | null = null;
   let timeoutCleared = false;
+  const requestStartTime = Date.now();
   const clearChatTimeout = () => {
     if (!timeoutCleared) {
       clearTimeout(timeout);
@@ -347,7 +350,7 @@ export async function POST(req: Request) {
           abortSignal: abortController.signal,
           legalResults,
         });
-        recordUsageForProvider(req, anthropicModel, authenticatedUserId);
+        recordUsageForProvider(req, anthropicModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
         return anthropicResponse;
       } catch (anthropicErr) {
         console.error(`[Anthropic] ${anthropicModel} failed, trying next Lex tier`, anthropicErr);
@@ -370,7 +373,7 @@ export async function POST(req: Request) {
               legalResults,
             });
             fallbackModelUsed = nextModel;
-            recordUsageForProvider(req, nextModel, authenticatedUserId);
+            recordUsageForProvider(req, nextModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
             return fbResponse;
           } catch (fbErr) {
             console.error(`[Anthropic Fallback] ${nextModel} also failed`, fbErr);
@@ -400,7 +403,7 @@ export async function POST(req: Request) {
           abortSignal: abortController.signal,
           legalResults,
         });
-        recordUsageForProvider(req, cerebrasModel, authenticatedUserId);
+        recordUsageForProvider(req, cerebrasModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
         return cerebrasResponse;
       } catch (cerebrasErr) {
         console.error(`[Cerebras] ${cerebrasModel} failed, falling back to Groq`, cerebrasErr);
@@ -422,7 +425,7 @@ export async function POST(req: Request) {
         legalResults,
       });
       if (geminiResponse.status !== 503) {
-        recordUsageForProvider(req, geminiModel, authenticatedUserId);
+        recordUsageForProvider(req, geminiModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
         return geminiResponse;
       }
       // Gemini 503/timeout — fall back to Groq
@@ -446,7 +449,7 @@ export async function POST(req: Request) {
           attachedDocuments,
           abortSignal: abortController.signal,
         });
-        recordUsageForProvider(req, activeModel, authenticatedUserId);
+        recordUsageForProvider(req, activeModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
         const ollamaHeaders: Record<string, string> = {};
         ollamaCloudResponse.headers.forEach((v, k) => { ollamaHeaders[k] = v; });
         if (geminiToGroqFallbackTier) {
@@ -623,7 +626,7 @@ export async function POST(req: Request) {
     if (fallbackModelUsed) {
       responseHeaders["X-Fallback-Model"] = fallbackModelUsed;
     }
-    recordUsageForProvider(req, activeModel, authenticatedUserId);
+    recordUsageForProvider(req, activeModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
     clearChatTimeout();
     return new Response(stream, { headers: responseHeaders });
   } catch (primaryError) {
@@ -1465,6 +1468,47 @@ function shouldUseWebSearch(message: string) {
   }
 
   return SEARCH_TRIGGERS.some((trigger) => normalized.includes(trigger));
+}
+
+/**
+ * Smarter Tavily/web-search triggering: only fire when the query suggests
+ * recency, current status, news, or when the RAG corpus came back empty.
+ * Avoids the previous "Tavily on every message" behaviour that added 1-3s
+ * of latency for simple doctrinal questions.
+ */
+function tavilyIsWarranted(message: string, ragResultCount: number): boolean {
+  const normalized = message.toLowerCase();
+
+  // Date / recency signals
+  const dateSignals = [
+    /\brecent(ly)?\b/i,
+    /\blatest\b/i,
+    /\bcurrent(ly)?\b/i,
+    /\b2024\b/,
+    /\b2025\b/,
+    /\b2026\b/,
+    /\btoday\b/i,
+    /\bthis (week|month|year)\b/i,
+    /\bupdated\b/i,
+    /\bnew(ly)?\b/i,
+  ];
+  if (dateSignals.some((pattern) => pattern.test(normalized))) return true;
+
+  // News / regulatory development signals
+  const newsSignals = [
+    /\bnews\b/i,
+    /\bannounce(ment|d|d)?\b/i,
+    /\bregulator(?!y obligation)/i,
+    /\b(enforcement|investigation|raid|probe|raid|settlement)\b/i,
+    /\b(latest|recent|current) (case|law|regulation|statute|rule|guidance|directive)\b/i,
+    /\b(amend(ment|ed)?|repeal(led)?)\b/i,
+  ];
+  if (newsSignals.some((pattern) => pattern.test(normalized))) return true;
+
+  // RAG returned too few cases — web search may fill the gap
+  if (ragResultCount < 3) return true;
+
+  return false;
 }
 
 const tokenFlushState: WeakMap<
