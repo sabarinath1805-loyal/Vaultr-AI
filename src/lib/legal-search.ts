@@ -666,8 +666,11 @@ function detectJurisdiction(query: string): string | undefined {
 }
 
 // In-memory cache for legal search results — 5-minute TTL
-// Keyed by sanitized query + jurisdiction to avoid leaking unrelated results
+// Keyed by sanitized query + jurisdiction to avoid leaking unrelated results.
+// Eviction runs ONLY on the write path so readers cannot mutate the map
+// concurrently (race condition fix).
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 200;
 const searchCache = new Map<string, { result: LegalSearchResult; expiresAt: number }>();
 
 function getCacheKey(query: string, jurisdiction?: string): string {
@@ -679,6 +682,8 @@ function getCachedResult(query: string, jurisdiction?: string): LegalSearchResul
   const entry = searchCache.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
+    // Lazy delete on read is fine for a single entry — the size sweep lives on
+    // the write path, so we don't mutate the Map while iterating.
     searchCache.delete(key);
     return null;
   }
@@ -688,12 +693,19 @@ function getCachedResult(query: string, jurisdiction?: string): LegalSearchResul
 function setCachedResult(query: string, jurisdiction: string | undefined, result: LegalSearchResult): void {
   const key = getCacheKey(query, jurisdiction);
   searchCache.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS });
-  // Evict expired entries when cache grows
-  if (searchCache.size > 500) {
+  // Eviction runs on the WRITE path only. We rebuild a snapshot to avoid
+  // mutating the Map during iteration.
+  if (searchCache.size > CACHE_MAX_ENTRIES) {
     const now = Date.now();
+    const survivors: Array<[string, { result: LegalSearchResult; expiresAt: number }]> = [];
     for (const [k, v] of searchCache) {
-      if (now > v.expiresAt) searchCache.delete(k);
+      if (now <= v.expiresAt) survivors.push([k, v]);
     }
+    // Keep the freshest survivors; if we still have too many, drop the oldest.
+    survivors.sort((a, b) => b[1].expiresAt - a[1].expiresAt);
+    const kept = survivors.slice(0, CACHE_MAX_ENTRIES);
+    searchCache.clear();
+    for (const [k, v] of kept) searchCache.set(k, v);
   }
 }
 
@@ -796,16 +808,21 @@ export async function searchLegalDatabases(
   const seenUrls = new Set<string>();
   const scoredCases: (LegalCase & { _score: number })[] = [];
   for (const c of allCases) {
+    // Defensive: null-guards on API response fields that may be absent
+    if (!c) continue;
+    const title = c.title || "";
+    const jurisdiction = c.jurisdiction || "";
+
     // Skip duplicates by URL
     if (c.url && seenUrls.has(c.url)) continue;
     if (c.url) seenUrls.add(c.url);
 
     let score = 0;
     const lowerQuery = safeQuery.toLowerCase();
-    const lowerTitle = c.title.toLowerCase();
+    const lowerTitle = title.toLowerCase();
     if (lowerQuery.split(/\s+/).some((w) => w.length > 3 && lowerTitle.includes(w))) score += 3;
-    if (detectedJurisdiction && c.jurisdiction.toLowerCase().includes(detectedJurisdiction)) score += 2;
-    const year = parseInt(c.year, 10);
+    if (detectedJurisdiction && jurisdiction.toLowerCase().includes(detectedJurisdiction)) score += 2;
+    const year = c.year ? parseInt(c.year, 10) : 0;
     if (year && year >= new Date().getFullYear() - 10) score += 1;
 
     scoredCases.push({ ...c, _score: score });
