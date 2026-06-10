@@ -105,7 +105,6 @@ export default function MattersPage() {
     const links = readMatterLinks(matter.id);
     writeMatterLinks(matter.id, { ...links, chats: [...links.chats, chatId] });
     const chatStore = useChatStore.getState();
-    chatStore.setPendingComposerText(`I'm working on the matter "${matter.name}" (${matter.type}, ${matter.client || "no client"}). What do you need to know?`);
     await chatStore.saveMessages(chatId, [{
       id: generateUUID(),
       role: "assistant",

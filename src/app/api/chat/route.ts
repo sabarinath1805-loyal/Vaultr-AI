@@ -1413,6 +1413,9 @@ function stripToken(text: string): string {
   clean = clean.replace(/<function[^>]*\/>/gi, "");
   // Strip any line starting with <function
   clean = clean.replace(/^<function[^\n]*$/gm, "");
+  // Strip leaked RAG / context section headers (## Legal Research, ## Wikipedia, etc.)
+  // The model occasionally echoes the prompt's section labels into its response.
+  clean = clean.replace(/^#{1,3}\s*(Legal Research|Case Law|Web Search Results?|Wikipedia|Legal Concept Background|Document|RAG Context|Citations?|Sources?|References?|Bibliography)\s*[:\-]?\s*.*$/gim, "");
   return clean;
 }
 

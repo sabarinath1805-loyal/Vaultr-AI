@@ -511,6 +511,33 @@ function VaultDetail({
   onScan: (id: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
 }) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const allSelected = documents.length > 0 && selectedIds.size === documents.length;
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const toggle = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    setSelectedIds(allSelected ? new Set() : new Set(documents.map((d) => d.id)));
+  };
+
+  const bulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    const confirmDelete = window.confirm(
+      `Delete ${selectedIds.size} document${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`
+    );
+    if (!confirmDelete) return;
+    selectedIds.forEach((id) => onDelete(id));
+    setSelectedIds(new Set());
+  };
+
   return (
     <section className="px-8 pt-6">
       <input
@@ -542,7 +569,35 @@ function VaultDetail({
         </div>
       ) : (
         <div>
-          <div className="mb-4 flex justify-end">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <label className="flex cursor-pointer items-center gap-2 text-xs text-[var(--text-muted)]">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  ref={(el) => {
+                    if (el) el.indeterminate = someSelected;
+                  }}
+                  onChange={toggleAll}
+                  className="h-4 w-4 cursor-pointer rounded border-[var(--border)] accent-[var(--accent)]"
+                  aria-label="Select all documents"
+                />
+                <span>
+                  {selectedIds.size > 0
+                    ? `${selectedIds.size} selected`
+                    : "Select all"}
+                </span>
+              </label>
+              {selectedIds.size > 0 && (
+                <button
+                  type="button"
+                  onClick={bulkDelete}
+                  className="rounded-[var(--radius-sm)] border border-[var(--danger)] px-3 py-1.5 text-xs text-[var(--danger)] hover:bg-[var(--danger)]/10"
+                >
+                  Delete {selectedIds.size} selected
+                </button>
+              )}
+            </div>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -556,6 +611,8 @@ function VaultDetail({
               <VaultDocumentCard
                 key={doc.id}
                 document={doc}
+                selected={selectedIds.has(doc.id)}
+                onToggleSelect={() => toggle(doc.id)}
                 onAttach={() => onAttach([doc.id])}
                 onDelete={() => onDelete(doc.id)}
                 onScan={() => onScan(doc.id)}
@@ -570,11 +627,15 @@ function VaultDetail({
 
 function VaultDocumentCard({
   document,
+  selected,
+  onToggleSelect,
   onAttach,
   onDelete,
   onScan,
 }: {
   document: LocalDocument;
+  selected: boolean;
+  onToggleSelect: () => void;
   onAttach: () => void;
   onDelete: () => void;
   onScan: () => void;
@@ -589,7 +650,14 @@ function VaultDocumentCard({
       : "text-[var(--text-muted)] bg-[var(--surface)]";
 
   return (
-    <article className="flex items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--bg)] px-5 py-4">
+    <article className={`flex items-center gap-4 rounded-[var(--radius-md)] border bg-[var(--bg)] px-5 py-4 ${selected ? "border-[var(--accent)]" : "border-[var(--border)]"}`}>
+      <input
+        type="checkbox"
+        checked={selected}
+        onChange={onToggleSelect}
+        aria-label={`Select ${document.filename}`}
+        className="h-4 w-4 cursor-pointer rounded border-[var(--border)] accent-[var(--accent)]"
+      />
       <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[var(--radius-sm)] ${iconColor}`}>
         <FileText className="h-4 w-4" />
       </div>
