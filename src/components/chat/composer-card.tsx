@@ -537,11 +537,7 @@ export function ComposerCard({
 
             <div className="ml-auto flex shrink-0 items-center gap-1">
               {agentMode ? (
-                <div className="flex h-8 items-center gap-1.5 rounded-lg px-[10px] py-[6px]">
-                  <div className="relative">
-                    <IconCloud className="h-4 w-4 text-[var(--text-muted)]" stroke={1.8} />
-                    <IconLock className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 text-[var(--text-muted)]" stroke={2} />
-                  </div>
+                <div className="flex h-8 items-center rounded-lg px-[10px] py-[6px]">
                   <span className="text-sm font-medium text-[var(--text-muted)]">Lex Agent</span>
                 </div>
               ) : (
