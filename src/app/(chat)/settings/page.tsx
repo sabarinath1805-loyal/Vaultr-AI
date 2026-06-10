@@ -9,12 +9,13 @@ import { safeStorage } from "@/lib/safe-storage";
 import { useAuth } from "@/components/auth/auth-provider";
 import { isSupabaseConfigured } from "@/lib/supabase";
 
-type Tab = "account" | "appearance" | "lex" | "private-mode" | "data";
+type Tab = "account" | "appearance" | "lex" | "agent" | "private-mode" | "data";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "account", label: "Account" },
   { id: "appearance", label: "Appearance" },
   { id: "lex", label: "Lex" },
+  { id: "agent", label: "Agent Mode" },
   { id: "private-mode", label: "Private Mode" },
   { id: "data", label: "Data" },
 ];
@@ -68,6 +69,7 @@ export default function SettingsPage() {
             {activeTab === "account" && <AccountSettings />}
             {activeTab === "appearance" && <AppearanceSettings />}
             {activeTab === "lex" && <LexSettings />}
+            {activeTab === "agent" && <AgentSettings />}
             {activeTab === "private-mode" && <PrivateModeSettings />}
             {activeTab === "data" && <DataSettings />}
           </div>
@@ -319,6 +321,89 @@ function PrivateModeSettings() {
         >
           Download Ollama →
         </button>
+      </section>
+    </div>
+  );
+}
+
+function AgentSettings() {
+  const [hermesApiKey, setHermesApiKey] = useState("");
+  const [hermesBaseUrl, setHermesBaseUrl] = useState("http://localhost:8080");
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    const storedKey = safeStorage.getItem("hermes_api_key") || "";
+    const storedUrl = safeStorage.getItem("hermes_base_url") || "http://localhost:8080";
+    setHermesApiKey(storedKey);
+    setHermesBaseUrl(storedUrl);
+  }, []);
+
+  const handleSave = () => {
+    safeStorage.setItem("hermes_api_key", hermesApiKey);
+    safeStorage.setItem("hermes_base_url", hermesBaseUrl);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  const isConfigured = hermesApiKey.trim().length > 0;
+
+  return (
+    <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Agent Mode</h2>
+        <p className="mb-4 text-sm text-[var(--text-muted)]">
+          Agent Mode enables multi-step legal research orchestration. When the Hermes API key is configured, agent requests are routed through the Hermes gateway. Otherwise, an internal pipeline handles research tasks.
+        </p>
+
+        <div className="max-w-xl space-y-4">
+          <div className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <span
+              className={`inline-block h-2.5 w-2.5 rounded-full ${
+                isConfigured ? "bg-green-500" : "bg-[var(--text-faint)]"
+              }`}
+            />
+            <span className="text-sm font-medium text-[var(--text)]">
+              {isConfigured ? "Connected" : "Not configured"}
+            </span>
+            <span className="text-xs text-[var(--text-muted)]">
+              {isConfigured ? "Hermes gateway active" : "Using internal pipeline (placeholder responses)"}
+            </span>
+          </div>
+
+          <label className="block">
+            <span className="mb-2 block text-sm text-[var(--text-muted)]">
+              Hermes API Key
+            </span>
+            <input
+              type="password"
+              value={hermesApiKey}
+              onChange={(e) => setHermesApiKey(e.target.value)}
+              placeholder="Enter Hermes API key..."
+              className={fieldClass}
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm text-[var(--text-muted)]">
+              Hermes Base URL
+            </span>
+            <input
+              type="text"
+              value={hermesBaseUrl}
+              onChange={(e) => setHermesBaseUrl(e.target.value)}
+              placeholder="http://localhost:8080"
+              className={fieldClass}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            className="rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface)]"
+          >
+            {saved ? "Saved" : "Save"}
+          </button>
+        </div>
       </section>
     </div>
   );

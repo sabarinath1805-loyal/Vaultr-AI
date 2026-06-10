@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { ANTHROPIC_CORE_MODEL, isLexModel, groqIdToLexName } from "@/lib/models";
+import { AGENT_STEPS } from "@/components/chat/agent-thinking-indicator";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { createBrowserSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -94,9 +95,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const [legalSourcesMap, setLegalSourcesMap] = React.useState<Record<string, LegalSearchResult>>({});
   const [searchingLegalMessageId, setSearchingLegalMessageId] = React.useState<string | null>(null);
   const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
+  const [agentMode, setAgentMode] = React.useState(false);
+  const [agentStepIndex, setAgentStepIndex] = React.useState(0);
+  const [agentThinkingActive, setAgentThinkingActive] = React.useState(false);
   React.useEffect(() => {
     setHomeGreeting(getCounselorGreeting());
   }, []);
+  const toggleAgentMode = React.useCallback(() => setAgentMode((prev) => !prev), []);
 
   React.useEffect(
     () => () => {
@@ -340,6 +345,163 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     [clearResponseFlow, cloudMode, getMessagesById, id, router, saveMessages, setMessages]
   );
 
+  const handleAgentStream = React.useCallback(
+    async (
+      message: string,
+      userMessage: Message,
+      requestMessages: Message[],
+      jurisdiction?: string,
+      model?: string
+    ) => {
+      const abortController = new AbortController();
+      activeResponseAbortRef.current = abortController;
+      activeRequestMessagesRef.current = requestMessages;
+      rawBufferedContentRef.current = "";
+      bufferedAssistantContentRef.current = "";
+
+      const assistantMessage: Message = {
+        id: generateId(),
+        role: "assistant",
+        content: "",
+        createdAt: new Date(),
+      };
+      activeAssistantMessageRef.current = assistantMessage;
+      setAgentStepIndex(0);
+      setAgentThinkingActive(true);
+
+      try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (isSupabaseConfigured()) {
+          const supabase = createBrowserSupabaseClient();
+          const session = supabase ? (await supabase.auth.getSession()).data.session : null;
+          if (session?.access_token) {
+            headers["Authorization"] = `Bearer ${session.access_token}`;
+          }
+        }
+
+        const response = await fetch("/api/agent", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            message,
+            jurisdiction,
+            model: model || selectedModel || ANTHROPIC_CORE_MODEL,
+          }),
+          signal: abortController.signal,
+        });
+
+        if (!response.ok || !response.body) {
+          throw new Error(`Agent request failed: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let lineBuffer = "";
+        let started = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+          const lines = lineBuffer.split("\n");
+          lineBuffer = lines.pop() || "";
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            const sepIdx = trimmed.indexOf(":");
+            if (sepIdx < 0) continue;
+            const prefix = trimmed.slice(0, sepIdx);
+            const payload = trimmed.slice(sepIdx + 1);
+
+            if (prefix === "2") {
+              // Data annotation — check for agent_step
+              try {
+                const annotations = JSON.parse(payload);
+                if (Array.isArray(annotations)) {
+                  for (const ann of annotations) {
+                    if (ann.type === "agent_step" && typeof ann.step === "string") {
+                      const idx = AGENT_STEPS.indexOf(ann.step);
+                      if (idx >= 0) setAgentStepIndex(idx);
+                    }
+                  }
+                }
+              } catch {
+                // Ignore parse errors
+              }
+              continue;
+            }
+
+            if (prefix === "0") {
+              try {
+                const text = JSON.parse(payload) as string;
+                if (typeof text === "string" && text.length > 0) {
+                  if (!started) {
+                    started = true;
+                    setAgentThinkingActive(false);
+                    setResponseFlowState("streaming");
+                    setDirectStreamingActive(true);
+                  }
+                  rawBufferedContentRef.current += text;
+                  const nextContent = stripAssistantMarkup(rawBufferedContentRef.current);
+                  bufferedAssistantContentRef.current = nextContent;
+                  if (isMountedRef.current) {
+                    const visibleMsg: Message = { ...assistantMessage, content: nextContent };
+                    activeAssistantMessageRef.current = visibleMsg;
+                    setMessages([...requestMessages, visibleMsg]);
+                  }
+                }
+              } catch {
+                // Ignore
+              }
+            }
+          }
+        }
+
+        setAgentThinkingActive(false);
+        const finalContent = stripAssistantMarkup(bufferedAssistantContentRef.current);
+        const finalMsg: Message = {
+          ...assistantMessage,
+          content: finalContent || "Agent didn't return a response. Please try again.",
+        };
+
+        if (isMountedRef.current) {
+          const nextMessages = [...requestMessages, finalMsg];
+          setMessages(nextMessages);
+          await saveMessages(id, nextMessages);
+          if (!isOpenEmptyChat) router.replace(`/c/${id}`);
+        }
+
+        setDirectStreamingActive(false);
+        activeResponseAbortRef.current = null;
+        activeAssistantMessageRef.current = null;
+        rawBufferedContentRef.current = "";
+        bufferedAssistantContentRef.current = "";
+        finishResponseFlowAfterFade();
+      } catch (error) {
+        setAgentThinkingActive(false);
+        activeResponseAbortRef.current = null;
+        activeAssistantMessageRef.current = null;
+        rawBufferedContentRef.current = "";
+        bufferedAssistantContentRef.current = "";
+        setLoadingSubmit(false);
+        if ((error as Error).name === "AbortError") return;
+        await handleResponseError(error as Error);
+      }
+    },
+    [
+      finishResponseFlowAfterFade,
+      handleResponseError,
+      id,
+      isOpenEmptyChat,
+      router,
+      saveMessages,
+      selectedModel,
+      setMessages,
+    ]
+  );
+
   const handleChatStream = React.useCallback(
     async (
       requestBody: Record<string, unknown>,
@@ -539,6 +701,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       ollamaUrl?: string;
       jurisdictionPrompt?: string;
       selectedSources?: string[];
+      agentMode?: boolean;
       attachedDocuments?: {
         id: string;
         filename: string;
@@ -617,7 +780,17 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     void saveMessages(id, nextMessages);
     setBase64Images(null);
 
-    void handleChatStream(requestPayload, userMessage, nextMessages, shouldDirectStreamLexMax);
+    if (requestBody?.agentMode) {
+      void handleAgentStream(
+        input,
+        userMessage,
+        nextMessages,
+        typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined,
+        typeof selectedModel === "string" ? selectedModel : undefined
+      );
+    } else {
+      void handleChatStream(requestPayload, userMessage, nextMessages, shouldDirectStreamLexMax);
+    }
   };
 
   const displayedMessages = React.useMemo(() => {
@@ -732,11 +905,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                 input={input}
                 handleInputChange={handleInputChange}
                 handleSubmit={onSubmit}
-                isLoading={thinkingVisible || isLoading}
+                isLoading={thinkingVisible || isLoading || agentThinkingActive}
                 stop={handleStop}
                 setInput={setInput}
                 modelSelectorDirection="down"
                 className="flex w-full justify-center"
+                agentMode={agentMode}
+                onToggleAgentMode={toggleAgentMode}
               />
             </div>
           </div>
@@ -748,12 +923,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
           </h1>
           <ChatList
             messages={displayedMessages}
-            isLoading={thinkingVisible || isLoading}
+            isLoading={thinkingVisible || isLoading || agentThinkingActive}
             thinkingVisible={thinkingVisible}
             thinkingMessageId={thinkingMessageId}
             legalSourcesMap={legalSourcesMap}
             searchingLegalMessageId={searchingLegalMessageId}
             activeModel={selectedModel}
+            agentThinkingActive={agentThinkingActive}
+            agentStepIndex={agentStepIndex}
             onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();
@@ -788,10 +965,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               input={input}
               handleInputChange={handleInputChange}
               handleSubmit={onSubmit}
-              isLoading={thinkingVisible || isLoading}
+              isLoading={thinkingVisible || isLoading || agentThinkingActive}
               stop={handleStop}
               setInput={setInput}
               className="flex w-full justify-center"
+              agentMode={agentMode}
+              onToggleAgentMode={toggleAgentMode}
             />
           </div>
         </div>
