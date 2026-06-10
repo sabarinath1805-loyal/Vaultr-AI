@@ -106,7 +106,7 @@ async function searchCourtListener(query: string): Promise<LegalCase[]> {
     );
     if (!response.ok) return [];
     const data = await response.json();
-    return (data.results || []).slice(0, 3).map((item: Record<string, unknown>) => ({
+    return (data.results || []).slice(0, 4).map((item: Record<string, unknown>) => ({
       title: (item.caseName as string) || "Unknown",
       citation: (item.citation as string) || "",
       year: item.dateFiled
@@ -306,6 +306,121 @@ async function searchCommonLII(query: string): Promise<LegalCase[]> {
   }
 }
 
+// Singapore Law Watch — case summaries and updates
+async function searchSingaporeLawWatch(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://www.singaporelawwatch.sg/portals/0/web/search/siteSearchResults?query=${encodeURIComponent(query)}&sort=relevance`,
+      { signal: AbortSignal.timeout(8000), headers: { Accept: "text/html" } }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [
+      ...html.matchAll(/<a[^>]+href="([^"]*\/[^"]+\/[^"]+)"[^>]*>([^<]{8,200})<\/a>/g),
+    ];
+    return matches.slice(0, 3).map((match) => ({
+      title: match[2].trim(),
+      citation: "",
+      year: match[2].match(/\[(\d{4})\]/)?.[1] || match[2].match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
+      jurisdiction: "Singapore",
+      court: "Singapore Courts",
+      summary: "",
+      url: match[1].startsWith("http") ? match[1] : `https://www.singaporelawwatch.sg${match[1]}`,
+      source: "Singapore Law Watch",
+    }));
+  } catch (error) {
+    console.error(`[legal-search] SingaporeLawWatch failed for query: "${query.slice(0, 100)}"`, error);
+    return [];
+  }
+}
+
+// ICLR (Incorporated Council of Law Reporting) — UK law reports
+async function searchICLR(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://www.iclr.co.uk/search/?q=${encodeURIComponent(query)}`,
+      { signal: AbortSignal.timeout(8000), headers: { Accept: "text/html" } }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [
+      ...html.matchAll(/<a[^>]+href="([^"]*case[^"]*)"[^>]*>([^<]{8,200})<\/a>/gi),
+    ];
+    return matches.slice(0, 3).map((match) => ({
+      title: match[2].trim(),
+      citation: "",
+      year: match[2].match(/\[(\d{4})\]/)?.[1] || "",
+      jurisdiction: "UK",
+      court: "ICLR",
+      summary: "",
+      url: match[1].startsWith("http") ? match[1] : `https://www.iclr.co.uk${match[1]}`,
+      source: "ICLR",
+    }));
+  } catch (error) {
+    console.error(`[legal-search] ICLR failed for query: "${query.slice(0, 100)}"`, error);
+    return [];
+  }
+}
+
+// Federal Court of Australia — judgments and decisions
+async function searchFedCourtAU(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://www.fedcourt.gov.au/services/access-to-files-and-transcripts/online-files/search?query=${encodeURIComponent(query)}`,
+      { signal: AbortSignal.timeout(8000), headers: { Accept: "text/html" } }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [
+      ...html.matchAll(/<a[^>]+href="([^"]+)"[^>]*>([^<]{8,200})<\/a>/g),
+    ];
+    return matches
+      .filter((m) => /judgment|decision|case|\d{4}/i.test(m[2]))
+      .slice(0, 3)
+      .map((match) => ({
+        title: match[2].trim(),
+        citation: "",
+        year: match[2].match(/\[(\d{4})\]/)?.[1] || match[2].match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
+        jurisdiction: "Australia",
+        court: "Federal Court of Australia",
+        summary: "",
+        url: match[1].startsWith("http") ? match[1] : `https://www.fedcourt.gov.au${match[1]}`,
+        source: "Federal Court of Australia",
+      }));
+  } catch (error) {
+    console.error(`[legal-search] FedCourtAU failed for query: "${query.slice(0, 100)}"`, error);
+    return [];
+  }
+}
+
+// Google Scholar — universal legal search fallback
+async function searchGoogleScholar(query: string): Promise<LegalCase[]> {
+  try {
+    const response = await fetch(
+      `https://scholar.google.com/scholar?q=${encodeURIComponent(query)}&hl=en`,
+      { signal: AbortSignal.timeout(8000), headers: { Accept: "text/html" } }
+    );
+    if (!response.ok) return [];
+    const html = await response.text();
+    const matches = [
+      ...html.matchAll(/<h3[^>]*class="gs_rt"[^>]*>\s*<a[^>]+href="([^"]+)"[^>]*>([^<]+)<\/a>/g),
+    ];
+    return matches.slice(0, 3).map((match) => ({
+      title: match[2].trim(),
+      citation: "",
+      year: match[2].match(/\[(\d{4})\]/)?.[1] || match[2].match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
+      jurisdiction: "International",
+      court: "Google Scholar",
+      summary: "",
+      url: match[1],
+      source: "Google Scholar",
+    }));
+  } catch (error) {
+    console.error(`[legal-search] GoogleScholar failed for query: "${query.slice(0, 100)}"`, error);
+    return [];
+  }
+}
+
 // Singapore Cases Online (SCO) — web scraping
 async function searchSCO(query: string): Promise<LegalCase[]> {
   try {
@@ -486,10 +601,10 @@ async function searchIndiaCode(query: string): Promise<LegalCase[]> {
 }
 
 const JURISDICTION_DB_PRIORITY: Record<string, string[]> = {
-  us: ["courtlistener", "caselaw", "worldlii"],
-  uk: ["bailii", "uklegislation", "commonlii", "courtlistener"],
-  au: ["austlii", "aulegislation", "commonlii", "courtlistener"],
-  sg: ["sco", "sso", "commonlii"],
+  us: ["courtlistener", "caselaw", "worldlii", "google_scholar"],
+  uk: ["bailii", "uklegislation", "iclr", "commonlii", "courtlistener"],
+  au: ["austlii", "aulegislation", "fedcourt", "commonlii", "courtlistener"],
+  sg: ["sco", "sso", "singaporelawwatch", "commonlii"],
   eu: ["eurlex", "courtlistener", "worldlii"],
   in: ["indiankanoon", "indiacode", "courtlistener", "worldlii"],
   ca: ["commonlii", "courtlistener", "caselaw"],
@@ -619,10 +734,14 @@ export async function searchLegalDatabases(
     commonlii: searchCommonLII,
     sco: searchSCO,
     sso: searchSSO,
+    singaporelawwatch: searchSingaporeLawWatch,
+    iclr: searchICLR,
+    fedcourt: searchFedCourtAU,
     worldlii: searchWorldLII,
     uklegislation: searchUKLegislation,
     aulegislation: searchAULegislation,
     indiacode: searchIndiaCode,
+    google_scholar: searchGoogleScholar,
   };
   const dbNames: Record<string, string> = {
     courtlistener: "CourtListener",
@@ -634,19 +753,23 @@ export async function searchLegalDatabases(
     commonlii: "CommonLII",
     sco: "Singapore Courts",
     sso: "Singapore Statutes Online",
+    singaporelawwatch: "Singapore Law Watch",
+    iclr: "ICLR",
+    fedcourt: "Federal Court of Australia",
     worldlii: "WorldLII",
     uklegislation: "UK Legislation",
     aulegislation: "Australian Legislation",
     indiacode: "India Code",
+    google_scholar: "Google Scholar",
   };
 
   // Auto-detect jurisdiction from query keywords (cheap, runs in parallel with LLM call)
   const detectedJurisdiction = detectJurisdiction(safeQuery) || jurisdiction;
   const priority = JURISDICTION_DB_PRIORITY[detectedJurisdiction || "all"] || [];
 
-  // Per-jurisdiction: only search priority databases (max 4), not all 10+
+  // Per-jurisdiction: only search priority databases (max 5), not all 10+
   const dbKeysToSearch = priority.length > 0
-    ? priority.slice(0, 4)
+    ? priority.slice(0, 5)
     : ["courtlistener", "worldlii", "bailii"];
 
   // Run extractLegalQuery in parallel with the rest of the setup
@@ -688,7 +811,7 @@ export async function searchLegalDatabases(
     scoredCases.push({ ...c, _score: score });
   }
   scoredCases.sort((a, b) => b._score - a._score);
-  const topCases = scoredCases.slice(0, 5).map(({ _score, ...rest }) => rest);
+  const topCases = scoredCases.slice(0, 10).map(({ _score, ...rest }) => rest);
 
   const result = {
     cases: topCases,
@@ -706,7 +829,7 @@ export async function searchLegalDatabases(
 }
 
 // Format cases for injection into Lex's context window
-export function formatCasesForContext(cases: LegalCase[], maxCases = 3): string {
+export function formatCasesForContext(cases: LegalCase[], maxCases = 5): string {
   if (cases.length === 0) return "";
   const formatted = cases.slice(0, maxCases)
     .map(
