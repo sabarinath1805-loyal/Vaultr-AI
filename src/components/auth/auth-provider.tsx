@@ -121,9 +121,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
-        <div className="flex items-center gap-2 text-[var(--text-muted)]">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--text-muted)] border-t-transparent" />
-          <span className="text-sm">Loading...</span>
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center gap-2 text-[var(--text-muted)]">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--text-muted)] border-t-transparent" />
+            <span className="text-sm">Verifying your account…</span>
+          </div>
+          <p className="max-w-xs text-center text-xs text-[var(--text-faint)]">
+            Confirming beta access. This usually takes a moment.
+          </p>
         </div>
       </div>
     );

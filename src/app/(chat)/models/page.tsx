@@ -11,7 +11,20 @@ interface RemoveState {
 }
 
 const OLLAMA_URL = "http://localhost:11434";
+const OLLAMA_CHECK_TIMEOUT_MS = 3000;
 const activeModelPulls = new Map<string, AbortController>();
+
+async function checkOllamaAvailable(url: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), OLLAMA_CHECK_TIMEOUT_MS);
+    const res = await fetch(`${url}/api/tags`, { cache: "no-store", signal: controller.signal });
+    clearTimeout(timer);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
 
 interface IndividualModel {
   id: string;
@@ -104,7 +117,7 @@ export default function ModelsPage() {
 
     async function loadModels() {
       try {
-        const response = await fetch(`${OLLAMA_URL}/api/tags`);
+        const response = await fetch(`/api/tags`, { cache: "no-store" });
         if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         const data = await response.json();
         const modelIds = Array.isArray(data?.models)
@@ -148,7 +161,7 @@ export default function ModelsPage() {
   }, [cloudMode, selectedLocalModel, selectedModel, setSelectedModel]);
 
   const refreshModels = async () => {
-    const response = await fetch(`${OLLAMA_URL}/api/tags`);
+    const response = await fetch(`/api/tags`, { cache: "no-store" });
     if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
     const data = await response.json();
     const modelIds = Array.isArray(data?.models)

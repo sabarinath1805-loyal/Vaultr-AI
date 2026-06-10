@@ -249,7 +249,13 @@ function PrivateModeSettings() {
 
   const checkOllama = async () => {
     try {
-      const response = await fetch(`${ollamaUrl}/api/tags`, { cache: "no-store" });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 3000);
+      const response = await fetch(`/api/tags`, {
+        cache: "no-store",
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
       setConnectionStatus(response.ok ? "connected" : "down");
     } catch {
       setConnectionStatus("down");
