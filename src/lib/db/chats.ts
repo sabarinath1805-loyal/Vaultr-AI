@@ -207,12 +207,14 @@ export function addMessage(
   const chat = db.select().from(chats).where(conditions).get();
 
   if (!chat) {
-    // If chat doesn't exist and no ownerId, create with anonymous owner
-    // If ownerId provided, this is a security violation
+    // Chat doesn't exist yet — create it for the current owner.
+    // This handles the case where the client created a chat locally first
+    // and is now syncing it to the server.
     if (ownerId) {
-      throw new Error("Chat not found or access denied");
+      createChat(chatId, ownerId);
+    } else {
+      createChat(chatId);
     }
-    createChat(chatId);
   }
 
   const timestamp = message.createdAt ?? now();
@@ -273,10 +275,14 @@ export function replaceMessages(
   const chat = db.select().from(chats).where(conditions).get();
 
   if (!chat) {
+    // Chat doesn't exist yet — create it for the current owner.
+    // This handles the case where the client created a chat locally first
+    // and is now syncing it to the server.
     if (ownerId) {
-      throw new Error("Chat not found or access denied");
+      createChat(chatId, ownerId);
+    } else {
+      createChat(chatId);
     }
-    createChat(chatId);
   }
 
   const timestamp = now();
