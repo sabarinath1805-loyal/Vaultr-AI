@@ -3,6 +3,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
 import { ThinkingIndicator } from "./thinking-indicator";
+import { AgentThinkingIndicator } from "./agent-thinking-indicator";
 import type { LegalSearchResult } from "@/lib/legal-search";
 
 interface ChatListProps {
@@ -13,6 +14,8 @@ interface ChatListProps {
   legalSourcesMap: Record<string, LegalSearchResult>;
   searchingLegalMessageId: string | null;
   activeModel?: string | null;
+  agentThinkingActive?: boolean;
+  agentStepIndex?: number;
   onEditMessage: (messageId: string, content: string) => void;
   reload: (
     chatRequestOptions?: ChatRequestOptions
@@ -27,6 +30,8 @@ export default function ChatList({
   legalSourcesMap,
   searchingLegalMessageId,
   activeModel,
+  agentThinkingActive = false,
+  agentStepIndex = 0,
   onEditMessage,
   reload,
 }: ChatListProps) {
@@ -85,9 +90,14 @@ export default function ChatList({
               />
             );
           })}
-          {showStandaloneThinking && (
+          {showStandaloneThinking && !agentThinkingActive && (
             <div className="message animate-message-in w-full text-left">
               <ThinkingIndicator visible activeModel={activeModel} />
+            </div>
+          )}
+          {agentThinkingActive && (
+            <div className="message animate-message-in w-full text-left">
+              <AgentThinkingIndicator visible activeStepIndex={agentStepIndex} />
             </div>
           )}
           <div ref={bottomRef} />

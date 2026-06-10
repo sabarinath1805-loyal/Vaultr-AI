@@ -14,6 +14,8 @@ interface ChatBottombarProps {
   input: string;
   modelSelectorDirection?: "up" | "down";
   className?: string;
+  agentMode?: boolean;
+  onToggleAgentMode?: () => void;
 }
 
 export default function ChatBottombar({
@@ -25,6 +27,8 @@ export default function ChatBottombar({
   setInput,
   modelSelectorDirection,
   className = "flex w-full justify-center px-6 pb-5",
+  agentMode,
+  onToggleAgentMode,
 }: ChatBottombarProps) {
   return (
     <div className={className}>
@@ -36,6 +40,8 @@ export default function ChatBottombar({
         stop={stop}
         setInput={setInput}
         modelSelectorDirection={modelSelectorDirection}
+        agentMode={agentMode}
+        onToggleAgentMode={onToggleAgentMode}
       />
     </div>
   );
