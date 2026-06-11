@@ -93,7 +93,7 @@ function getCurrencyForJurisdiction(jurisdiction?: string): string {
   };
   try {
     const profile = JSON.parse(localStorage.getItem("vaultr_user_profile") || "{}");
-    return map[profile.jurisdiction] || jurisdiction ? (map[jurisdiction || ""] || "USD") : "USD";
+    return map[profile.jurisdiction] || (jurisdiction ? map[jurisdiction] : undefined) || "USD";
   } catch {
     return "SGD";
   }
