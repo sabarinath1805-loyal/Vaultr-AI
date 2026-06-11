@@ -15,6 +15,7 @@
  */
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
@@ -32,15 +33,24 @@ let browserClient: SupabaseClient | null = null;
 export function createBrowserSupabaseClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) return null;
   if (browserClient) return browserClient;
-  browserClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      // PII: client sessions in localStorage is a risk for legal deployments.
-      persistSession: PERSIST_SESSION,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      flowType: "pkce",
-    },
-  });
+  // Use @supabase/ssr's createBrowserClient so the PKCE verifier is stored in
+  // cookies (matching the server callback route's storage). The standard
+  // createClient from @supabase/supabase-js uses localStorage, so the server
+  // callback's exchangeCodeForSession call can't find the verifier and fails
+  // with "code verifier missing".
+  browserClient = createBrowserClient(
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
+    {
+      auth: {
+        // PII: client sessions in localStorage is a risk for legal deployments.
+        persistSession: PERSIST_SESSION,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        flowType: "pkce",
+      },
+    }
+  );
   return browserClient;
 }
 
