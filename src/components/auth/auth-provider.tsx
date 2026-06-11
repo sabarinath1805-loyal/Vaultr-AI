@@ -136,8 +136,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // Not authenticated — show login
+  // TODO: re-enable auth before beta launch
   if (!user) {
-    return <LoginForm />;
+    return (
+      <AuthContext.Provider value={{ user: null, session: null, loading: false, signOut }}>
+        {children}
+      </AuthContext.Provider>
+    );
   }
 
   // Beta check is still in flight (or was reset). Keep showing a spinner
