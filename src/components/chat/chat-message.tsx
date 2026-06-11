@@ -793,9 +793,15 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
   }
 
   return (
-    <div className="message animate-message-in mb-10 w-full max-w-4xl text-left text-sm leading-[1.75] text-[var(--text-primary)]">
+    <div className={`message animate-message-in mb-10 w-full max-w-4xl text-left text-sm leading-[1.75] text-[var(--text-primary)] ${(message as unknown as { agentMode?: boolean }).agentMode ? "rounded-lg bg-[var(--surface)]/30 p-4" : ""}`}>
       {message.role === "assistant" ? (
         <div className="w-full">
+          {(message as unknown as { agentMode?: boolean }).agentMode && (
+            <div className="mb-2 flex items-center gap-1.5">
+              <span className="text-sm">⚡</span>
+              <span className="text-xs font-medium text-[var(--text-muted)]">Lex Agent</span>
+            </div>
+          )}
           <div className="min-w-0 text-[15px] leading-[1.75]">
             {message.experimental_attachments?.some((attachment) =>
               attachment.contentType?.startsWith("image/")

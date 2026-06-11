@@ -3,7 +3,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
 import { ThinkingIndicator } from "./thinking-indicator";
-import { AgentThinkingIndicator } from "./agent-thinking-indicator";
+import { AgentStepTracker } from "./agent-step-tracker";
 import type { LegalSearchResult } from "@/lib/legal-search";
 
 interface ChatListProps {
@@ -15,7 +15,9 @@ interface ChatListProps {
   searchingLegalMessageId: string | null;
   activeModel?: string | null;
   agentThinkingActive?: boolean;
-  agentStepIndex?: number;
+  agentCurrentStep?: string;
+  agentCompletedSteps?: string[];
+  agentElapsedSeconds?: number;
   onEditMessage: (messageId: string, content: string) => void;
   reload: (
     chatRequestOptions?: ChatRequestOptions
@@ -31,7 +33,9 @@ export default function ChatList({
   searchingLegalMessageId,
   activeModel,
   agentThinkingActive = false,
-  agentStepIndex = 0,
+  agentCurrentStep = "",
+  agentCompletedSteps = [],
+  agentElapsedSeconds = 0,
   onEditMessage,
   reload,
 }: ChatListProps) {
@@ -97,7 +101,11 @@ export default function ChatList({
           )}
           {agentThinkingActive && (
             <div className="message animate-message-in w-full text-left">
-              <AgentThinkingIndicator visible activeStepIndex={agentStepIndex} />
+              <AgentStepTracker
+                currentStep={agentCurrentStep}
+                completedSteps={agentCompletedSteps}
+                elapsedSeconds={agentElapsedSeconds}
+              />
             </div>
           )}
           <div ref={bottomRef} />
