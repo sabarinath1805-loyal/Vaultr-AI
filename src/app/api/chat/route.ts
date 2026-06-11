@@ -27,7 +27,9 @@ import {
   stripAssistantStreamChunk,
 } from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
-import { searchLegalDatabases, formatCasesForContext, type LegalCase } from "@/lib/legal-search";
+import { searchLegalDatabases, formatCasesForContext, parseJurisdictionCode, type LegalCase } from "@/lib/legal-search";
+import { retrieveRelevantChunks, retrieveMatterMemory, retrieveUserMemory, formatRetrievedContext } from "@/lib/rag-retrieve";
+import { extractAndSaveMemories } from "@/lib/rag-memory";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -156,6 +158,8 @@ export async function POST(req: Request) {
     }
   }
 
+  const matterId = typeof data?.matterId === "string" ? data.matterId : undefined;
+
   const privacyMode = usePrivacyMode === true;
   const requestedModel = typeof selectedModel === "string" ? selectedModel : null;
   if (privacyMode && !isLexModel(requestedModel)) {
@@ -243,10 +247,27 @@ export async function POST(req: Request) {
   const shouldSearch = !privacyMode;
   // Run RAG first so we can decide whether Tavily is needed.
   // Web search is now conditional: only fire on recency/news/RAG-thin signals.
+  // Resolve jurisdiction: prefer explicit defaultJurisdiction, fall back to parsing jurisdictionPrompt text
+  const resolvedJurisdiction = typeof defaultJurisdiction === "string" ? defaultJurisdiction
+    : typeof jurisdictionPrompt === "string" ? parseJurisdictionCode(jurisdictionPrompt) : undefined;
+
   const legalSearchPromise = !privacyMode
-    ? searchLegalDatabases(userMessage, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined).catch(() => ({ cases: [], databases_searched: [], offline: false, wikiSummary: undefined }))
+    ? searchLegalDatabases(userMessage, resolvedJurisdiction || undefined).catch(() => ({ cases: [], databases_searched: [], offline: false, wikiSummary: undefined }))
     : Promise.resolve({ cases: [] as LegalCase[], databases_searched: [] as string[], offline: false, wikiSummary: undefined as string | undefined });
+
+  // RAG retrieval — semantic search over user documents + memory (non-blocking)
+  type RagResult = [Awaited<ReturnType<typeof retrieveRelevantChunks>>, Awaited<ReturnType<typeof retrieveMatterMemory>>, Awaited<ReturnType<typeof retrieveUserMemory>>];
+  const emptyRag: RagResult = [[], [], []];
+  const ragPromise: Promise<RagResult> = authenticatedUserId
+    ? (Promise.all([
+        retrieveRelevantChunks({ query: userMessage, userId: authenticatedUserId, matterId, topK: 5 }),
+        matterId ? retrieveMatterMemory({ query: userMessage, matterId, topK: 5 }) : Promise.resolve([]),
+        retrieveUserMemory({ query: userMessage, userId: authenticatedUserId, topK: 3 }),
+      ]) as Promise<RagResult>).catch(() => emptyRag)
+    : Promise.resolve(emptyRag);
   const legalResults = await legalSearchPromise;
+  const [ragChunks, matterMemories, userMemories] = await ragPromise;
+  const ragContext = formatRetrievedContext(ragChunks, matterMemories, userMemories);
   const ragResultCount = legalResults.cases?.length || 0;
   const tavilyEnabled = shouldSearch && tavilyIsWarranted(userMessage, ragResultCount);
   const webSearchPromise = tavilyEnabled
@@ -309,7 +330,7 @@ export async function POST(req: Request) {
     ? `\n\n## Legal Concept Background\n${legalResults.wikiSummary}`
     : "";
 
-  let systemMessage = `${finalSystemPrompt}${documentPreamble}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}${citationContext}`;
+  let systemMessage = `${finalSystemPrompt}${documentPreamble}${ragContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}${citationContext}`;
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },
@@ -351,6 +372,13 @@ export async function POST(req: Request) {
           legalResults,
         });
         recordUsageForProvider(req, anthropicModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
+        // Fire-and-forget memory extraction for Anthropic path
+        if (authenticatedUserId) {
+          const memApiKey = getConfiguredApiKey("CLAUDEOPUS_API_KEY");
+          if (memApiKey) {
+            extractAndSaveMemories({ userId: authenticatedUserId, matterId, userMessage, lexResponse: "(streaming)", claudeOpusApiKey: memApiKey, baseUrl: getAnthropicBaseUrl() }).catch(() => {});
+          }
+        }
         return anthropicResponse;
       } catch (anthropicErr) {
         console.error(`[Anthropic] ${anthropicModel} failed, trying next Lex tier`, anthropicErr);
@@ -629,6 +657,22 @@ export async function POST(req: Request) {
     }
     recordUsageForProvider(req, activeModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
     clearChatTimeout();
+
+    // Fire-and-forget memory extraction
+    if (authenticatedUserId) {
+      const memApiKey = getConfiguredApiKey("CLAUDEOPUS_API_KEY");
+      if (memApiKey) {
+        extractAndSaveMemories({
+          userId: authenticatedUserId,
+          matterId,
+          userMessage,
+          lexResponse: "(streaming — response not captured)",
+          claudeOpusApiKey: memApiKey,
+          baseUrl: getAnthropicBaseUrl(),
+        }).catch(() => {});
+      }
+    }
+
     return new Response(stream, { headers: responseHeaders });
   } catch (primaryError) {
     clearChatTimeout();
