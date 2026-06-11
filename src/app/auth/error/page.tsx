@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function AuthErrorPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--bg)]">
@@ -7,12 +9,12 @@ export default function AuthErrorPage() {
         <p className="mt-2 text-sm text-[var(--text-muted)]">
           We couldn&apos;t complete your sign-in. Please try again.
         </p>
-        <a
+        <Link
           href="/"
           className="mt-6 inline-block text-xs text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
         >
           Return to sign in
-        </a>
+        </Link>
       </div>
     </div>
   );
