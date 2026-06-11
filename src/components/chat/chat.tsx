@@ -786,6 +786,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setLoadingSubmit(true);
     beginThinking(shouldDirectStreamLexMax);
     setThinkingMessageId(userMessage.id);
+    // Read user profile from localStorage for personalization
+    let userProfile: { name?: string; firm?: string; jurisdiction?: string } | undefined;
+    try {
+      const stored = localStorage.getItem("vaultr_user_profile");
+      if (stored) userProfile = JSON.parse(stored);
+    } catch { /* ignore */ }
+
     const requestPayload = {
       messages: nextMessages,
       selectedModel: usePrivacyMode ? selectedModel : selectedModel || ANTHROPIC_CORE_MODEL,
@@ -801,6 +808,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       defaultJurisdiction,
       directStream: shouldDirectStreamLexMax,
       ...(base64Images ? { data: { images: base64Images } } : {}),
+      ...(userProfile?.name ? { userProfile } : {}),
     };
 
     setInput("");

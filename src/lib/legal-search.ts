@@ -40,7 +40,7 @@ async function searchCourtListener(query: string): Promise<LegalCase[]> {
   try {
     const response = await fetch(
       `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(query)}&type=o&format=json&page_size=3&semantic=true`,
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(3000) }
     );
     if (!response.ok) return [];
     const data = await response.json();
@@ -70,7 +70,7 @@ async function searchCaseLaw(query: string): Promise<LegalCase[]> {
     if (capApiKey) headers["Authorization"] = `Token ${capApiKey}`;
     const response = await fetch(
       `https://api.case.law/v1/cases/?search=${encodeURIComponent(query)}&page_size=3`,
-      { signal: AbortSignal.timeout(8000), headers }
+      { signal: AbortSignal.timeout(3000), headers }
     );
     if (!response.ok) return [];
     const data = await response.json();
@@ -102,7 +102,7 @@ async function searchEurLex(query: string): Promise<LegalCase[]> {
   try {
     const response = await fetch(
       `https://eur-lex.europa.eu/search.html?qid=1&text=${encodeURIComponent(query)}&scope=EURLEX&type=quick&lang=en&andText0=&withinCorpus=EURLEX&DTS_SUBDOM=EU_CASE_LAW&format=json`,
-      { signal: AbortSignal.timeout(8000) }
+      { signal: AbortSignal.timeout(3000) }
     );
     if (!response.ok) return [];
     const data = await response.json();
@@ -137,7 +137,7 @@ async function searchIndianKanoon(query: string): Promise<LegalCase[]> {
       {
         method: "POST",
         headers: { Authorization: "Token " },
-        signal: AbortSignal.timeout(8000),
+        signal: AbortSignal.timeout(3000),
       }
     );
     if (!response.ok) return [];
@@ -180,7 +180,7 @@ async function tavilyJurisdictionSearch(
         max_results: 5,
         include_domains: includeDomains,
       }),
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(3000),
     });
     if (!response.ok) return [];
     const data = await response.json();
@@ -391,9 +391,14 @@ export async function searchLegalDatabases(
 
   const wikiSummary = await fetchWikipediaSummary(safeQuery);
 
-  const results = await Promise.allSettled(
-    dbKeysToSearch.map((key) => dbMap[key]?.(safeQuery) ?? Promise.resolve([]))
-  );
+  const results = await Promise.race([
+    Promise.allSettled(
+      dbKeysToSearch.map((key) => dbMap[key]?.(safeQuery) ?? Promise.resolve([]))
+    ),
+    new Promise<PromiseSettledResult<LegalCase[]>[]>((_, reject) =>
+      setTimeout(() => reject(new Error("RAG_TIMEOUT")), 4000)
+    ),
+  ]).catch(() => [] as PromiseSettledResult<LegalCase[]>[]);
 
   const allCases: LegalCase[] = [];
   results.forEach((result) => {

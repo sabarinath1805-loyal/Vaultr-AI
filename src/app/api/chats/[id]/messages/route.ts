@@ -28,7 +28,16 @@ export async function POST(
       return NextResponse.json({ error: "Invalid chat ID format" }, { status: 400 });
     }
 
-    const body = await req.json();
+    const text = await req.text();
+    if (!text?.trim()) {
+      return NextResponse.json({ error: "Empty request body" }, { status: 400 });
+    }
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
     if (body.role !== "user" && body.role !== "assistant") {
       return NextResponse.json({ error: "Invalid message role" }, { status: 400 });
@@ -42,7 +51,7 @@ export async function POST(
     }
 
     // Sanitize content and validate length
-    const content = sanitizeString(body.content, MAX_MESSAGE_LENGTH);
+    const content = sanitizeString(body.content as string, MAX_MESSAGE_LENGTH);
     if (!content) {
       return NextResponse.json(
         { error: "Message content is required" },
@@ -56,13 +65,13 @@ export async function POST(
     const message = addMessage(
       id,
       {
-        role: body.role,
+        role: body.role as "user" | "assistant",
         content,
         createdAt:
           typeof body.createdAt === "number"
             ? body.createdAt
             : typeof body.createdAt === "string"
-              ? Math.floor(new Date(body.createdAt).getTime() / 1000)
+              ? Math.floor(new Date(body.createdAt as string).getTime() / 1000)
               : undefined,
       },
       userId // Pass ownerId for ownership validation
@@ -99,7 +108,16 @@ export async function PUT(
       return NextResponse.json({ error: "Invalid chat ID format" }, { status: 400 });
     }
 
-    const body = await req.json();
+    const putText = await req.text();
+    if (!putText?.trim()) {
+      return NextResponse.json({ error: "Empty request body" }, { status: 400 });
+    }
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(putText) as Record<string, unknown>;
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
 
     if (!Array.isArray(body.messages)) {
       return NextResponse.json({ error: "Messages are required" }, { status: 400 });

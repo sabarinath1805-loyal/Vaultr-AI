@@ -6,6 +6,8 @@ import {
   Briefcase,
   Calendar,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Download,
   FileText,
@@ -53,6 +55,7 @@ import {
 } from "@/lib/matters";
 import { parseScanReportContent, type ScanReportEntry } from "@/lib/scan-reports";
 import { generateUUID } from "@/lib/utils";
+import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import { toast } from "sonner";
 
 /* ------------------------------------------------------------------ */
@@ -78,6 +81,133 @@ const STATUS_COLOURS: Record<MatterStatus, string> = {
   Closed: "bg-gray-200 text-gray-700",
   Archived: "bg-gray-100 text-gray-500",
 };
+
+/* ------------------------------------------------------------------ */
+/*  Currency helper (BUG 8)                                            */
+/* ------------------------------------------------------------------ */
+
+function getCurrencyForJurisdiction(jurisdiction?: string): string {
+  const map: Record<string, string> = {
+    sg: "SGD", uk: "GBP", au: "AUD", us: "USD",
+    eu: "EUR", in: "INR", ca: "CAD", my: "MYR",
+  };
+  try {
+    const profile = JSON.parse(localStorage.getItem("vaultr_user_profile") || "{}");
+    return map[profile.jurisdiction] || (jurisdiction ? map[jurisdiction] : undefined) || "USD";
+  } catch {
+    return "SGD";
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Inline calendar component (BUG 7)                                  */
+/* ------------------------------------------------------------------ */
+
+function BillingCalendar({ value, onChange }: { value: string; onChange: (date: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const today = new Date();
+  const parsed = value ? new Date(value + "T00:00:00") : today;
+  const [viewYear, setViewYear] = useState(parsed.getFullYear());
+  const [viewMonth, setViewMonth] = useState(parsed.getMonth());
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
+  const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate();
+
+  const dayNames = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+  const selectDate = (day: number) => {
+    const m = String(viewMonth + 1).padStart(2, "0");
+    const d = String(day).padStart(2, "0");
+    onChange(`${viewYear}-${m}-${d}`);
+    setOpen(false);
+  };
+
+  const prevMonth = () => {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear((y) => y - 1); }
+    else setViewMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (viewMonth === 11) { setViewMonth(0); setViewYear((y) => y + 1); }
+    else setViewMonth((m) => m + 1);
+  };
+
+  const monthLabel = new Date(viewYear, viewMonth).toLocaleString("default", { month: "long", year: "numeric" });
+  const isToday = (day: number) =>
+    viewYear === today.getFullYear() && viewMonth === today.getMonth() && day === today.getDate();
+  const isSelected = (day: number) => value === `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none hover:bg-[var(--surface)]"
+      >
+        <Calendar className="h-3 w-3 text-[var(--text-muted)]" />
+        {value || "Pick date"}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-4 shadow-lg">
+          <div className="mb-3 flex items-center justify-between">
+            <button type="button" onClick={prevMonth} className="rounded p-1 hover:bg-[var(--hover)]">
+              <ChevronLeft className="h-4 w-4 text-[var(--text-muted)]" />
+            </button>
+            <span className="text-base font-medium text-[var(--text)]" style={{ fontFamily: "'Instrument Serif', serif" }}>
+              {monthLabel}
+            </span>
+            <button type="button" onClick={nextMonth} className="rounded p-1 hover:bg-[var(--hover)]">
+              <ChevronRight className="h-4 w-4 text-[var(--text-muted)]" />
+            </button>
+          </div>
+          <div className="mb-1 grid grid-cols-7 gap-0">
+            {dayNames.map((d) => (
+              <div key={d} className="flex h-8 items-center justify-center text-xs uppercase tracking-wide text-[var(--text-muted)]">
+                {d}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-0">
+            {Array.from({ length: firstDayOfWeek }).map((_, i) => (
+              <div key={`prev-${i}`} className="flex h-8 w-8 items-center justify-center text-sm text-[var(--text-faint)] opacity-40">
+                {prevMonthDays - firstDayOfWeek + 1 + i}
+              </div>
+            ))}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => selectDate(day)}
+                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg text-sm transition-colors ${
+                    isSelected(day)
+                      ? "bg-[#5c5248] text-white"
+                      : "cursor-pointer text-[var(--text)] hover:bg-[var(--hover)]"
+                  }`}
+                >
+                  {day}
+                  {isToday(day) && !isSelected(day) && (
+                    <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-[#5c5248]" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Page component                                                     */
@@ -353,7 +483,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
 
   const exportBillingCSV = () => {
     if (!matter) return;
-    const csv = billingToCSV(matter.billingEntries, matter.name);
+    const csv = billingToCSV(matter.billingEntries, matter.name, getCurrencyForJurisdiction(matter.jurisdiction));
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -431,7 +561,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
     setExtractDatesLoading(true);
     try {
       const docContext = linkedDocuments.map((d) => `${d.filename}: ${d.content?.slice(0, 3000) || "(no text extracted)"}`).join("\n\n");
-      const prompt = `Extract all key dates from these legal documents. Return ONLY a JSON array of objects with fields: label (string), date (YYYY-MM-DD), description (string). Dates include hearings, filing deadlines, limitation periods, contract dates, etc.\n\nDocuments:\n${docContext}`;
+      const prompt = `Extract only legally significant dates from this document — court dates, filing deadlines, contract execution dates, hearing dates, judgment dates, limitation periods, signing dates. Do NOT extract: file size, page count, word count, byte counts, or any numerical values that are not actual calendar dates. Return ONLY a JSON array of objects with fields: label (string), date (YYYY-MM-DD), description (string).\n\nDocuments:\n${docContext}`;
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -530,7 +660,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
     setDraftTimelineLoading(true);
     try {
       const docContext = linkedDocuments.map((d) => `${d.filename}: ${d.content?.slice(0, 3000) || "(no text extracted)"}`).join("\n\n");
-      const prompt = `Create a chronological timeline of events described in these legal documents. Format each entry as: DATE — EVENT DESCRIPTION. Be concise and factual.\n\nMatter: ${matter.name}\nDocuments:\n${docContext}`;
+      const prompt = `You are a legal AI assistant. Based on the matter details and documents provided, draft a chronological timeline of key events. Format as a numbered list: [Date] — [Event] — [Legal significance]. Only include actual legal events — not document metadata like file size or page count. Be concise and precise.\n\nMatter: ${matter.name}\nDocuments:\n${docContext}`;
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -541,7 +671,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
       const lines = text.split("\n").filter((l) => l.startsWith("0:"));
       const content = lines.map((l) => JSON.parse(l.slice(2))).join("");
       if (content.trim()) {
-        setDraftTimelineResult(content);
+        setDraftTimelineResult(stripAssistantMarkup(content));
         toast.success("Timeline draft ready");
       } else {
         toast.error("Could not generate timeline from documents");
@@ -1268,7 +1398,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
               <div className="flex flex-wrap items-center gap-4 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-4">
                 <div>
                   <div className="text-xs text-[var(--text-muted)]">Total Fees</div>
-                  <div className="text-xl font-medium text-[var(--text)]">${totalBillingFees(matter.billingEntries).toFixed(2)}</div>
+                  <div className="text-xl font-medium text-[var(--text)]">{getCurrencyForJurisdiction(matter.jurisdiction)} {totalBillingFees(matter.billingEntries).toFixed(2)}</div>
                 </div>
                 <div>
                   <div className="text-xs text-[var(--text-muted)]">Total Hours</div>
@@ -1283,7 +1413,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
             <div className="rounded-[var(--radius-md)] border border-[var(--border)] p-4">
               <div className="text-xs font-medium text-[var(--text-muted)]">Log Time Entry</div>
               <div className="mt-2 flex flex-wrap gap-2">
-                <input type="date" value={billingForm.date} onChange={(e) => setBillingForm({ ...billingForm, date: e.target.value })} className="rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
+                <BillingCalendar value={billingForm.date} onChange={(date) => setBillingForm({ ...billingForm, date })} />
                 <input value={billingForm.description} onChange={(e) => setBillingForm({ ...billingForm, description: e.target.value })} placeholder="Description" className="min-w-[200px] flex-1 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
                 <input type="number" step="0.1" value={billingForm.hours} onChange={(e) => setBillingForm({ ...billingForm, hours: e.target.value })} placeholder="Hours" className="w-20 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
                 <input type="number" step="1" value={billingForm.rate} onChange={(e) => setBillingForm({ ...billingForm, rate: e.target.value })} placeholder="Rate" className="w-28 rounded-[var(--radius-sm)] border border-[var(--border)] px-2 py-1.5 text-xs text-[var(--text)] outline-none" />
@@ -1310,8 +1440,8 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
                     <div className="text-[var(--text-muted)]">{entry.date}</div>
                     <div className="text-[var(--text)]">{entry.description}</div>
                     <div className="text-[var(--text-muted)]">{entry.hours}h</div>
-                    <div className="text-[var(--text-muted)]">${entry.rate}</div>
-                    <div className="font-medium text-[var(--text)]">${(entry.hours * entry.rate).toFixed(2)}</div>
+                    <div className="text-[var(--text-muted)]">{getCurrencyForJurisdiction(matter.jurisdiction)} {entry.rate}</div>
+                    <div className="font-medium text-[var(--text)]">{getCurrencyForJurisdiction(matter.jurisdiction)} {(entry.hours * entry.rate).toFixed(2)}</div>
                     <div>
                       <button type="button" onClick={() => removeBillingEntry(entry.id)} className="p-1 text-[var(--text-faint)] hover:text-[var(--danger)]">
                         <Trash2 className="h-3 w-3" />
@@ -1345,7 +1475,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
         emptyMessage="No chat history found."
         onClose={() => setChatPickerOpen(false)}
       >
-        {Object.values(chats).map((chat) => (
+        {Object.values(chats ?? {}).map((chat) => (
           <button
             key={chat.id}
             type="button"
