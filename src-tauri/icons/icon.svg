@@ -1,9 +1,10 @@
 <svg viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
-  <rect width="1024" height="1024" rx="200" fill="#0c0c0c"/>
+  <rect width="1024" height="1024" fill="transparent"/>
+  <rect x="40" y="40" width="944" height="944" rx="220" fill="#0c0c0c"/>
   <g transform="translate(512,512)" fill="#ffffff">
-    <rect x="-22" y="-300" width="44" height="600" rx="22"/>
-    <rect x="-300" y="-22" width="600" height="44" rx="22"/>
-    <rect x="-22" y="-300" width="44" height="600" rx="22" transform="rotate(45)"/>
-    <rect x="-22" y="-300" width="44" height="600" rx="22" transform="rotate(-45)"/>
+    <rect x="-22" y="-360" width="44" height="720" rx="22"/>
+    <rect x="-360" y="-22" width="720" height="44" rx="22"/>
+    <rect x="-22" y="-360" width="44" height="720" rx="22" transform="rotate(45)"/>
+    <rect x="-22" y="-360" width="44" height="720" rx="22" transform="rotate(-45)"/>
   </g>
 </svg>
