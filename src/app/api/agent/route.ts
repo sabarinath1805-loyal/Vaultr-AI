@@ -7,7 +7,7 @@
  * Steps: parse → matter → search → fetch → tavily → synthesise → draft
  */
 
-import { searchLegalDatabases, formatCasesForContext } from "@/lib/legal-search";
+import { searchLegalDatabases, formatCasesForContext, tavilyIsWarranted } from "@/lib/legal-search";
 import { resolveCitation } from "@/lib/citation-resolver";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
 import { getSessionUser, isBetaUser, isSupabaseConfigured } from "@/lib/supabase";
@@ -61,15 +61,7 @@ interface WebResult {
   content: string;
 }
 
-function tavilyIsWarranted(message: string): boolean {
-  const normalized = message.toLowerCase();
-  const recencySignals = [
-    /\brecent(ly)?\b/i, /\blatest\b/i, /\bcurrent(ly)?\b/i, /\btoday\b/i,
-    /\b20(2[3-9]|[3-9]\d)\b/, /\bnew\b/i, /\bupdate[ds]?\b/i,
-    /\bbreaking\b/i, /\bnews\b/i, /\btrend/i,
-  ];
-  return recencySignals.some((r) => r.test(normalized));
-}
+// tavilyIsWarranted is re-exported from @/lib/legal-search
 
 async function tavilySearch(
   query: string,

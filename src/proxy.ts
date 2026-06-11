@@ -1,5 +1,7 @@
 /**
- * Next.js middleware — central security gate for the Vaultr API.
+ * Next.js proxy — central security gate for the Vaultr API. (Renamed from
+ * `middleware.ts` in Next.js 16 — the `middleware` file convention is
+ * deprecated. The export function name changed from `middleware` to `proxy`.)
  *
  * Behavior:
  * - When Supabase is configured, every /api/* route (except a small allow-list
@@ -29,7 +31,7 @@ interface RateEntry {
   resetAt: number;
 }
 
-// In-memory rate-limit store (per middleware worker). 5000-entry LRU cap with
+// In-memory rate-limit store (per proxy worker). 5000-entry LRU cap with
 // periodic sweep on the read path is acceptable here because the Map only
 // holds active windows; the cap is the real safety net.
 const rateStore = new Map<string, RateEntry>();
@@ -84,7 +86,7 @@ function applySecurityHeaders(res: NextResponse): NextResponse {
   return res;
 }
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   if (!pathname.startsWith("/api/")) {
     return applySecurityHeaders(NextResponse.next());

@@ -55,7 +55,7 @@ const nextConfig = {
       },
     ];
   },
-  webpack: (config, { isServer, dev }) => {
+  webpack: async (config, { isServer, dev }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -73,7 +73,24 @@ const nextConfig = {
         removeEmptyChunks: false,
       };
     }
+
+    // Bundle analyzer — opt-in via `ANALYZE=true pnpm build`
+    if (process.env.ANALYZE === "true" && !isServer) {
+      try {
+        const { BundleAnalyzerPlugin } = await import("webpack-bundle-analyzer");
+        config.plugins = config.plugins || [];
+        config.plugins.push(
+          new BundleAnalyzerPlugin({ analyzerMode: "static" })
+        );
+      } catch {
+        // webpack-bundle-analyzer is optional — skip silently when not installed
+      }
+    }
+
     return config;
+  },
+  experimental: {
+    optimizePackageImports: ["lucide-react", "@supabase/supabase-js"],
   },
   typescript: {
     ignoreBuildErrors: true,
