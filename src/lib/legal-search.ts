@@ -247,7 +247,7 @@ async function fetchWikipediaSummary(query: string): Promise<string> {
 
 // ─── Jurisdiction detection ───────────────────────────────────────────────
 
-const JURISDICTION_DB_PRIORITY: Record<string, string[]> = {
+export const JURISDICTION_DB_PRIORITY: Record<string, string[]> = {
   us: ["courtlistener", "caselaw"],
   uk: ["uklaw_tavily", "courtlistener"],
   au: ["aulaw_tavily", "courtlistener"],
@@ -276,7 +276,7 @@ const JURISDICTION_KEYWORDS: { pattern: RegExp; code: string }[] = [
   { pattern: /\b(?:canada|canadian|scc|onca|bcca|ontario|alberta)\b/i, code: "ca" },
 ];
 
-function detectJurisdiction(query: string): string | undefined {
+export function detectJurisdiction(query: string): string | undefined {
   const lower = query.toLowerCase();
   for (const { pattern, code } of JURISDICTION_KEYWORDS) {
     if (pattern.test(lower)) return code;
@@ -441,6 +441,45 @@ export async function searchLegalDatabases(
   }
 
   return result;
+}
+
+/**
+ * Smarter Tavily/web-search triggering: only fire when the query suggests
+ * recency, current status, news, or when the RAG corpus came back empty.
+ */
+export function tavilyIsWarranted(message: string, ragResultCount: number = 0): boolean {
+  const normalized = message.toLowerCase();
+
+  // Date / recency signals
+  const dateSignals = [
+    /\brecent(ly)?\b/i,
+    /\blatest\b/i,
+    /\bcurrent(ly)?\b/i,
+    /\b2024\b/,
+    /\b2025\b/,
+    /\b2026\b/,
+    /\btoday\b/i,
+    /\bthis (week|month|year)\b/i,
+    /\bupdated\b/i,
+    /\bnew(ly)?\b/i,
+  ];
+  if (dateSignals.some((pattern) => pattern.test(normalized))) return true;
+
+  // News / regulatory development signals
+  const newsSignals = [
+    /\bnews\b/i,
+    /\bannounce(ment|d|d)?\b/i,
+    /\bregulator(?!y obligation)/i,
+    /\b(enforcement|investigation|raid|probe|settlement)\b/i,
+    /\b(latest|recent|current) (case|law|regulation|statute|rule|guidance|directive)\b/i,
+    /\b(amend(ment|ed)?|repeal(led)?)\b/i,
+  ];
+  if (newsSignals.some((pattern) => pattern.test(normalized))) return true;
+
+  // RAG returned too few cases — web search may fill the gap
+  if (ragResultCount < 3) return true;
+
+  return false;
 }
 
 // Format cases for injection into Lex's context window

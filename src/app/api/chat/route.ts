@@ -27,7 +27,7 @@ import {
   stripAssistantStreamChunk,
 } from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
-import { searchLegalDatabases, formatCasesForContext, parseJurisdictionCode, type LegalCase } from "@/lib/legal-search";
+import { searchLegalDatabases, formatCasesForContext, parseJurisdictionCode, tavilyIsWarranted, type LegalCase } from "@/lib/legal-search";
 import { retrieveRelevantChunks, retrieveMatterMemory, retrieveUserMemory, formatRetrievedContext } from "@/lib/rag-retrieve";
 import { extractAndSaveMemories } from "@/lib/rag-memory";
 
@@ -1534,41 +1534,9 @@ function shouldUseWebSearch(message: string) {
  * recency, current status, news, or when the RAG corpus came back empty.
  * Avoids the previous "Tavily on every message" behaviour that added 1-3s
  * of latency for simple doctrinal questions.
+ * (Implementation lives in @/lib/legal-search so it can be unit-tested.)
  */
-function tavilyIsWarranted(message: string, ragResultCount: number): boolean {
-  const normalized = message.toLowerCase();
-
-  // Date / recency signals
-  const dateSignals = [
-    /\brecent(ly)?\b/i,
-    /\blatest\b/i,
-    /\bcurrent(ly)?\b/i,
-    /\b2024\b/,
-    /\b2025\b/,
-    /\b2026\b/,
-    /\btoday\b/i,
-    /\bthis (week|month|year)\b/i,
-    /\bupdated\b/i,
-    /\bnew(ly)?\b/i,
-  ];
-  if (dateSignals.some((pattern) => pattern.test(normalized))) return true;
-
-  // News / regulatory development signals
-  const newsSignals = [
-    /\bnews\b/i,
-    /\bannounce(ment|d|d)?\b/i,
-    /\bregulator(?!y obligation)/i,
-    /\b(enforcement|investigation|raid|probe|raid|settlement)\b/i,
-    /\b(latest|recent|current) (case|law|regulation|statute|rule|guidance|directive)\b/i,
-    /\b(amend(ment|ed)?|repeal(led)?)\b/i,
-  ];
-  if (newsSignals.some((pattern) => pattern.test(normalized))) return true;
-
-  // RAG returned too few cases — web search may fill the gap
-  if (ragResultCount < 3) return true;
-
-  return false;
-}
+// tavilyIsWarranted is re-exported from @/lib/legal-search
 
 const tokenFlushState: WeakMap<
   ReadableStreamDefaultController<Uint8Array>,
