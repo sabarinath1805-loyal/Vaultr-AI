@@ -43,6 +43,12 @@ export async function requireAuth(req: Request): Promise<{ userId: string; email
   }
 
   const authHeader = req.headers.get("authorization");
+
+  // TODO: remove dev bypass before beta launch
+  if (process.env.NODE_ENV === "development" && !authHeader) {
+    return { userId: "00000000-0000-0000-0000-000000000001", email: "dev@vaultr.local" };
+  }
+
   const user = await getSessionUser(authHeader);
 
   if (!user || !user.id) {
