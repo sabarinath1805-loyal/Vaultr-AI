@@ -1,24 +1,26 @@
 /**
- * Agent Mode API Route
+ * Agent Mode v2 API Route
  *
- * Performs multi-step legal research: extracts sub-tasks, searches legal
- * databases, runs web search, resolves citations, then synthesises a
- * structured response.
+ * 7-step internal pipeline using Fable 5 (claude-fable-5) as the core
+ * reasoning engine. Emits SSE progress events for the step tracker UI.
  *
- * When HERMES_API_KEY is set, the entire orchestration is delegated to the
- * Hermes gateway.  When it is absent an internal pipeline runs locally.
+ * Steps: parse → matter → search → fetch → tavily → synthesise → draft
  */
 
 import { searchLegalDatabases, formatCasesForContext } from "@/lib/legal-search";
 import { resolveCitation } from "@/lib/citation-resolver";
-import { isHermesConfigured, runHermesAgent } from "@/lib/hermes";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
 import { getSessionUser, isBetaUser, isSupabaseConfigured } from "@/lib/supabase";
 import { checkRateLimit, recordUsage } from "@/lib/rate-limit";
-import { ANTHROPIC_CORE_MODEL } from "@/lib/models";
+import { ANTHROPIC_MAX_MODEL, ANTHROPIC_ULTRA_MODEL } from "@/lib/models";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const AGENT_MODEL = ANTHROPIC_MAX_MODEL; // claude-fable-5
+const FALLBACK_MODEL = ANTHROPIC_ULTRA_MODEL; // claude-opus-4-8
+const PIPELINE_TIMEOUT_MS = 60_000;
+const AGENT_RATE_LIMIT_PER_HOUR = 10;
 
 /* ------------------------------------------------------------------ */
 /*  Streaming helpers                                                  */
@@ -26,19 +28,18 @@ export const dynamic = "force-dynamic";
 
 const encoder = new TextEncoder();
 
-/** Encode a text chunk in Vercel AI Data-Stream v1 format. */
-function encodeDataStreamText(text: string): Uint8Array {
+function encodeText(text: string): Uint8Array {
   return encoder.encode(`0:${JSON.stringify(text)}\n`);
 }
 
-/** Send an agent step marker that the client can display as progress. */
-function encodeAgentStep(step: string): Uint8Array {
-  // Encode as a special data annotation the client can detect
-  return encoder.encode(`2:${JSON.stringify([{ type: "agent_step", step }])}\n`);
+function encodeProgress(step: string, status: "active" | "done"): Uint8Array {
+  return encoder.encode(
+    `2:${JSON.stringify([{ type: "agent_step", step, status }])}\n`
+  );
 }
 
 /* ------------------------------------------------------------------ */
-/*  Tavily web search (duplicated light version from chat route)       */
+/*  Tavily web search                                                  */
 /* ------------------------------------------------------------------ */
 
 interface WebResult {
@@ -47,7 +48,20 @@ interface WebResult {
   content: string;
 }
 
-async function tavilySearch(query: string): Promise<{ answer?: string; results: WebResult[] }> {
+function tavilyIsWarranted(message: string): boolean {
+  const normalized = message.toLowerCase();
+  const recencySignals = [
+    /\brecent(ly)?\b/i, /\blatest\b/i, /\bcurrent(ly)?\b/i, /\btoday\b/i,
+    /\b20(2[3-9]|[3-9]\d)\b/, /\bnew\b/i, /\bupdate[ds]?\b/i,
+    /\bbreaking\b/i, /\bnews\b/i, /\btrend/i,
+  ];
+  return recencySignals.some((r) => r.test(normalized));
+}
+
+async function tavilySearch(
+  query: string,
+  signal: AbortSignal
+): Promise<{ answer?: string; results: WebResult[] }> {
   const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
   if (!apiKey?.trim()) return { results: [] };
 
@@ -63,7 +77,7 @@ async function tavilySearch(query: string): Promise<{ answer?: string; results: 
         include_raw_content: false,
         max_results: 5,
       }),
-      signal: AbortSignal.timeout(15000),
+      signal,
     });
     if (!response.ok) return { results: [] };
     const data = await response.json();
@@ -77,120 +91,213 @@ async function tavilySearch(query: string): Promise<{ answer?: string; results: 
 }
 
 /* ------------------------------------------------------------------ */
-/*  Internal agent pipeline                                            */
+/*  LLM call helper                                                    */
 /* ------------------------------------------------------------------ */
 
-async function runInternalPipeline(
-  message: string,
-  jurisdiction: string | undefined,
+async function callFable5(
+  systemPrompt: string,
+  userMessage: string,
   model: string,
-  controller: ReadableStreamDefaultController<Uint8Array>,
-  abortSignal: AbortSignal
-) {
-  // Step 1 — Analyse task
-  controller.enqueue(encodeAgentStep("Analysing task..."));
-  // Give the client a moment to render the step
-  await new Promise((r) => setTimeout(r, 200));
-
-  // Step 2 — Search legal databases
-  controller.enqueue(encodeAgentStep("Searching legal databases..."));
-  const legalResults = await searchLegalDatabases(message, jurisdiction).catch(() => ({
-    cases: [] as { title: string; citation: string; year: string; jurisdiction: string; court: string; summary: string; url: string; source: string }[],
-    databases_searched: [] as string[],
-    offline: false,
-    wikiSummary: undefined as string | undefined,
-  }));
-  const casesContext = formatCasesForContext(legalResults.cases, 5);
-
-  if (abortSignal.aborted) return;
-
-  // Step 3 — Fetch case law via Tavily
-  controller.enqueue(encodeAgentStep("Fetching case law..."));
-  const webSearch = await tavilySearch(`${message} law legal`);
-
-  // Try to resolve the top cited case for extra depth
-  let citationExcerpt = "";
-  if (legalResults.cases.length > 0) {
-    const topCase = legalResults.cases[0];
-    const excerpt = await resolveCitation(topCase.title).catch(() => null);
-    if (excerpt) {
-      citationExcerpt = `\n\n## Citation Excerpt — ${topCase.title}\n${excerpt.slice(0, 2000)}`;
-    }
-  }
-
-  if (abortSignal.aborted) return;
-
-  // Step 4 — Synthesise findings
-  controller.enqueue(encodeAgentStep("Synthesising findings..."));
-
-  // Build a comprehensive system prompt with all gathered context
-  let systemMessage = `You are Lex Agent, Vaultr's deep legal research assistant. A lawyer has asked you to research a topic. You have already searched legal databases and the web. Synthesise ALL of the following context into a comprehensive, well-structured response.\n\nRespond with:\n1. A one-paragraph executive summary\n2. Key legal provisions and cases found\n3. Analysis of how they apply\n4. Open questions or areas requiring further research\n5. Recommended next steps\n\nCite all cases and statutes by their proper names.`;
-
-  if (casesContext) {
-    systemMessage += `\n${casesContext}`;
-  }
-  if (legalResults.wikiSummary) {
-    systemMessage += `\n\n## Legal Context\n${legalResults.wikiSummary}`;
-  }
-  if (webSearch.answer) {
-    systemMessage += `\n\n## Web Search Summary\n${webSearch.answer}`;
-  }
-  if (webSearch.results.length > 0) {
-    systemMessage += `\n\n## Web Sources\n${webSearch.results
-      .slice(0, 5)
-      .map((r) => `- ${r.title}: ${r.content?.slice(0, 300) || ""}`)
-      .join("\n")}`;
-  }
-  if (citationExcerpt) {
-    systemMessage += citationExcerpt;
-  }
-  if (jurisdiction) {
-    systemMessage += `\n\nFocus on ${jurisdiction.toUpperCase()} jurisdiction where possible.`;
-  }
-
-  if (abortSignal.aborted) return;
-
-  // Step 5 — Draft response (stream from LLM)
-  controller.enqueue(encodeAgentStep("Drafting response..."));
-
+  signal: AbortSignal,
+  stream: false
+): Promise<string>;
+async function callFable5(
+  systemPrompt: string,
+  userMessage: string,
+  model: string,
+  signal: AbortSignal,
+  stream: true
+): Promise<Response>;
+async function callFable5(
+  systemPrompt: string,
+  userMessage: string,
+  model: string,
+  signal: AbortSignal,
+  stream: boolean
+): Promise<string | Response> {
   const apiKey = getConfiguredApiKey("CLAUDEOPUS_API_KEY");
-  if (!apiKey) {
-    // No API key — return a mock/placeholder response
-    const placeholder = buildPlaceholderResponse(message, legalResults, webSearch);
-    controller.enqueue(encodeDataStreamText(placeholder));
-    return;
-  }
+  if (!apiKey) throw new Error("CLAUDEOPUS_API_KEY not configured");
 
-  // Stream from Claude
   const baseUrl = process.env.ANTHROPIC_BASE_URL || "https://api.claudeopus.pro";
-  const maxTokens = 8192;
-
   const response = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${apiKey}`,
     },
-    signal: abortSignal,
+    signal,
     body: JSON.stringify({
       model,
-      stream: true,
-      max_tokens: maxTokens,
+      stream,
+      max_tokens: stream ? 8192 : 2048,
       messages: [
-        { role: "system", content: systemMessage },
-        { role: "user", content: message },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
       ],
     }),
   });
 
-  if (!response.ok || !response.body) {
-    // Fallback to placeholder on error
+  if (!response.ok) {
+    throw new Error(`LLM error: ${response.status}`);
+  }
+
+  if (stream) return response;
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "";
+}
+
+/* ------------------------------------------------------------------ */
+/*  Agent pipeline                                                     */
+/* ------------------------------------------------------------------ */
+
+type LegalCase = {
+  title: string;
+  citation: string;
+  year: string;
+  jurisdiction: string;
+  court: string;
+  summary: string;
+  url: string;
+  source: string;
+};
+
+async function runAgentPipeline(
+  message: string,
+  jurisdiction: string | undefined,
+  controller: ReadableStreamDefaultController<Uint8Array>,
+  signal: AbortSignal
+) {
+  let extractedQuery = message;
+  let detectedJurisdiction = jurisdiction;
+  const apiKey = getConfiguredApiKey("CLAUDEOPUS_API_KEY");
+
+  // Step 1 — Parse goal
+  controller.enqueue(encodeProgress("parse", "active"));
+  try {
+    if (apiKey) {
+      const parseResult = await callFable5(
+        "Extract from this lawyer's request: (1) the main task type [research/draft/review/analyse], (2) key legal topics as a search query, (3) jurisdictions mentioned or implied. Return JSON: {\"taskType\":\"...\",\"searchQuery\":\"...\",\"jurisdiction\":\"...\"}",
+        message,
+        AGENT_MODEL,
+        signal,
+        false
+      );
+      try {
+        const jsonMatch = parseResult.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.searchQuery) extractedQuery = parsed.searchQuery;
+          if (parsed.jurisdiction && !detectedJurisdiction) {
+            detectedJurisdiction = parsed.jurisdiction;
+          }
+        }
+      } catch {
+        // Use original message as search query
+      }
+    }
+  } catch {
+    // Parse step failed, continue with original message
+  }
+  controller.enqueue(encodeProgress("parse", "done"));
+  if (signal.aborted) return;
+
+  // Step 2 — Read matter context (client-side only, emit done immediately)
+  controller.enqueue(encodeProgress("matter", "active"));
+  controller.enqueue(encodeProgress("matter", "done"));
+  if (signal.aborted) return;
+
+  // Step 3 — Legal database search
+  controller.enqueue(encodeProgress("search", "active"));
+  const legalResults = await searchLegalDatabases(
+    extractedQuery,
+    detectedJurisdiction
+  ).catch(() => ({
+    cases: [] as LegalCase[],
+    databases_searched: [] as string[],
+    offline: false,
+    wikiSummary: undefined as string | undefined,
+  }));
+  const casesContext = formatCasesForContext(legalResults.cases, 10);
+  controller.enqueue(encodeProgress("search", "done"));
+  if (signal.aborted) return;
+
+  // Step 4 — Fetch case excerpts
+  controller.enqueue(encodeProgress("fetch", "active"));
+  const topCases = legalResults.cases.slice(0, 5);
+  const excerptPromises = topCases.map((c) =>
+    resolveCitation(c.title)
+      .then((text) => ({ title: c.title, text: text?.slice(0, 2000) || "" }))
+      .catch(() => ({ title: c.title, text: "" }))
+  );
+  const excerpts = await Promise.allSettled(excerptPromises);
+  const caseExcerpts = excerpts
+    .filter(
+      (r): r is PromiseFulfilledResult<{ title: string; text: string }> =>
+        r.status === "fulfilled" && r.value.text.length > 0
+    )
+    .map((r) => `### ${r.value.title}\n${r.value.text}`)
+    .join("\n\n");
+  controller.enqueue(encodeProgress("fetch", "done"));
+  if (signal.aborted) return;
+
+  // Step 5 — Web search (only if warranted)
+  controller.enqueue(encodeProgress("tavily", "active"));
+  let webSearch: { answer?: string; results: WebResult[] } = { results: [] };
+  if (tavilyIsWarranted(message)) {
+    webSearch = await tavilySearch(message, signal);
+  }
+  controller.enqueue(encodeProgress("tavily", "done"));
+  if (signal.aborted) return;
+
+  // Step 6 — Synthesise
+  controller.enqueue(encodeProgress("synthesise", "active"));
+
+  const systemPrompt = buildSynthesisPrompt(
+    message,
+    casesContext,
+    caseExcerpts,
+    legalResults.wikiSummary,
+    webSearch,
+    detectedJurisdiction
+  );
+
+  controller.enqueue(encodeProgress("synthesise", "done"));
+
+  // Step 7 — Draft response
+  controller.enqueue(encodeProgress("draft", "active"));
+
+  if (!apiKey) {
     const placeholder = buildPlaceholderResponse(message, legalResults, webSearch);
-    controller.enqueue(encodeDataStreamText(placeholder));
+    controller.enqueue(encodeText(placeholder));
+    controller.enqueue(encodeProgress("draft", "done"));
     return;
   }
 
-  // Pipe the SSE stream through to the client
+  let model = AGENT_MODEL;
+  let response: Response;
+  try {
+    response = await callFable5(systemPrompt, message, model, signal, true);
+  } catch {
+    // Fallback to claude-opus-4-8
+    model = FALLBACK_MODEL;
+    try {
+      response = await callFable5(systemPrompt, message, model, signal, true);
+    } catch {
+      const placeholder = buildPlaceholderResponse(message, legalResults, webSearch);
+      controller.enqueue(encodeText(placeholder));
+      controller.enqueue(encodeProgress("draft", "done"));
+      return;
+    }
+  }
+
+  if (!response.body) {
+    controller.enqueue(encodeText("Agent failed to generate a response."));
+    controller.enqueue(encodeProgress("draft", "done"));
+    return;
+  }
+
+  // Stream LLM response
   const decoder = new TextDecoder();
   const reader = response.body.getReader();
   let buffer = "";
@@ -210,14 +317,13 @@ async function runInternalPipeline(
         const parsed = JSON.parse(payload);
         const token = parsed.choices?.[0]?.delta?.content;
         if (typeof token === "string" && token.length > 0) {
-          controller.enqueue(encodeDataStreamText(token));
+          controller.enqueue(encodeText(token));
         }
       } catch {
-        // Skip unparseable lines
+        // Skip unparseable
       }
     }
   }
-  // Flush remaining buffer
   if (buffer.trim()) {
     const trimmed = buffer.trim();
     if (trimmed.startsWith("data: ") && trimmed.slice(6) !== "[DONE]") {
@@ -225,13 +331,66 @@ async function runInternalPipeline(
         const parsed = JSON.parse(trimmed.slice(6));
         const token = parsed.choices?.[0]?.delta?.content;
         if (typeof token === "string" && token.length > 0) {
-          controller.enqueue(encodeDataStreamText(token));
+          controller.enqueue(encodeText(token));
         }
       } catch {
         // Ignore
       }
     }
   }
+  controller.enqueue(encodeProgress("draft", "done"));
+}
+
+/* ------------------------------------------------------------------ */
+/*  Prompt builder                                                     */
+/* ------------------------------------------------------------------ */
+
+function buildSynthesisPrompt(
+  task: string,
+  casesContext: string,
+  caseExcerpts: string,
+  wikiSummary: string | undefined,
+  webSearch: { answer?: string; results: WebResult[] },
+  jurisdiction: string | undefined
+): string {
+  let prompt = `You are Lex, an expert legal AI agent. You have been given a research task by a lawyer.
+Complete the task thoroughly and autonomously. Deliver a finished, professional work product.
+
+TASK: ${task}
+`;
+
+  if (casesContext) {
+    prompt += `\nLEGAL RESEARCH RESULTS:\n${casesContext}\n`;
+  }
+  if (caseExcerpts) {
+    prompt += `\nCASE EXCERPTS:\n${caseExcerpts}\n`;
+  }
+  if (wikiSummary) {
+    prompt += `\nLEGAL CONTEXT:\n${wikiSummary}\n`;
+  }
+  if (webSearch.answer) {
+    prompt += `\nWEB SEARCH SUMMARY:\n${webSearch.answer}\n`;
+  }
+  if (webSearch.results.length > 0) {
+    prompt += `\nWEB SOURCES:\n${webSearch.results
+      .slice(0, 5)
+      .map((r) => `- ${r.title}: ${r.content?.slice(0, 300) || ""}`)
+      .join("\n")}\n`;
+  }
+  if (jurisdiction) {
+    prompt += `\nFocus on ${jurisdiction.toUpperCase()} jurisdiction where possible.\n`;
+  }
+
+  prompt += `
+INSTRUCTIONS:
+- Deliver a complete, finished work product — not a chat reply
+- Structure your response professionally with clear headings
+- Cite every case and statute used using [1], [2] format
+- End with a ## Sources section listing all citations
+- If drafting a document, format it as a proper legal document
+- Be thorough — this is an autonomous agent task, not a quick answer`;
+
+  return prompt;
 }
 
 /* ------------------------------------------------------------------ */
@@ -240,20 +399,24 @@ async function runInternalPipeline(
 
 function buildPlaceholderResponse(
   message: string,
-  legalResults: { cases: { title: string; citation: string }[]; databases_searched: string[] },
+  legalResults: { cases: LegalCase[]; databases_searched: string[] },
   webSearch: { answer?: string; results: WebResult[] }
 ): string {
   const parts: string[] = [];
   parts.push(`# Agent Research Report\n\n**Query:** ${message}\n`);
 
   if (legalResults.cases.length > 0) {
-    parts.push(`## Legal Database Results (${legalResults.databases_searched.join(", ")})\n`);
+    parts.push(
+      `## Legal Database Results (${legalResults.databases_searched.join(", ")})\n`
+    );
     for (const c of legalResults.cases.slice(0, 5)) {
       parts.push(`- **${c.title}**${c.citation ? ` [${c.citation}]` : ""}`);
     }
     parts.push("");
   } else {
-    parts.push("## Legal Database Results\nNo cases found in the searched databases.\n");
+    parts.push(
+      "## Legal Database Results\nNo cases found in the searched databases.\n"
+    );
   }
 
   if (webSearch.answer) {
@@ -267,8 +430,30 @@ function buildPlaceholderResponse(
     parts.push("");
   }
 
-  parts.push("---\n*Note: Full AI synthesis is unavailable because no LLM API key is configured. Configure CLAUDEOPUS_API_KEY in Settings to enable rich agent responses.*");
+  parts.push(
+    "---\n*Note: Full AI synthesis is unavailable because no LLM API key is configured. Configure CLAUDEOPUS_API_KEY in Settings to enable rich agent responses.*"
+  );
   return parts.join("\n");
+}
+
+/* ------------------------------------------------------------------ */
+/*  Rate limit — agent-specific (10 per hour per user/IP)              */
+/* ------------------------------------------------------------------ */
+
+const agentRateLimitMap = new Map<string, { count: number; windowStart: number }>();
+
+function checkAgentRateLimit(key: string): { allowed: boolean; message?: string } {
+  const now = Date.now();
+  const entry = agentRateLimitMap.get(key);
+  if (!entry || now - entry.windowStart > 3_600_000) {
+    agentRateLimitMap.set(key, { count: 1, windowStart: now });
+    return { allowed: true };
+  }
+  if (entry.count >= AGENT_RATE_LIMIT_PER_HOUR) {
+    return { allowed: false, message: "Agent rate limit exceeded (10 requests per hour)." };
+  }
+  entry.count++;
+  return { allowed: true };
 }
 
 /* ------------------------------------------------------------------ */
@@ -289,10 +474,6 @@ export async function POST(req: Request) {
   const message: string = typeof body.message === "string" ? body.message : "";
   const jurisdiction: string | undefined =
     typeof body.jurisdiction === "string" ? body.jurisdiction : undefined;
-  const matterId: string | undefined =
-    typeof body.matterId === "string" ? body.matterId : undefined;
-  const model: string =
-    typeof body.model === "string" ? body.model : ANTHROPIC_CORE_MODEL;
 
   if (!message.trim()) {
     return new Response(
@@ -322,9 +503,20 @@ export async function POST(req: Request) {
     authenticatedUserId = user.id;
   }
 
-  // Rate limiting
-  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
-  const rl = checkRateLimit(clientIp, model);
+  // Rate limiting — agent-specific
+  const clientIp =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "127.0.0.1";
+  const rateLimitKey = authenticatedUserId || clientIp;
+  const agentRl = checkAgentRateLimit(rateLimitKey);
+  if (!agentRl.allowed) {
+    return new Response(
+      JSON.stringify({ error: agentRl.message }),
+      { status: 429, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  // Also run the standard rate limiter
+  const rl = checkRateLimit(clientIp, AGENT_MODEL);
   if (!rl.allowed) {
     return new Response(
       JSON.stringify({ error: rl.message || "Rate limit exceeded" }),
@@ -335,53 +527,36 @@ export async function POST(req: Request) {
   const abortController = new AbortController();
   req.signal.addEventListener("abort", () => abortController.abort());
 
-  // ---- Hermes path ----
-  if (isHermesConfigured()) {
-    try {
-      const hermesStream = await runHermesAgent(
-        { message, jurisdiction, matterId, model },
-        abortController.signal
-      );
-      return new Response(hermesStream, {
-        headers: {
-          "Content-Type": "text/plain; charset=utf-8",
-          "X-Vercel-AI-Data-Stream": "v1",
-        },
-      });
-    } catch (err) {
-      console.error("[Agent] Hermes error, falling back to internal pipeline:", err);
-      // Fall through to internal pipeline
-    }
-  }
+  // 60 second timeout
+  const timeoutId = setTimeout(() => abortController.abort(), PIPELINE_TIMEOUT_MS);
 
-  // ---- Internal pipeline path ----
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        await runInternalPipeline(
+        await runAgentPipeline(
           message,
           jurisdiction,
-          model,
           controller,
           abortController.signal
         );
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
-          console.error("[Agent] Internal pipeline error:", err);
+          console.error("[Agent] Pipeline error:", err);
           controller.enqueue(
-            encodeDataStreamText(
-              "Agent encountered an error. Please try again or switch to regular chat."
+            encodeText(
+              "\n\n---\n*Agent encountered an error. Some results may be partial.*"
             )
           );
         }
       } finally {
+        clearTimeout(timeoutId);
         controller.close();
       }
     },
   });
 
-  recordUsage(clientIp, model);
-  void (authenticatedUserId); // will be used for usage logging in future
+  recordUsage(clientIp, AGENT_MODEL);
+  void authenticatedUserId;
 
   return new Response(stream, {
     headers: {
