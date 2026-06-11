@@ -23,6 +23,7 @@ export const API_KEY_NAMES = [
   "CEREBRAS_API_KEY",
   "HARVARD_CAP_API_KEY",
   "CLAUDEOPUS_API_KEY",
+  "VOYAGE_API_KEY",
 ] as const;
 
 // In-memory cache for API keys - populated once per server instance
@@ -68,6 +69,11 @@ export function getVaultrDbPath() {
  * @returns The API key value, or empty string if not configured.
  */
 export function getConfiguredApiKey(name: ApiKeyName) {
+  // Server-only guard: API keys must never be accessed from the client
+  if (typeof window !== "undefined") {
+    throw new Error("getConfiguredApiKey must only be called server-side");
+  }
+
   // First check environment variable (always takes precedence)
   const environmentValue = process.env[name]?.trim();
   if (environmentValue) return environmentValue;
