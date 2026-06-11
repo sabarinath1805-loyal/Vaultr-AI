@@ -36,8 +36,9 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
     auth: {
       // PII: client sessions in localStorage is a risk for legal deployments.
       persistSession: PERSIST_SESSION,
-      autoRefreshToken: PERSIST_SESSION,
-      detectSessionInUrl: PERSIST_SESSION,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: "pkce",
     },
   });
   return browserClient;
