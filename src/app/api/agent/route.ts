@@ -17,6 +17,19 @@ import { ANTHROPIC_MAX_MODEL, ANTHROPIC_ULTRA_MODEL } from "@/lib/models";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const LEX_AGENT_SYSTEM_PROMPT = `You are Lex, a private AI legal counsel built into Vaultr. You have completed autonomous legal research. Deliver findings directly.
+
+RESPONSE STYLE:
+- Answer directly. Never produce a memo format, "Memorandum" header, "Prepared by", "Subject:", or "Status:" fields unless the user explicitly asks for a memo or formal document.
+- Lead with the direct answer in 1-2 sentences.
+- Expand with analysis in clearly labelled ## sections.
+- Cite cases inline: e.g. Uber BV v Aslam [2021] UKSC 5
+- End with ## Recommended Next Steps with 3-5 concrete actions.
+- Write as a senior lawyer speaking to a colleague — precise, direct, no unnecessary formality.
+- Never open with "I" — lead with the substance.
+- Always flag when analysis crosses jurisdictions.
+- Never reproduce search process noise or database names.`;
+
 const AGENT_MODEL = ANTHROPIC_MAX_MODEL; // claude-fable-5
 const FALLBACK_MODEL = ANTHROPIC_ULTRA_MODEL; // claude-opus-4-8
 const PIPELINE_TIMEOUT_MS = 60_000;
@@ -253,14 +266,17 @@ async function runAgentPipeline(
   // Step 6 — Synthesise
   controller.enqueue(encodeProgress("synthesise", "active"));
 
-  const systemPrompt = buildSynthesisPrompt(
-    message,
-    casesContext,
-    caseExcerpts,
-    legalResults.wikiSummary,
-    webSearch,
-    detectedJurisdiction
-  );
+  const contextParts: string[] = [];
+  contextParts.push(`TASK: ${message}`);
+  if (casesContext) contextParts.push(`LEGAL RESEARCH RESULTS:\n${casesContext}`);
+  if (caseExcerpts) contextParts.push(`CASE EXCERPTS:\n${caseExcerpts}`);
+  if (legalResults.wikiSummary) contextParts.push(`LEGAL CONTEXT:\n${legalResults.wikiSummary}`);
+  if (webSearch.answer) contextParts.push(`WEB SEARCH SUMMARY:\n${webSearch.answer}`);
+  if (webSearch.results.length > 0) {
+    contextParts.push(`WEB SOURCES:\n${webSearch.results.slice(0, 5).map((r) => `- ${r.title}: ${r.content?.slice(0, 300) || ""}`).join("\n")}`);
+  }
+  if (detectedJurisdiction) contextParts.push(`Focus on ${detectedJurisdiction.toUpperCase()} jurisdiction where possible.`);
+  const userMessageWithContext = contextParts.join("\n\n");
 
   controller.enqueue(encodeProgress("synthesise", "done"));
 
@@ -277,12 +293,12 @@ async function runAgentPipeline(
   let model = AGENT_MODEL;
   let response: Response;
   try {
-    response = await callFable5(systemPrompt, message, model, signal, true);
+    response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true);
   } catch {
     // Fallback to claude-opus-4-8
     model = FALLBACK_MODEL;
     try {
-      response = await callFable5(systemPrompt, message, model, signal, true);
+      response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true);
     } catch {
       const placeholder = buildPlaceholderResponse(message, legalResults, webSearch);
       controller.enqueue(encodeText(placeholder));
@@ -339,58 +355,6 @@ async function runAgentPipeline(
     }
   }
   controller.enqueue(encodeProgress("draft", "done"));
-}
-
-/* ------------------------------------------------------------------ */
-/*  Prompt builder                                                     */
-/* ------------------------------------------------------------------ */
-
-function buildSynthesisPrompt(
-  task: string,
-  casesContext: string,
-  caseExcerpts: string,
-  wikiSummary: string | undefined,
-  webSearch: { answer?: string; results: WebResult[] },
-  jurisdiction: string | undefined
-): string {
-  let prompt = `You are Lex, an expert legal AI agent. You have been given a research task by a lawyer.
-Complete the task thoroughly and autonomously. Deliver a finished, professional work product.
-
-TASK: ${task}
-`;
-
-  if (casesContext) {
-    prompt += `\nLEGAL RESEARCH RESULTS:\n${casesContext}\n`;
-  }
-  if (caseExcerpts) {
-    prompt += `\nCASE EXCERPTS:\n${caseExcerpts}\n`;
-  }
-  if (wikiSummary) {
-    prompt += `\nLEGAL CONTEXT:\n${wikiSummary}\n`;
-  }
-  if (webSearch.answer) {
-    prompt += `\nWEB SEARCH SUMMARY:\n${webSearch.answer}\n`;
-  }
-  if (webSearch.results.length > 0) {
-    prompt += `\nWEB SOURCES:\n${webSearch.results
-      .slice(0, 5)
-      .map((r) => `- ${r.title}: ${r.content?.slice(0, 300) || ""}`)
-      .join("\n")}\n`;
-  }
-  if (jurisdiction) {
-    prompt += `\nFocus on ${jurisdiction.toUpperCase()} jurisdiction where possible.\n`;
-  }
-
-  prompt += `
-INSTRUCTIONS:
-- Deliver a complete, finished work product — not a chat reply
-- Structure your response professionally with clear headings
-- Cite every case and statute used using [1], [2] format
-- End with a ## Sources section listing all citations
-- If drafting a document, format it as a proper legal document
-- Be thorough — this is an autonomous agent task, not a quick answer`;
-
-  return prompt;
 }
 
 /* ------------------------------------------------------------------ */
