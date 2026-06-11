@@ -22,22 +22,21 @@ export async function GET(request: Request) {
               cookiesToSet.forEach(({ name, value, options }) => {
                 cookieStore.set(name, value, options);
               });
-            } catch {
-              // The `setAll` method was called from a Server Component.
-              // This can be ignored if you have middleware refreshing
-              // user sessions.
+            } catch (e) {
+              console.error("[auth/callback] setAll error:", e);
             }
           },
         },
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+    console.log("[auth/callback] exchange result:", { error: error?.message, user: data?.user?.email });
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    console.error("[auth/callback] exchange failed:", error);
   }
 
-  // Redirect to error page on failure
   return NextResponse.redirect(`${origin}/auth/error`);
 }
