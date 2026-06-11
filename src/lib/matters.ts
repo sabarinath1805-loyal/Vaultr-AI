@@ -199,8 +199,8 @@ export function totalBillingHours(entries: BillingEntry[]): number {
   return entries.reduce((sum, e) => sum + e.hours, 0);
 }
 
-export function billingToCSV(entries: BillingEntry[], matterName: string): string {
-  const header = "Date,Description,Hours,Rate (SGD),Amount (SGD)";
+export function billingToCSV(entries: BillingEntry[], matterName: string, currency = "USD"): string {
+  const header = `Date,Description,Hours,Rate (${currency}),Amount (${currency})`;
   const rows = entries.map(
     (e) => `"${e.date}","${e.description.replace(/"/g, '""')}",${e.hours},${e.rate},${(e.hours * e.rate).toFixed(2)}`
   );

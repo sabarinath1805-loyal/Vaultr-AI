@@ -8,6 +8,7 @@ import { ANTHROPIC_CORE_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
 import { useAuth } from "@/components/auth/auth-provider";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { resetOnboarding } from "@/components/onboarding/onboarding-modal";
 
 type Tab = "account" | "appearance" | "lex" | "private-mode" | "data";
 
@@ -410,6 +411,18 @@ function DataSettings() {
             </button>
           </div>
         )}
+      </section>
+
+      <section className="border-t border-[var(--border)] py-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Onboarding</h2>
+        <p className="mb-3 text-sm text-[var(--text-muted)]">Re-run the onboarding tour to update your profile.</p>
+        <button
+          type="button"
+          onClick={() => { resetOnboarding(); window.location.reload(); }}
+          className="rounded-[var(--radius-sm)] border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface)]"
+        >
+          Reset Onboarding
+        </button>
       </section>
 
       <section className="border-t border-[var(--border)] py-6">
