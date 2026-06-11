@@ -1475,7 +1475,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
         emptyMessage="No chat history found."
         onClose={() => setChatPickerOpen(false)}
       >
-        {Object.values(chats).map((chat) => (
+        {Object.values(chats ?? {}).map((chat) => (
           <button
             key={chat.id}
             type="button"
