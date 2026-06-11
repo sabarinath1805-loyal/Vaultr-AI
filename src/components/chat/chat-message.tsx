@@ -7,7 +7,7 @@ import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import { CheckIcon, CopyIcon } from "@radix-ui/react-icons";
 import { IconFileText } from "@tabler/icons-react";
-import { ChevronRight, Download, Edit3, File, FileText, FileDown, Flag, RefreshCcw } from "lucide-react";
+import { ChevronRight, Download, Edit3, File, FileText, FileDown, Flag, RefreshCcw, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { formatBytes } from "@/lib/local-documents";
 import type { LocalDocument } from "@/lib/local-documents";
@@ -798,7 +798,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
         <div className="w-full">
           {(message as unknown as { agentMode?: boolean }).agentMode && (
             <div className="mb-2 flex items-center gap-1.5">
-              <span className="text-sm">⚡</span>
+              <Zap size={14} className="text-amber-400" aria-hidden="true" />
               <span className="text-xs font-medium text-[var(--text-muted)]">Lex Agent</span>
             </div>
           )}
