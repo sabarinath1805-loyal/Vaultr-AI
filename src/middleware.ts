@@ -121,6 +121,17 @@ export async function middleware(req: NextRequest) {
   }
 
   const authHeader = req.headers.get("authorization");
+
+  // TODO: remove dev bypass before beta launch
+  // In development, allow requests with no auth header through to the route
+  // layer. The route handlers' own auth gates also have a dev bypass that
+  // fills in the dev UUID. Production must enforce the token check.
+  if (!authHeader && process.env.NODE_ENV === "development") {
+    const res = NextResponse.next();
+    res.headers.set("x-vaultr-user-id", "00000000-0000-0000-0000-000000000001");
+    return applySecurityHeaders(res);
+  }
+
   if (!authHeader?.startsWith("Bearer ")) {
     const res = NextResponse.json(
       { error: "Authentication required" },
