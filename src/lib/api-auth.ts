@@ -24,6 +24,16 @@ if (process.env.NODE_ENV === "production" && !isSupabaseConfigured()) {
   );
 }
 
+// Security alarm: never allow dev auth bypass in production even if SERVICE_ROLE_KEY is set.
+// If someone tries DEV_AUTH_BYPASS=true in production, hard-fail immediately.
+if (process.env.NODE_ENV === "production" && process.env.DEV_AUTH_BYPASS === "true") {
+  console.error(
+    "CRITICAL SECURITY: DEV_AUTH_BYPASS is set in production. This is a vulnerability. " +
+      "Remove DEV_AUTH_BYPASS from environment variables immediately."
+  );
+  throw new Error("CRITICAL: Dev auth bypass is not allowed in production.");
+}
+
 export class AuthError extends Error {
   constructor(
     public status: number,
@@ -45,7 +55,13 @@ export async function requireAuth(req: Request): Promise<{ userId: string; email
   const authHeader = req.headers.get("authorization");
 
   // TODO: remove dev bypass before beta launch
-  if (process.env.NODE_ENV === "development" && !authHeader) {
+  // Defence in depth: triple-check we're actually in development before issuing
+  // the synthetic dev UUID. The boot guard above already errors when
+  // NODE_ENV=production + Supabase is set, but this is the per-request gate.
+  const isDevBypassAllowed =
+    process.env.NODE_ENV === "development" &&
+    !process.env.SUPABASE_SERVICE_ROLE_KEY; // production-shaped deploys never take the bypass
+  if (isDevBypassAllowed && !authHeader) {
     return { userId: "00000000-0000-0000-0000-000000000001", email: "dev@vaultr.local" };
   }
 
