@@ -335,7 +335,13 @@ export async function POST(req: Request) {
     ? `\n\n## Legal Concept Background\n${legalResults.wikiSummary}`
     : "";
 
-  let systemMessage = `${finalSystemPrompt}${documentPreamble}${ragContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}${citationContext}`;
+  // Inject user profile personalisation from onboarding
+  const userProfileData = data?.userProfile as { name?: string; firm?: string; jurisdiction?: string } | undefined;
+  const profileContext = userProfileData?.name
+    ? `\n\nThe lawyer's name is ${userProfileData.name}${userProfileData.firm ? `, working at ${userProfileData.firm}` : ""}${userProfileData.jurisdiction ? `, primarily practising ${userProfileData.jurisdiction} law` : ""}.`
+    : "";
+
+  let systemMessage = `${finalSystemPrompt}${profileContext}${documentPreamble}${ragContext}${webSearch.context}${jurisdictionContext ? "\n\n" + jurisdictionContext : ""}${legalContext}${wikiContext}${citationContext}`;
   const userContent = data?.images?.length
     ? [
         { type: "text", text: userMessage },

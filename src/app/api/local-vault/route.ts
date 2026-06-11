@@ -79,6 +79,13 @@ function openLocalVaultDb() {
     sqlite.exec(`ALTER TABLE local_vault_projects ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`);
     sqlite.exec(`CREATE INDEX IF NOT EXISTS local_vault_projects_owner_idx ON local_vault_projects(owner_id)`);
   }
+  // Backfill file_size and mime_type columns for older installs
+  if (!docCols.some((c) => c.name === "file_size")) {
+    try { sqlite.exec(`ALTER TABLE local_vault_documents ADD COLUMN file_size INTEGER`); } catch { /* already exists */ }
+  }
+  if (!docCols.some((c) => c.name === "mime_type")) {
+    try { sqlite.exec(`ALTER TABLE local_vault_documents ADD COLUMN mime_type TEXT`); } catch { /* already exists */ }
+  }
   return sqlite;
 }
 
