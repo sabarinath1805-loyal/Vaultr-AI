@@ -130,11 +130,17 @@ export async function POST(req: Request) {
   let authenticatedUserId: string | null = null;
   if (isSupabaseConfigured()) {
     const authHeader = req.headers.get("authorization");
-    const user = await getSessionUser(authHeader);
-    if (!user) {
-      // TODO: re-enable auth before beta launch
+    // TODO: remove dev bypass before beta launch
+    if (process.env.NODE_ENV === "development" && !authHeader) {
       authenticatedUserId = "00000000-0000-0000-0000-000000000001";
     } else {
+      const user = await getSessionUser(authHeader);
+      if (!user) {
+        return new Response(
+          JSON.stringify({ error: "Authentication required." }),
+          { status: 401, headers: { "Content-Type": "application/json" } }
+        );
+      }
       const approved = await isBetaUser(user.email || "");
       if (!approved) {
         return new Response(
