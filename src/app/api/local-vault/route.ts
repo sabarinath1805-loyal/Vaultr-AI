@@ -4,6 +4,7 @@ import fs from "fs";
 import { getVaultrDataDir, getVaultrDbPath } from "@/lib/tauri-env";
 import type { LocalDocument, LocalProject } from "@/lib/local-documents";
 import { requireAuth, AuthError } from "@/lib/api-auth";
+import { ingestDocument } from "@/lib/rag-ingest";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -203,6 +204,18 @@ export async function PUT(req: Request) {
         });
       }
     })();
+
+    // Fire-and-forget: ingest documents with content for RAG embeddings
+    for (const document of documents) {
+      if (document.content && userId) {
+        ingestDocument({
+          userId,
+          documentName: document.filename,
+          content: document.content,
+          source: "vault",
+        }).catch(() => {});
+      }
+    }
 
     return NextResponse.json({ ok: true });
   } finally {
