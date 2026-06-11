@@ -68,24 +68,35 @@ function openLocalVaultDb() {
     CREATE INDEX IF NOT EXISTS local_vault_projects_owner_idx
       ON local_vault_projects(owner_id);
   `);
-  // Backfill owner_id column for older installs
-  const docCols = sqlite.prepare("PRAGMA table_info(local_vault_documents)").all() as Array<{ name: string }>;
-  if (!docCols.some((c) => c.name === "owner_id")) {
-    sqlite.exec(`ALTER TABLE local_vault_documents ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`);
-    sqlite.exec(`CREATE INDEX IF NOT EXISTS local_vault_documents_owner_idx ON local_vault_documents(owner_id)`);
-  }
-  const projCols = sqlite.prepare("PRAGMA table_info(local_vault_projects)").all() as Array<{ name: string }>;
-  if (!projCols.some((c) => c.name === "owner_id")) {
-    sqlite.exec(`ALTER TABLE local_vault_projects ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`);
-    sqlite.exec(`CREATE INDEX IF NOT EXISTS local_vault_projects_owner_idx ON local_vault_projects(owner_id)`);
-  }
-  // Backfill file_size and mime_type columns for older installs
-  if (!docCols.some((c) => c.name === "file_size")) {
-    try { sqlite.exec(`ALTER TABLE local_vault_documents ADD COLUMN file_size INTEGER`); } catch { /* already exists */ }
-  }
-  if (!docCols.some((c) => c.name === "mime_type")) {
-    try { sqlite.exec(`ALTER TABLE local_vault_documents ADD COLUMN mime_type TEXT`); } catch { /* already exists */ }
-  }
+  // Backfill columns for older installs. Each ALTER is wrapped in its own
+  // try/catch so a missing column on one table doesn't block the rest.
+  const backfillColumn = (table: string, column: string, ddl: string) => {
+    try {
+      sqlite.exec(ddl);
+    } catch {
+      // Column already exists, or table missing — both are fine.
+    }
+  };
+  backfillColumn(
+    "local_vault_documents",
+    "owner_id",
+    `ALTER TABLE local_vault_documents ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`
+  );
+  backfillColumn(
+    "local_vault_documents",
+    "file_size",
+    `ALTER TABLE local_vault_documents ADD COLUMN file_size INTEGER`
+  );
+  backfillColumn(
+    "local_vault_documents",
+    "mime_type",
+    `ALTER TABLE local_vault_documents ADD COLUMN mime_type TEXT`
+  );
+  backfillColumn(
+    "local_vault_projects",
+    "owner_id",
+    `ALTER TABLE local_vault_projects ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'anonymous'`
+  );
   return sqlite;
 }
 
