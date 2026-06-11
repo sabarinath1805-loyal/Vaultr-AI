@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 
 export const AGENT_STEP_IDS = [
   "parse",
@@ -15,13 +15,23 @@ export const AGENT_STEP_IDS = [
 
 export type AgentStepId = (typeof AGENT_STEP_IDS)[number];
 
-const AGENT_STEP_LABELS: Record<AgentStepId, string> = {
-  parse: "Understanding your goal...",
-  matter: "Reading matter documents...",
+const AGENT_STEP_LABELS_DONE: Record<AgentStepId, string> = {
+  parse: "Analysed query",
+  matter: "Loaded matter context",
+  search: "Searched legal databases",
+  fetch: "Fetched case excerpts",
+  tavily: "Ran web search",
+  synthesise: "Synthesised sources",
+  draft: "Drafted response",
+};
+
+const AGENT_STEP_LABELS_ACTIVE: Record<AgentStepId, string> = {
+  parse: "Analysing query...",
+  matter: "Loading matter context...",
   search: "Searching legal databases...",
-  fetch: "Fetching case law...",
+  fetch: "Fetching case excerpts...",
   tavily: "Running web search...",
-  synthesise: "Synthesising findings...",
+  synthesise: "Synthesising sources...",
   draft: "Drafting response...",
 };
 
@@ -37,15 +47,15 @@ export function AgentStepTracker({
   elapsedSeconds,
 }: AgentStepTrackerProps) {
   return (
-    <div className="lex-thinking-indicator lex-thinking-visible mb-3 flex flex-col gap-1.5 text-[var(--text-primary)]">
-      <div className="mb-1 flex items-center gap-2">
+    <div className="mb-3 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] p-3">
+      <div className="mb-2 flex items-center gap-2">
         <span
           className="inline-flex items-center justify-center"
           style={{
-            fontSize: "24px",
+            fontSize: "20px",
             lineHeight: 1,
-            width: "24px",
-            height: "24px",
+            width: "20px",
+            height: "20px",
             color: "var(--text-primary)",
             fontWeight: 500,
           }}
@@ -53,24 +63,18 @@ export function AgentStepTracker({
           ✳
         </span>
         <span
-          style={{
-            fontSize: "16px",
-            lineHeight: "24px",
-            marginLeft: "-2px",
-            fontWeight: 500,
-            color: "var(--text-primary)",
-          }}
+          className="text-sm font-medium"
+          style={{ color: "var(--text-primary)" }}
         >
           Lex Agent
         </span>
       </div>
-      <div className="ml-8 flex flex-col gap-1">
+      <div className="ml-7 flex flex-col gap-1">
         {AGENT_STEP_IDS.map((stepId) => {
           const isDone = completedSteps.includes(stepId);
           const isActive = stepId === currentStep && !isDone;
-          const isPending = !isDone && !isActive;
 
-          if (isPending) return null;
+          if (!isDone && !isActive) return null;
 
           return (
             <div
@@ -78,33 +82,31 @@ export function AgentStepTracker({
               className="flex animate-message-in items-center gap-2"
             >
               {isDone ? (
-                <span className="inline-flex h-4 w-4 items-center justify-center">
-                  <Check className="h-3.5 w-3.5 text-green-500" strokeWidth={2.5} />
-                </span>
-              ) : isActive ? (
-                <span className="inline-flex h-4 w-4 items-center justify-center">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--accent)]" />
-                </span>
+                <CheckCircle2
+                  size={14}
+                  className="flex-shrink-0 text-green-600"
+                  strokeWidth={2}
+                />
               ) : (
-                <span className="inline-flex h-4 w-4 items-center justify-center">
-                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--text-faint)]" />
-                </span>
+                <Loader2
+                  size={14}
+                  className="flex-shrink-0 animate-spin text-[var(--accent)]"
+                />
               )}
               <span
-                className="text-sm"
+                className="text-[13px]"
                 style={{
-                  color: isActive
-                    ? "var(--text-primary)"
-                    : isDone
-                      ? "var(--text-muted)"
-                      : "var(--text-faint)",
+                  color: isDone ? "var(--text-muted)" : "var(--text-primary)",
                   fontWeight: isActive ? 500 : 400,
+                  opacity: isDone ? 0.7 : 1,
                 }}
               >
-                {AGENT_STEP_LABELS[stepId]}
+                {isDone
+                  ? AGENT_STEP_LABELS_DONE[stepId]
+                  : AGENT_STEP_LABELS_ACTIVE[stepId]}
               </span>
               {isActive && (
-                <span className="text-xs text-[var(--text-faint)]">
+                <span className="text-xs tabular-nums text-[var(--text-faint)]">
                   {elapsedSeconds}s
                 </span>
               )}

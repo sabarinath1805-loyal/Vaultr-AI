@@ -369,7 +369,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         createdAt: new Date(),
       };
       activeAssistantMessageRef.current = assistantMessage;
-      setAgentCurrentStep("");
+      setAgentCurrentStep("parse");
       setAgentCompletedSteps([]);
       setAgentElapsedSeconds(0);
       setAgentThinkingActive(true);
