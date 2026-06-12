@@ -1,8 +1,3 @@
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: process.env.NEXT_OUTPUT || "standalone",
@@ -25,7 +20,6 @@ const nextConfig = {
       "frame-ancestors 'none'",
       "form-action 'self'",
     ].join("; ");
-
     return [
       {
         source: "/:path*",
@@ -41,17 +35,6 @@ const nextConfig = {
         ],
       },
     ];
-  },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        module: false,
-        perf_hooks: false,
-      };
-    }
-    return config;
   },
   typescript: {
     ignoreBuildErrors: true,
