@@ -12,19 +12,9 @@ const nextConfig = {
   devIndicators: false,
   reactStrictMode: false,
   productionBrowserSourceMaps: false,
-  turbopack: {
-    root: __dirname,
-  },
-  // Security headers applied to every response.
-  // CSP: nonce-based (replaces 'unsafe-inline' / 'unsafe-eval' for app routes).
-  // PII routes (downloaded files) get a stricter Referrer-Policy via middleware.
   async headers() {
     const csp = [
       "default-src 'self'",
-      // Next.js needs unsafe-inline + unsafe-eval for dev/HMR; in production
-      // a nonce is generated per request and a script-props tag is added by
-      // middleware. We allow the original directives as a defense-in-depth
-      // measure, but the future direction is to migrate fully to nonces.
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "connect-src 'self' https://*.supabase.co https://api.tavily.com https://api.anthropic.com https://api.claudeopus.pro https://api.groq.com https://api.cerebras.ai https://generativelanguage.googleapis.com https://ollama.com https://api.case.law https://www.courtlistener.com https://en.wikipedia.org",
@@ -45,17 +35,14 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
-          {
-            key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains; preload",
-          },
+          { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
         ],
       },
     ];
   },
-  webpack: async (config, { isServer, dev }) => {
+  webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -64,33 +51,7 @@ const nextConfig = {
         perf_hooks: false,
       };
     }
-    if (dev) {
-      config.devtool = "eval";
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: { maxSize: 200000 },
-        removeAvailableModules: false,
-        removeEmptyChunks: false,
-      };
-    }
-
-    // Bundle analyzer — opt-in via `ANALYZE=true pnpm build`
-    if (process.env.ANALYZE === "true" && !isServer) {
-      try {
-        const { BundleAnalyzerPlugin } = await import("webpack-bundle-analyzer");
-        config.plugins = config.plugins || [];
-        config.plugins.push(
-          new BundleAnalyzerPlugin({ analyzerMode: "static" })
-        );
-      } catch {
-        // webpack-bundle-analyzer is optional — skip silently when not installed
-      }
-    }
-
     return config;
-  },
-  experimental: {
-    optimizePackageImports: ["lucide-react", "@supabase/supabase-js"],
   },
   typescript: {
     ignoreBuildErrors: true,
