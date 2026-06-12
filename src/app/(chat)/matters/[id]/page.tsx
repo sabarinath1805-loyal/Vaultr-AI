@@ -561,7 +561,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
     setExtractDatesLoading(true);
     try {
       const docContext = linkedDocuments.map((d) => `${d.filename}: ${d.content?.slice(0, 3000) || "(no text extracted)"}`).join("\n\n");
-      const prompt = `Extract only legally significant dates from this document — court dates, filing deadlines, contract execution dates, hearing dates, judgment dates, limitation periods, signing dates. Do NOT extract: file size, page count, word count, byte counts, or any numerical values that are not actual calendar dates. Return ONLY a JSON array of objects with fields: label (string), date (YYYY-MM-DD), description (string).\n\nDocuments:\n${docContext}`;
+      const prompt = `Extract only legally significant dates — court dates, filing deadlines, contract execution dates, hearing dates, judgment dates, limitation periods, signing dates, commencement dates, termination dates. Do NOT extract PDF creation date, file modification date, file size, page count, or any document metadata. Only return actual calendar dates from the legal content.\n\nDocuments:\n${docContext}`;
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
