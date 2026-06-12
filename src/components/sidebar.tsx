@@ -14,7 +14,6 @@ import {
   IconSettings,
   IconPlus,
   IconLayoutSidebar,
-  IconActivity,
 } from "@tabler/icons-react";
 import { Grid2X2, Table2 } from "lucide-react";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -28,7 +27,6 @@ const navItems = [
   { href: "/tabular-review", label: "Tabular Review", icon: Table2 },
   { href: "/workflows", label: "Workflows", icon: IconChartBar },
   { href: "/history", label: "Threads", icon: IconHistory },
-  { href: "/usage", label: "Usage", icon: IconActivity },
   { href: "/settings", label: "Settings", icon: IconSettings },
 ];
 

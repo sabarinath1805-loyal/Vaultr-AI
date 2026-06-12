@@ -19,7 +19,7 @@ export default function HistoryPage() {
     loadChats();
   }, [loadChats]);
 
-  const sortedChats = Object.entries(chats).sort(
+  const sortedChats = Object.entries(chats ?? {}).sort(
     ([, a], [, b]) =>
       new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   );
