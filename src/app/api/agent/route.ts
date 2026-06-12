@@ -19,6 +19,8 @@ export const dynamic = "force-dynamic";
 
 const LEX_AGENT_SYSTEM_PROMPT = `You are Lex, a private AI legal counsel built into Vaultr. You have completed autonomous legal research. Deliver findings directly.
 
+CITATIONS: Cite extensively. Every legal claim, statute reference, and case mention must be cited inline. Aim for 8-15 citations minimum. Format: Case Name [Year] Court Citation. For statutes: Act Name (Cap. X) s.XX. Never make a legal assertion without a citation.
+
 RESPONSE STYLE:
 - Answer directly. Never produce a memo format, "Memorandum" header, "Prepared by", "Subject:", or "Status:" fields unless the user explicitly asks for a memo or formal document.
 - Lead with the direct answer in 1-2 sentences.
@@ -32,7 +34,7 @@ RESPONSE STYLE:
 
 const AGENT_MODEL = ANTHROPIC_MAX_MODEL; // claude-fable-5
 const FALLBACK_MODEL = ANTHROPIC_ULTRA_MODEL; // claude-opus-4-8
-const PIPELINE_TIMEOUT_MS = 60_000;
+const PIPELINE_TIMEOUT_MS = 180_000;
 const AGENT_RATE_LIMIT_PER_HOUR = 10;
 
 /* ------------------------------------------------------------------ */
@@ -104,21 +106,24 @@ async function callFable5(
   userMessage: string,
   model: string,
   signal: AbortSignal,
-  stream: false
+  stream: false,
+  maxTokens?: number
 ): Promise<string>;
 async function callFable5(
   systemPrompt: string,
   userMessage: string,
   model: string,
   signal: AbortSignal,
-  stream: true
+  stream: true,
+  maxTokens?: number
 ): Promise<Response>;
 async function callFable5(
   systemPrompt: string,
   userMessage: string,
   model: string,
   signal: AbortSignal,
-  stream: boolean
+  stream: boolean,
+  maxTokens?: number
 ): Promise<string | Response> {
   const apiKey = getConfiguredApiKey("CLAUDEOPUS_API_KEY");
   if (!apiKey) throw new Error("CLAUDEOPUS_API_KEY not configured");
@@ -134,7 +139,7 @@ async function callFable5(
     body: JSON.stringify({
       model,
       stream,
-      max_tokens: stream ? 8192 : 2048,
+      max_tokens: maxTokens || (stream ? 8192 : 2048),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
@@ -285,12 +290,12 @@ async function runAgentPipeline(
   let model = AGENT_MODEL;
   let response: Response;
   try {
-    response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true);
+    response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true, 32000);
   } catch {
     // Fallback to claude-opus-4-8
     model = FALLBACK_MODEL;
     try {
-      response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true);
+      response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true, 32000);
     } catch {
       const placeholder = buildPlaceholderResponse(message, legalResults, webSearch);
       controller.enqueue(encodeText(placeholder));

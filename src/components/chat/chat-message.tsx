@@ -798,7 +798,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
         <div className="w-full">
           {(message as unknown as { agentMode?: boolean }).agentMode && (
             <div className="mb-2 flex items-center gap-1.5">
-              <Zap size={14} className="text-amber-400" aria-hidden="true" />
+              <Zap width={24} height={24} className="text-amber-400 shrink-0" aria-hidden="true" />
               <span className="text-xs font-medium text-[var(--text-muted)]">Lex Agent</span>
             </div>
           )}
