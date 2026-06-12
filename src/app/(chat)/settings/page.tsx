@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import useChatStore from "@/app/hooks/useChatStore";
 import useLocalVaultStore from "@/app/hooks/useLocalVaultStore";
 import { ANTHROPIC_CORE_MODEL, GROQ_MODELS, LEX_MODELS } from "@/lib/models";
 import { safeStorage } from "@/lib/safe-storage";
 import { useAuth } from "@/components/auth/auth-provider";
-import { isSupabaseConfigured } from "@/lib/supabase";
+import { isSupabaseConfigured, createBrowserSupabaseClient } from "@/lib/supabase";
 import { resetOnboarding } from "@/components/onboarding/onboarding-modal";
 
-type Tab = "account" | "appearance" | "lex" | "private-mode" | "data";
+type Tab = "account" | "appearance" | "lex" | "private-mode" | "data" | "usage";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "account", label: "Account" },
@@ -18,6 +18,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "lex", label: "Lex" },
   { id: "private-mode", label: "Private Mode" },
   { id: "data", label: "Data" },
+  { id: "usage", label: "Usage" },
 ];
 
 const fieldClass =
@@ -71,6 +72,7 @@ export default function SettingsPage() {
             {activeTab === "lex" && <LexSettings />}
             {activeTab === "private-mode" && <PrivateModeSettings />}
             {activeTab === "data" && <DataSettings />}
+            {activeTab === "usage" && <UsageSettings />}
           </div>
         </div>
       </div>
@@ -435,6 +437,111 @@ function DataSettings() {
         >
           Export All Data
         </button>
+      </section>
+    </div>
+  );
+}
+
+interface UsageMetrics {
+  totalThisMonth: number;
+  totalToday: number;
+  avgResponseTime: string;
+  mostUsedModel: string;
+  mostQueriedJurisdiction: string;
+  documentsUploaded: number;
+}
+
+function UsageMetricCard({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-4">
+      <div className="text-[11px] font-medium uppercase tracking-wider text-[var(--text-muted)]">
+        {label}
+      </div>
+      <div className="mt-2 text-[22px] font-semibold tabular-nums text-[var(--text)]">
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function UsageSettings() {
+  const [metrics, setMetrics] = useState<UsageMetrics | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchUsage = useCallback(async () => {
+    const emptyMetrics: UsageMetrics = {
+      totalThisMonth: 0,
+      totalToday: 0,
+      avgResponseTime: "—",
+      mostUsedModel: "—",
+      mostQueriedJurisdiction: "—",
+      documentsUploaded: 0,
+    };
+
+    if (!isSupabaseConfigured()) {
+      setMetrics(emptyMetrics);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const headers: Record<string, string> = {};
+      const supabase = createBrowserSupabaseClient();
+      if (supabase) {
+        const session = (await supabase.auth.getSession()).data.session;
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+      }
+
+      const response = await fetch("/api/usage/stats", { headers });
+      if (!response.ok) {
+        setMetrics(emptyMetrics);
+        setLoading(false);
+        return;
+      }
+
+      const data: UsageMetrics = await response.json();
+      setMetrics(data);
+    } catch {
+      setMetrics({
+        totalThisMonth: 0,
+        totalToday: 0,
+        avgResponseTime: "—",
+        mostUsedModel: "—",
+        mostQueriedJurisdiction: "—",
+        documentsUploaded: 0,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUsage();
+  }, [fetchUsage]);
+
+  return (
+    <div className="space-y-4">
+      <section className="pb-6">
+        <h2 className="mb-4 text-[28px] font-normal text-[var(--text)]">Usage</h2>
+        <p className="mb-4 text-sm text-[var(--text-muted)]">
+          Your query statistics and usage metrics.
+        </p>
+        {loading ? (
+          <div className="text-[13px] text-[var(--text-muted)]">Loading usage data...</div>
+        ) : metrics ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <UsageMetricCard label="Queries this month" value={metrics.totalThisMonth} />
+            <UsageMetricCard label="Queries today" value={metrics.totalToday} />
+            <UsageMetricCard label="Avg response time" value={metrics.avgResponseTime} />
+            <UsageMetricCard label="Most used model" value={metrics.mostUsedModel} />
+            <UsageMetricCard label="Top jurisdiction" value={metrics.mostQueriedJurisdiction} />
+            <UsageMetricCard label="Documents uploaded" value={metrics.documentsUploaded} />
+          </div>
+        ) : (
+          <div className="text-[13px] text-[var(--text-muted)]">No usage data available.</div>
+        )}
       </section>
     </div>
   );
