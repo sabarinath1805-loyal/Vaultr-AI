@@ -269,7 +269,7 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
     () => documents.filter((doc) => links.documents.includes(doc.id)),
     [documents, links.documents]
   );
-  const linkedChats = links.chats.map((chatId) => chats[chatId]).filter(Boolean);
+  const linkedChats = links.chats.map((chatId) => (chats ?? {})[chatId]).filter(Boolean);
   const linkedScans = links.scans
     .map((scanId) => scanReports.find((r) => r.id === scanId))
     .filter((r): r is ScanReportEntry => Boolean(r));
