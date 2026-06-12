@@ -74,10 +74,10 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const totalSteps = 8;
+  const totalSteps = 9;
 
   const goNext = () => {
-    if (step === 6) {
+    if (step === 7) {
       const newErrors: Record<string, boolean> = {};
       if (!name.trim()) newErrors.name = true;
       if (!firm.trim()) newErrors.firm = true;
@@ -134,7 +134,8 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
           {step === 3 && <ScreenVault />}
           {step === 4 && <ScreenAgent />}
           {step === 5 && <ScreenContractScanner />}
-          {step === 6 && (
+          {step === 6 && <ScreenTabularReview />}
+          {step === 7 && (
             <ScreenProfile
               name={name}
               setName={setName}
@@ -145,7 +146,7 @@ export function OnboardingModal({ onComplete }: { onComplete: () => void }) {
               errors={errors}
             />
           )}
-          {step === 7 && <ScreenReady name={name} />}
+          {step === 8 && <ScreenReady name={name} />}
         </div>
 
         {/* Navigation */}
@@ -357,6 +358,23 @@ function ScreenContractScanner() {
       </h2>
       <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]" style={{ fontFamily: "'Sora', sans-serif" }}>
         Upload any contract and Lex identifies risks, flags unusual clauses, and suggests protective provisions — jurisdiction-aware.
+      </p>
+    </div>
+  );
+}
+
+function ScreenTabularReview() {
+  return (
+    <div>
+      <div className="mb-4 flex items-center gap-2">
+        <Zap className="h-6 w-6 text-[var(--text)]" />
+        <span className="text-xs uppercase tracking-wide text-[var(--text-muted)]">Tabular Review</span>
+      </div>
+      <h2 className="text-3xl font-normal text-[var(--text)]" style={{ fontFamily: "'Instrument Serif', serif" }}>
+        Bulk document analysis.
+      </h2>
+      <p className="mt-3 text-sm leading-relaxed text-[var(--text-muted)]" style={{ fontFamily: "'Sora', sans-serif" }}>
+        Upload 40 contracts, define columns, Lex fills the table. Export to Excel in minutes.
       </p>
     </div>
   );

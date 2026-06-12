@@ -1429,7 +1429,7 @@ function flushVisibleToken(
     tokenFlushState.set(controller, state);
     if (state.preambleDone && state.buffer.length > 0) {
       const now = Date.now();
-      if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
+      if (state.buffer.length >= 1 || now - state.lastFlush > 10) {
         controller.enqueue(encoder.encode(`0:${JSON.stringify(state.buffer)}\n`));
         state.buffer = "";
         state.lastFlush = now;
@@ -1441,7 +1441,7 @@ function flushVisibleToken(
 
   state.buffer += visibleToken;
   const now = Date.now();
-  if (state.buffer.length >= 3 || now - state.lastFlush > 50) {
+  if (state.buffer.length >= 1 || now - state.lastFlush > 10) {
     controller.enqueue(encoder.encode(`0:${JSON.stringify(state.buffer)}\n`));
     state.buffer = "";
     state.lastFlush = now;

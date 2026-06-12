@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileText, FolderOpen, MoreHorizontal, Plus } from "lucide-react";
+import { FileText, FolderOpen, Lock, MoreHorizontal, Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { HeaderSearchBtn } from "@/components/shared/header-search-btn";
 import { NewVaultModal } from "@/components/vault/new-vault-modal";
@@ -132,12 +132,15 @@ export default function VaultPage() {
     <main className="h-screen flex-1 overflow-y-auto bg-[var(--bg)]">
       <div className="flex items-start justify-between px-6 pb-6 pt-8">
         <div>
-          <h1 className="text-[28px] font-normal text-[var(--text)]">
+          <h1
+            className="text-[32px] font-normal text-[var(--text)]"
+            style={{ fontFamily: "var(--font-instrument-serif, 'Instrument Serif', serif)" }}
+          >
             {selectedProject ? selectedProject.name : "Vault"}
           </h1>
           {!selectedProject && (
             <p className="mt-2 max-w-[620px] text-sm leading-[1.6] text-[var(--text-muted)]">
-              Store and organise your contracts, scan reports, and legal documents. Everything saved here is private to your device.
+              Your private workspace for contracts, judgments, and briefs. Everything stays on your device.
             </p>
           )}
           {selectedProject && (
@@ -155,12 +158,12 @@ export default function VaultPage() {
             <HeaderSearchBtn
               value={search}
               onChange={setSearch}
-              placeholder="Search vault..."
+              placeholder="Search collections..."
             />
           )}
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--accent)] text-[var(--bg-primary)] transition-colors hover:opacity-80"
+            className="flex h-8 items-center gap-1.5 rounded-full bg-[var(--accent)] px-4 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-80"
             onClick={() => {
               if (selectedProject) {
                 fileInputRef.current?.click();
@@ -171,6 +174,7 @@ export default function VaultPage() {
             aria-label={selectedProject ? "Add documents" : "Create vault"}
           >
             <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">{selectedProject ? "Upload" : "New Collection"}</span>
           </button>
         </div>
       </div>
@@ -187,106 +191,97 @@ export default function VaultPage() {
         />
       ) : (
         <>
-          <div className="w-full overflow-visible">
-            <div className="min-w-max">
-              <div className="flex h-8 items-center border-b border-[var(--border)] pr-8 text-xs font-medium text-[var(--text-muted)] select-none">
-                <div className={`sticky left-0 z-[60] ${CHECK_W} relative flex self-stretch items-center justify-center bg-[var(--bg)] before:absolute before:inset-x-0 before:bottom-0 before:h-px before:bg-[var(--bg)]`} />
-                <div className={`sticky left-8 z-[60] ${NAME_COL_W} bg-[var(--bg)] pl-2 text-left`}>
-                  Name
-                </div>
-                <div className="ml-auto w-32 shrink-0 text-left">CM</div>
-                <div className="w-24 shrink-0 text-left">Files</div>
-                <div className="w-24 shrink-0 text-left">Chats</div>
-                <div className="w-36 shrink-0 text-left">Contract Scans</div>
-                <div className="w-32 shrink-0 text-left">Created</div>
-                <div className="w-8 shrink-0" />
-              </div>
-
-              {rows.length > 0 ? (
-                <div>
-                  {rows.map((project) => {
-                    const files = documents.filter((doc) => project.documentIds.includes(doc.id));
-                    return (
-                      <div
-                        key={project.id}
-                        className="flex h-11 cursor-pointer items-center border-b border-[var(--border)] pr-8 text-xs text-[var(--text-muted)] transition-colors hover:bg-[var(--sidebar-bg)]"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setSelectedProjectId(project.id)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") setSelectedProjectId(project.id);
-                        }}
-                      >
-                        <div className={`sticky left-0 z-[60] ${CHECK_W} relative flex self-stretch items-center justify-center bg-[var(--bg)]`} />
-                        <div className={`sticky left-8 z-[60] ${NAME_COL_W} flex items-center gap-2 bg-[var(--bg)] pl-2 text-left`}>
-                          <FolderOpen className="h-3.5 w-3.5 text-[var(--text-faint)]" />
-                          <span className="truncate font-medium text-[var(--text)]">{project.name}</span>
-                        </div>
-                        <div className="ml-auto w-32 shrink-0 text-left">{project.cmNumber || "—"}</div>
-                        <div className="w-24 shrink-0 text-left">{files.length}</div>
-                        <div className="w-24 shrink-0 text-left">0</div>
-                        <div className="w-36 shrink-0 text-left">{scanReportCount}</div>
-                        <div className="w-32 shrink-0 text-left">
-                          {new Date(project.createdAt).toLocaleDateString()}
-                        </div>
-                        <div className="relative flex w-8 shrink-0 justify-center" data-vault-actions>
-                          <button
-                            type="button"
-                            className="rounded-[var(--radius-sm)] p-1 text-[var(--text-faint)] hover:bg-[var(--surface)] hover:text-[var(--text-muted)]"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (openMenuId === project.id) {
-                                setOpenMenuId(null);
-                                setMenuPosition(null);
-                                return;
-                              }
-                              setMenuPosition(getFixedDropdownPosition(event.currentTarget, 120, 116));
-                              setOpenMenuId(project.id);
-                            }}
-                            aria-label={`${project.name} actions`}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </button>
-                          {openMenuId === project.id && (
-                            <ActionMenu
-                              onClose={() => setOpenMenuId(null)}
-                              position={menuPosition}
-                              items={[
-                                { label: "Open", onClick: () => setSelectedProjectId(project.id) },
-                                {
-                                  label: "Rename",
-                                  onClick: () => setRenameProjectId(project.id),
-                                },
-                                {
-                                  label: "Delete",
-                                  destructive: true,
-                                  onClick: () => setDeleteProjectId(project.id),
-                                },
-                              ]}
-                            />
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="mx-auto flex w-full max-w-xs flex-col items-start py-24">
-                  <FolderOpen className="mb-4 h-8 w-8 text-[var(--text-faint)]" />
-                  <p className="text-[28px] font-normal text-[var(--text)]">
-                    Vault
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setNewVaultOpen(true)}
-                    className="mt-4 inline-flex items-center gap-1 rounded-[var(--radius-md)] bg-[var(--accent)] px-6 py-2.5 text-sm font-medium text-[var(--bg-primary)] shadow-md transition-colors hover:opacity-80"
+          {rows.length > 0 ? (
+            <div className="px-6 pb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {rows.map((project) => {
+                const files = documents.filter((doc) => project.documentIds.includes(doc.id));
+                return (
+                  <div
+                    key={project.id}
+                    className="group relative cursor-pointer rounded-xl border border-[var(--border)] bg-[var(--bg)] p-5 transition-colors hover:bg-[var(--hover)]"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedProjectId(project.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") setSelectedProjectId(project.id);
+                    }}
                   >
-                    + Create New
-                  </button>
-                </div>
-              )}
+                    <div className="flex items-start justify-between">
+                      <FolderOpen className="h-5 w-5 text-[var(--text-muted)]" strokeWidth={1.8} />
+                      <div className="relative" data-vault-actions>
+                        <button
+                          type="button"
+                          className="rounded-[var(--radius-sm)] p-1 text-[var(--text-faint)] opacity-0 transition-opacity hover:bg-[var(--surface)] hover:text-[var(--text-muted)] group-hover:opacity-100"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (openMenuId === project.id) {
+                              setOpenMenuId(null);
+                              setMenuPosition(null);
+                              return;
+                            }
+                            setMenuPosition(getFixedDropdownPosition(event.currentTarget, 120, 116));
+                            setOpenMenuId(project.id);
+                          }}
+                          aria-label={`${project.name} actions`}
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                        </button>
+                        {openMenuId === project.id && (
+                          <ActionMenu
+                            onClose={() => setOpenMenuId(null)}
+                            position={menuPosition}
+                            items={[
+                              { label: "Open", onClick: () => setSelectedProjectId(project.id) },
+                              {
+                                label: "Rename",
+                                onClick: () => setRenameProjectId(project.id),
+                              },
+                              {
+                                label: "Delete",
+                                destructive: true,
+                                onClick: () => setDeleteProjectId(project.id),
+                              },
+                            ]}
+                          />
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 truncate font-medium text-[var(--text)]">
+                      {project.name}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="rounded-full bg-[var(--border)] px-2 py-0.5 text-xs text-[var(--text)]">
+                        {files.length} {files.length === 1 ? "doc" : "docs"}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-xs text-[var(--text-muted)]">
+                      Created {new Date(project.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center px-6 py-24 text-center">
+              <Lock className="mb-4 h-10 w-10 text-[var(--text-muted)]" strokeWidth={1.5} />
+              <p
+                className="text-2xl text-[var(--text)]"
+                style={{ fontFamily: "var(--font-instrument-serif, 'Instrument Serif', serif)" }}
+              >
+                Your private vault
+              </p>
+              <p className="mt-2 max-w-sm text-sm text-[var(--text-muted)]">
+                Upload contracts, judgments and briefs. Everything stays on your device.
+              </p>
+              <button
+                type="button"
+                onClick={() => setNewVaultOpen(true)}
+                className="mt-6 inline-flex items-center gap-1.5 rounded-[var(--radius-md)] bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-[var(--bg-primary)] transition-colors hover:opacity-90"
+              >
+                <Plus className="h-4 w-4" /> Upload Documents
+              </button>
+            </div>
+          )}
           <ScanReportsSection
             reports={scanReports}
             isLoading={scanReportsLoading}
@@ -621,6 +616,13 @@ function VaultDetail({
           </div>
         </div>
       )}
+      <button
+        type="button"
+        onClick={() => fileInputRef.current?.click()}
+        className="mt-6 w-full cursor-pointer border-2 border-dashed border-[var(--border)] rounded-xl p-8 text-center text-[var(--text-muted)] text-sm transition-colors hover:bg-[var(--surface)]"
+      >
+        Drop files here or click to upload
+      </button>
     </section>
   );
 }
@@ -687,11 +689,11 @@ function VaultDocumentCard({
         </button>
         {menuOpen && (
           <div className="absolute right-0 top-9 z-10 min-w-[180px] rounded-[var(--radius-sm)] border border-[var(--border)] bg-[var(--bg)] p-1 shadow-[0_4px_12px_var(--shadow-soft)]">
-            <button type="button" onClick={onScan} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
-              Send to Contract Scanner
+            <button type="button" onClick={onAttach} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+              Ask Lex
             </button>
-            <button type="button" className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
-              Download
+            <button type="button" onClick={onScan} className="block w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] text-[var(--text)] hover:bg-[var(--surface)]">
+              Scan Contract
             </button>
             <button
               type="button"

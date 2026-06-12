@@ -39,6 +39,18 @@ interface LocalVaultProjectRow {
 function openLocalVaultDb() {
   fs.mkdirSync(dataDir, { recursive: true });
   const sqlite = new Database(dbPath);
+
+  // Nuclear fix: detect and drop tables missing owner_id column
+  try {
+    const cols = sqlite.prepare("PRAGMA table_info(local_vault_documents)").all() as { name: string }[];
+    const hasOwnerId = cols.some(c => c.name === 'owner_id');
+    if (!hasOwnerId && cols.length > 0) {
+      sqlite.exec('DROP TABLE IF EXISTS local_vault_documents');
+    }
+  } catch {
+    // Table doesn't exist yet
+  }
+
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS local_vault_documents (
       id TEXT PRIMARY KEY,
