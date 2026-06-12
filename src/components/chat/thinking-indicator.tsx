@@ -22,10 +22,10 @@ export function ThinkingIndicator({ visible, activeModel }: ThinkingIndicatorPro
       <span
         className="inline-flex items-center justify-center"
         style={{
-          fontSize: isMax ? '28px' : '18px',
+          fontSize: isMax ? '28px' : '22px',
           lineHeight: 1,
-          width: isMax ? '28px' : '18px',
-          height: isMax ? '28px' : '18px',
+          width: isMax ? '28px' : '22px',
+          height: isMax ? '28px' : '22px',
           position: 'relative',
           top: '-1px',
           fontWeight: isMax ? 600 : 400,
@@ -35,13 +35,13 @@ export function ThinkingIndicator({ visible, activeModel }: ThinkingIndicatorPro
       <span
         style={{
           fontSize: '16px',
-          lineHeight: isMax ? '28px' : '18px',
+          lineHeight: isMax ? '28px' : '22px',
           marginLeft: '-2px',
           fontWeight: isMax ? 500 : 400,
           color: isMax ? 'var(--text-primary)' : 'var(--text-secondary)',
         }}
       >{label}</span>
-      <span className={`lex-thinking-dots${isMax ? " lex-deep-analysis-dots" : ""}`} aria-hidden="true" style={{ lineHeight: isMax ? '28px' : '18px' }}>
+      <span className={`lex-thinking-dots${isMax ? " lex-deep-analysis-dots" : ""}`} aria-hidden="true" style={{ lineHeight: isMax ? '28px' : '22px' }}>
         <span>●</span>
         <span>●</span>
         <span>●</span>
