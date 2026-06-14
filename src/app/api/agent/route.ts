@@ -7,7 +7,7 @@
  * Steps: parse → matter → search → fetch → tavily → synthesise → draft
  */
 
-import { searchLegalDatabases, formatCasesForContext, tavilyIsWarranted } from "@/lib/legal-search";
+import { searchLegalDatabases, formatCasesForContext, tavilyIsWarranted, tavilyAdvancedSearch } from "@/lib/legal-search";
 import { resolveCitation } from "@/lib/citation-resolver";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
 import { getSessionUser, isBetaUser, isSupabaseConfigured } from "@/lib/supabase";
@@ -64,37 +64,30 @@ interface WebResult {
 }
 
 // tavilyIsWarranted is re-exported from @/lib/legal-search
+// tavilyAdvancedSearch (in @/lib/legal-search) wraps the fetch with the
+// shared in-memory cache so two callers asking the same query don't
+// double-bill Tavily. We adapt its loose result shape (title/url/content
+// optional) to the agent's strict WebResult contract.
 
 async function tavilySearch(
   query: string,
   signal: AbortSignal
 ): Promise<{ answer?: string; results: WebResult[] }> {
-  const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
-  if (!apiKey?.trim()) return { results: [] };
-
-  try {
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        api_key: apiKey,
-        query,
-        search_depth: "advanced",
-        include_answer: true,
-        include_raw_content: false,
-        max_results: 5,
-      }),
-      signal,
-    });
-    if (!response.ok) return { results: [] };
-    const data = await response.json();
-    return {
-      answer: data.answer || undefined,
-      results: Array.isArray(data.results) ? data.results : [],
-    };
-  } catch {
-    return { results: [] };
-  }
+  // Race the shared (cached) call against the request's abort signal so
+  // an upstream disconnect still tears down the request promptly.
+  const searchPromise = tavilyAdvancedSearch(query).then(({ answer, results }) => ({
+    answer,
+    results: results.map((r) => ({
+      title: r.title || "",
+      url: r.url || "",
+      content: r.content || "",
+    })),
+  }));
+  const abortPromise = new Promise<{ answer?: string; results: WebResult[] }>((resolve) => {
+    if (signal.aborted) return resolve({ results: [] });
+    signal.addEventListener("abort", () => resolve({ results: [] }), { once: true });
+  });
+  return Promise.race([searchPromise, abortPromise]);
 }
 
 /* ------------------------------------------------------------------ */
