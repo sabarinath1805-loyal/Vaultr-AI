@@ -80,6 +80,7 @@ export async function POST(req: Request) {
       document_type: body.documentType || null,
       columns: body.columns || [],
       document_ids: body.documentIds || [],
+      matter_id: typeof body.matterId === "string" ? body.matterId : null,
       results: {},
     })
     .select()

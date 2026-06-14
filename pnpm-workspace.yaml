@@ -1,5 +1,10 @@
 packages:
   - "."
 
-ignoredBuiltDependencies:
+# Allow specific packages to run install scripts.
+# better-sqlite3 needs a native rebuild on install (postinstall handles it).
+# The `ignoredBuiltDependencies` field is the pnpm v9 syntax which still
+# suppresses the lockfile warning, but newer pnpm versions prefer
+# `onlyBuiltDependencies` (the inverse) to keep the lockfile deterministic.
+onlyBuiltDependencies:
   - better-sqlite3
