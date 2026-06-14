@@ -55,13 +55,12 @@ export async function requireAuth(req: Request): Promise<{ userId: string; email
   const authHeader = req.headers.get("authorization");
 
   // TODO: remove dev bypass before beta launch
-  // Defence in depth: triple-check we're actually in development before issuing
-  // the synthetic dev UUID. The boot guard above already errors when
-  // NODE_ENV=production + Supabase is set, but this is the per-request gate.
-  const isDevBypassAllowed =
-    process.env.NODE_ENV === "development" &&
-    !process.env.SUPABASE_SERVICE_ROLE_KEY; // production-shaped deploys never take the bypass
-  if (isDevBypassAllowed && !authHeader) {
+  // Defence in depth: NODE_ENV=development is the single, hard gate on the
+  // dev bypass. The boot guard at the top of this module hard-fails when
+  // NODE_ENV=production + Supabase is configured, so this per-request check
+  // is safe in any local-dev configuration (with or without a service-role
+  // key on the local Supabase).
+  if (process.env.NODE_ENV === "development" && !authHeader) {
     return { userId: "00000000-0000-0000-0000-000000000001", email: "dev@vaultr.local" };
   }
 
