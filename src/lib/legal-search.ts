@@ -4,6 +4,58 @@
 import { getConfiguredApiKey } from "./tauri-env";
 
 /**
+ * Simple in-memory cache for Tavily web search results. Deduplicates
+ * identical queries (regardless of jurisdiction filtering) within a
+ * 10-minute window. The cache key is the normalized query string —
+ * case-folded, whitespace-collapsed, length-capped — so callers that
+ * pass the same query twice in quick succession don't both hit Tavily.
+ *
+ * In production, this is process-local (per serverless invocation);
+ * the goal is to catch same-request duplicates and short-burst retries,
+ * not to be a distributed cache.
+ */
+const TAVILY_CACHE_TTL_MS = 10 * 60 * 1000;
+const TAVILY_CACHE_MAX_ENTRIES = 100;
+const tavilyCache = new Map<
+  string,
+  { results: Array<{ title?: string; url?: string; content?: string }>; answer?: string; expiresAt: number }
+>();
+
+function tavilyCacheKey(query: string): string {
+  return query.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200);
+}
+
+function getCachedTavily(query: string) {
+  const key = tavilyCacheKey(query);
+  const entry = tavilyCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    tavilyCache.delete(key);
+    return null;
+  }
+  return entry;
+}
+
+function setCachedTavily(
+  query: string,
+  payload: { results: Array<{ title?: string; url?: string; content?: string }>; answer?: string }
+) {
+  const key = tavilyCacheKey(query);
+  tavilyCache.set(key, { ...payload, expiresAt: Date.now() + TAVILY_CACHE_TTL_MS });
+  if (tavilyCache.size > TAVILY_CACHE_MAX_ENTRIES) {
+    const now = Date.now();
+    const survivors: Array<[string, { results: Array<{ title?: string; url?: string; content?: string }>; answer?: string; expiresAt: number }]> = [];
+    for (const [k, v] of tavilyCache) {
+      if (now <= v.expiresAt) survivors.push([k, v]);
+    }
+    survivors.sort((a, b) => b[1].expiresAt - a[1].expiresAt);
+    const kept = survivors.slice(0, TAVILY_CACHE_MAX_ENTRIES);
+    tavilyCache.clear();
+    for (const [k, v] of kept) tavilyCache.set(k, v);
+  }
+}
+
+/**
  * Sanitize a free-text search query to prevent injection into external legal APIs.
  */
 function sanitizeSearchQuery(input: string, maxLength: number = 200): string {
@@ -13,6 +65,21 @@ function sanitizeSearchQuery(input: string, maxLength: number = 200): string {
     sanitized = sanitized.slice(0, maxLength);
   }
   return sanitized.trim();
+}
+
+/**
+ * Normalize a case name for deduplication. Strips punctuation, lowercases,
+ * and collapses whitespace so "Foo v. Bar" / "Foo v Bar" / "foo v bar" all
+ * collapse to the same key. Used to dedupe cases returned by different
+ * legal-DB upstreams under different URL shapes.
+ */
+function normalizeCaseKey(title: string): string {
+  return (title || "")
+    .toLowerCase()
+    .replace(/[.,'";:()\[\]{}!?]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\bv\.?\s+/g, "v ")
+    .trim();
 }
 
 export interface LegalCase {
@@ -35,40 +102,13 @@ export interface LegalSearchResult {
 
 // ─── Real API sources (kept) ───────────────────────────────────────────────
 
-// CourtListener (USA) — free REST API, no key needed
+// CourtListener (USA) — DISABLED: consistently times out and returns
+// irrelevant results for non-legal queries. Kept as a no-op stub so any
+// existing "courtlistener" references in jurisdiction priority maps don't
+// crash — they'll just get empty results.
 async function searchCourtListener(query: string): Promise<LegalCase[]> {
-  try {
-    const response = await fetch(
-      `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(query)}&type=o&format=json&page_size=3&semantic=true`,
-      { signal: AbortSignal.timeout(8000) }
-    );
-    if (!response.ok) return [];
-    // Defensive: the endpoint sometimes returns HTML on transient errors
-    // (rate-limit pages, captive portals, upstream maintenance). Only
-    // proceed if the payload is JSON; otherwise treat as empty so a
-    // single broken upstream never poisons the whole legal-search result.
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("application/json")) {
-      console.warn("[legal-search] CourtListener returned non-JSON response");
-      return [];
-    }
-    const data = await response.json();
-    return (data.results || []).slice(0, 4).map((item: Record<string, unknown>) => ({
-      title: (item.caseName as string) || "Unknown",
-      citation: (item.citation as string) || "",
-      year: item.dateFiled
-        ? new Date(item.dateFiled as string).getFullYear().toString()
-        : "",
-      jurisdiction: "USA",
-      court: (item.court as string) || "",
-      summary: (item.snippet as string) || "",
-      url: `https://www.courtlistener.com${(item.absolute_url as string) || ""}`,
-      source: "CourtListener",
-    }));
-  } catch (error) {
-    console.error("[legal-search] CourtListener failed:", error);
-    return [];
-  }
+  // Intentionally disabled — see CLAUDE.md / bug tracker.
+  return [];
 }
 
 // Harvard Caselaw Access Project (USA)
@@ -179,42 +219,65 @@ async function searchIndianKanoon(query: string): Promise<LegalCase[]> {
 
 // ─── Tavily jurisdiction-scoped search functions ──────────────────────────
 
-async function tavilyJurisdictionSearch(
+/**
+ * Shared Tavily fetch used by the jurisdiction-scoped helpers and the
+ * agent route. Deduplicates identical queries against the in-memory
+ * cache so two callers asking the same question in quick succession
+ * don't both pay the Tavily rate-limit cost.
+ */
+async function tavilySearchCore(
   query: string,
-  includeDomains: string[],
-  jurisdictionLabel: string,
-  sourceLabel: string
-): Promise<LegalCase[]> {
+  options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {}
+): Promise<{ results: Array<{ title?: string; url?: string; content?: string }>; answer?: string }> {
+  const cached = getCachedTavily(query);
+  if (cached) return { results: cached.results, answer: cached.answer };
+
+  const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
+  if (!apiKey) return { results: [] };
+
   try {
-    const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
-    if (!apiKey) return [];
     const response = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: apiKey,
         query,
-        search_depth: "basic",
-        max_results: 5,
-        include_domains: includeDomains,
+        search_depth: options.searchDepth || "basic",
+        max_results: options.maxResults || 5,
+        include_domains: options.includeDomains,
+        include_answer: options.searchDepth === "advanced",
+        include_raw_content: false,
       }),
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
     });
-    if (!response.ok) return [];
+    if (!response.ok) return { results: [] };
     const data = await response.json();
-    return (data.results || []).map((item: { title?: string; url?: string; content?: string }) => ({
-      title: item.title || "Unknown",
-      citation: "",
-      year: item.title?.match(/\[(\d{4})\]/)?.[1] || item.title?.match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
-      jurisdiction: jurisdictionLabel,
-      court: "",
-      summary: (item.content || "").slice(0, 300),
-      url: item.url || "",
-      source: sourceLabel,
-    }));
+    const results = Array.isArray(data?.results) ? data.results : [];
+    const answer = typeof data?.answer === "string" ? data.answer : undefined;
+    setCachedTavily(query, { results, answer });
+    return { results, answer };
   } catch {
-    return [];
+    return { results: [] };
   }
+}
+
+async function tavilyJurisdictionSearch(
+  query: string,
+  includeDomains: string[],
+  jurisdictionLabel: string,
+  sourceLabel: string
+): Promise<LegalCase[]> {
+  const { results } = await tavilySearchCore(query, { includeDomains, searchDepth: "basic" });
+  return results.map((item) => ({
+    title: item.title || "Unknown",
+    citation: "",
+    year: item.title?.match(/\[(\d{4})\]/)?.[1] || item.title?.match(/\b((?:19|20)\d{2})\b/)?.[1] || "",
+    jurisdiction: jurisdictionLabel,
+    court: "",
+    summary: (item.content || "").slice(0, 300),
+    url: item.url || "",
+    source: sourceLabel,
+  }));
 }
 
 async function searchSingaporeLaw(query: string): Promise<LegalCase[]> {
@@ -241,6 +304,14 @@ async function searchCALaw(query: string): Promise<LegalCase[]> {
   ], "Canada", "CA Law (Tavily)");
 }
 
+/** Exported for the agent route — deduplicates against the same cache. */
+export async function tavilyAdvancedSearch(
+  query: string
+): Promise<{ answer?: string; results: Array<{ title?: string; url?: string; content?: string }> }> {
+  return tavilySearchCore(query, { searchDepth: "advanced", maxResults: 5 });
+}
+
+
 // ─── Wikipedia summary (kept) ─────────────────────────────────────────────
 
 async function fetchWikipediaSummary(query: string): Promise<string> {
@@ -266,14 +337,14 @@ async function fetchWikipediaSummary(query: string): Promise<string> {
 // ─── Jurisdiction detection ───────────────────────────────────────────────
 
 export const JURISDICTION_DB_PRIORITY: Record<string, string[]> = {
-  us: ["courtlistener", "caselaw"],
-  uk: ["uklaw_tavily", "courtlistener"],
-  au: ["aulaw_tavily", "courtlistener"],
-  sg: ["sglaw_tavily", "courtlistener"],
-  eu: ["eurlex", "courtlistener"],
-  in: ["indiankanoon", "courtlistener"],
-  ca: ["calaw_tavily", "courtlistener"],
-  int: ["courtlistener", "eurlex"],
+  us: ["caselaw", "sglaw_tavily"],
+  uk: ["uklaw_tavily"],
+  au: ["aulaw_tavily"],
+  sg: ["sglaw_tavily"],
+  eu: ["eurlex"],
+  in: ["indiankanoon"],
+  ca: ["calaw_tavily"],
+  int: ["eurlex", "sglaw_tavily"],
 };
 
 function isLegalQuery(query: string): boolean {
@@ -405,7 +476,7 @@ export async function searchLegalDatabases(
 
   const dbKeysToSearch = priority.length > 0
     ? priority.slice(0, 4)
-    : ["sglaw_tavily", "courtlistener"];
+    : ["sglaw_tavily", "eurlex"];
 
   const wikiSummary = await fetchWikipediaSummary(safeQuery);
 
@@ -425,6 +496,7 @@ export async function searchLegalDatabases(
   });
 
   const seenUrls = new Set<string>();
+  const seenTitleYear = new Set<string>();
   const scoredCases: (LegalCase & { _score: number })[] = [];
   for (const c of allCases) {
     if (!c) continue;
@@ -433,6 +505,14 @@ export async function searchLegalDatabases(
 
     if (c.url && seenUrls.has(c.url)) continue;
     if (c.url) seenUrls.add(c.url);
+
+    // Deduplicate by normalized (case name + year) — different upstreams
+    // often return the same case under different URL shapes. We strip
+    // punctuation, lowercase, and collapse whitespace so "Foo v. Bar" and
+    // "Foo v Bar" collapse to the same key.
+    const normalizedTitleYear = `${normalizeCaseKey(title)}|${c.year || ""}`;
+    if (seenTitleYear.has(normalizedTitleYear)) continue;
+    seenTitleYear.add(normalizedTitleYear);
 
     let score = 0;
     const lowerQuery = safeQuery.toLowerCase();

@@ -3,6 +3,7 @@ import {
   formatCasesForContext,
   detectJurisdiction,
   tavilyIsWarranted,
+  tavilyAdvancedSearch,
   JURISDICTION_DB_PRIORITY,
   type LegalCase,
 } from "@/lib/legal-search";
@@ -138,6 +139,41 @@ describe("legal-search", () => {
     it("returns undefined for ambiguous queries", () => {
       expect(detectJurisdiction("general legal question about contracts")).toBeUndefined();
       expect(detectJurisdiction("")).toBeUndefined();
+    });
+  });
+
+  describe("tavilyAdvancedSearch (shared cache)", () => {
+    it("returns empty results when TAVILY_API_KEY is missing", async () => {
+      // Default tauri-env mock: no key configured
+      const result = await tavilyAdvancedSearch("some uncached query");
+      expect(result.results).toEqual([]);
+    });
+
+    it("deduplicates identical queries against the in-memory cache", async () => {
+      const query = "shared tavily cache dedup test query string";
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          results: [{ title: "Cached result", url: "https://x.test/cached", content: "cached content" }],
+          answer: "cached answer",
+        }),
+      });
+
+      // First call hits the network (1 fetch)
+      const a = await tavilyAdvancedSearch(query);
+      // Second call hits the cache (still 1 fetch total)
+      const b = await tavilyAdvancedSearch(query);
+
+      expect(a.answer).toBe("cached answer");
+      expect(b.answer).toBe("cached answer");
+      expect(mockFetch.mock.calls.length).toBe(1);
+    });
+
+    it("returns graceful empty payload when the network fails", async () => {
+      mockFetch.mockRejectedValue(new Error("network down"));
+      const result = await tavilyAdvancedSearch("network failure test query");
+      expect(result.results).toEqual([]);
+      expect(result.answer).toBeUndefined();
     });
   });
 });
