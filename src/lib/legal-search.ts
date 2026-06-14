@@ -8,7 +8,7 @@ import { getConfiguredApiKey } from "./tauri-env";
  */
 function sanitizeSearchQuery(input: string, maxLength: number = 200): string {
   if (typeof input !== "string" || !input) return "";
-  let sanitized = input.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, ""); // eslint-disable-line no-control-regex
+  let sanitized = input.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, "");
   if (sanitized.length > maxLength) {
     sanitized = sanitized.slice(0, maxLength);
   }
@@ -40,9 +40,18 @@ async function searchCourtListener(query: string): Promise<LegalCase[]> {
   try {
     const response = await fetch(
       `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(query)}&type=o&format=json&page_size=3&semantic=true`,
-      { signal: AbortSignal.timeout(3000) }
+      { signal: AbortSignal.timeout(8000) }
     );
     if (!response.ok) return [];
+    // Defensive: the endpoint sometimes returns HTML on transient errors
+    // (rate-limit pages, captive portals, upstream maintenance). Only
+    // proceed if the payload is JSON; otherwise treat as empty so a
+    // single broken upstream never poisons the whole legal-search result.
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      console.warn("[legal-search] CourtListener returned non-JSON response");
+      return [];
+    }
     const data = await response.json();
     return (data.results || []).slice(0, 4).map((item: Record<string, unknown>) => ({
       title: (item.caseName as string) || "Unknown",
@@ -73,6 +82,15 @@ async function searchCaseLaw(query: string): Promise<LegalCase[]> {
       { signal: AbortSignal.timeout(3000), headers }
     );
     if (!response.ok) return [];
+    // Defensive: the Harvard CAP endpoint occasionally returns an HTML error
+    // page (502/503 from CloudFront, captcha interstitials, etc.) instead of
+    // JSON. Only proceed when the content-type confirms JSON; otherwise
+    // collapse to an empty result so the caller gets a clean response.
+    const contentType = response.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      console.warn("[legal-search] searchCaseLaw returned non-JSON response");
+      return [];
+    }
     const data = await response.json();
     return (data.results || []).slice(0, 3).map((item: Record<string, unknown>) => {
       const citations = item.citations as { cite: string }[] | undefined;

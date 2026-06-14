@@ -42,7 +42,7 @@ h1, h2, h3, .font-display, .greeting-heading {
   --purple: #8b5cf6;
   --user-bubble: #8c7c6a;
   --user-bubble-text: #f2ede6;
-  --overlay: rgba(0, 0, 0, 0.3);
+  --overlay: rgba(0, 0, 0, 0.6);
   --shadow-soft: rgba(0, 0, 0, 0.08);
   --shadow-modal: rgba(0, 0, 0, 0.12);
   --white: #ffffff;

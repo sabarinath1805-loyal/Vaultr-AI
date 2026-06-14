@@ -660,7 +660,24 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
     setDraftTimelineLoading(true);
     try {
       const docContext = linkedDocuments.map((d) => `${d.filename}: ${d.content?.slice(0, 3000) || "(no text extracted)"}`).join("\n\n");
-      const prompt = `You are a legal AI assistant. Based on the matter details and documents provided, draft a chronological timeline of key events. Format as a numbered list: [Date] — [Event] — [Legal significance]. Only include actual legal events — not document metadata like file size or page count. Be concise and precise.\n\nMatter: ${matter.name}\nDocuments:\n${docContext}`;
+      // Explicit, format-anchored prompt. "No preamble / no commentary" stops
+      // the model from wrapping the timeline in a <think>…</think> block,
+      // which the streaming think-stripper would otherwise flush as empty
+      // content and surface as a "Draft Timeline returns empty" failure.
+      const prompt = `You are drafting a chronological legal timeline. Output ONLY the timeline — no preamble, no commentary, no markdown fences.
+
+Format each line exactly like this:
+1. [YYYY-MM-DD or "Undated"] — [Event] — [Legal significance]
+
+Skip PDF creation dates, file size, page count, and any document metadata. Include only actual legal events (filings, hearings, contracts executed, judgments, etc.). Use "Undated" when the document only implies the date.
+
+Matter: ${matter.name}
+
+Documents:
+${docContext}
+
+Timeline:
+`;
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -668,8 +685,19 @@ export default function MatterDetailPage({ params }: { params: Promise<{ id: str
       });
       if (!res.ok) throw new Error("Failed");
       const text = await res.text();
+      // The chat route emits Vercel AI SDK v1 data-stream frames ("0:..." lines).
+      // Each line is "0:" + JSON.stringify(chunk). We slice off the prefix,
+      // JSON.parse each chunk, and concat to recover the full assistant text.
       const lines = text.split("\n").filter((l) => l.startsWith("0:"));
-      const content = lines.map((l) => JSON.parse(l.slice(2))).join("");
+      const content = lines
+        .map((l) => {
+          try {
+            return JSON.parse(l.slice(2)) as string;
+          } catch {
+            return "";
+          }
+        })
+        .join("");
       if (content.trim()) {
         setDraftTimelineResult(stripAssistantMarkup(content));
         toast.success("Timeline draft ready");
