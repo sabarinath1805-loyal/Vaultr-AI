@@ -27,7 +27,7 @@ import {
   stripAssistantStreamChunk,
 } from "@/lib/chat-message-content";
 import { getConfiguredApiKey } from "@/lib/tauri-env";
-import { searchLegalDatabases, formatCasesForContext, parseJurisdictionCode, tavilyIsWarranted, type LegalCase } from "@/lib/legal-search";
+import { searchLegalDatabases, formatCasesForContext, parseJurisdictionCode, tavilyIsWarranted, tavilyAdvancedSearch, type LegalCase } from "@/lib/legal-search";
 import { retrieveRelevantChunks, retrieveMatterMemory, retrieveUserMemory, formatRetrievedContext } from "@/lib/rag-retrieve";
 import { extractAndSaveMemories } from "@/lib/rag-memory";
 
@@ -1550,9 +1550,10 @@ const tokenFlushState: WeakMap<
 > = new WeakMap();
 
 async function getWebSearchContext(query: string): Promise<{ context: string; sources: WebSearchSource[] }> {
-  const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
-
-  if (!apiKey?.trim()) {
+  // tavilyAdvancedSearch in @/lib/legal-search wraps the fetch with the
+  // shared in-memory cache so the chat and agent routes asking the same
+  // question within 10 minutes share one Tavily call.
+  if (!getConfiguredApiKey("TAVILY_API_KEY")?.trim()) {
     return {
       context: "\n\nWeb search is unavailable because TAVILY_API_KEY is not configured.",
       sources: [],
@@ -1560,28 +1561,9 @@ async function getWebSearchContext(query: string): Promise<{ context: string; so
   }
 
   try {
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        api_key: apiKey.trim(),
-        query,
-        search_depth: "advanced",
-        include_answer: true,
-        include_raw_content: false,
-        max_results: 5,
-      }),
-    });
-
-    if (!response.ok) {
-      return { context: "\n\nWeb search is unavailable right now.", sources: [] };
-    }
-
-    const data = await response.json();
-    const results = Array.isArray(data?.results) ? data.results.slice(0, 5) : [];
-    const answer = typeof data?.answer === "string" ? data.answer : "";
+    const { answer: rawAnswer, results: rawResults } = await tavilyAdvancedSearch(query);
+    const results = rawResults.slice(0, 5);
+    const answer = rawAnswer || "";
 
     if (results.length === 0 && !answer) return { context: "", sources: [] };
 
