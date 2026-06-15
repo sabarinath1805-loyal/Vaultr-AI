@@ -8,18 +8,18 @@ import {
 } from "@/lib/rag-retrieve";
 
 describe("rag-retrieve", () => {
-  // Use separate mocks for embedText (Voyage) and Supabase RPC calls
+  // Use separate mocks for embedText (Jina) and Supabase RPC calls
   beforeEach(() => {
     // Supabase needs these set for getSupabaseAdmin to work
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
-    process.env.VOYAGE_API_KEY = "test-voyage-key";
+    process.env.JINA_API_KEY = "test-jina-key";
   });
 
   afterEach(() => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.VOYAGE_API_KEY;
+    delete process.env.JINA_API_KEY;
   });
 
   describe("retrieveRelevantChunks", () => {
@@ -51,8 +51,8 @@ describe("rag-retrieve", () => {
 
       jest.spyOn(global, "fetch").mockImplementation(async (input: RequestInfo | URL) => {
         const url = typeof input === "string" ? input : input.toString();
-        if (url.includes("voyageai.com")) {
-          return mockResponse({ data: [{ embedding: [0.1, 0.2] }] });
+        if (url.includes("api.jina.ai")) {
+          return mockResponse({ data: [{ embedding: [0.1, 0.2], index: 0 }] });
         }
         return mockResponse([
           { id: "1", document_name: "Doc A", chunk_text: "high score", similarity: 0.85, source: "vault", matter_id: null },

@@ -26,13 +26,13 @@ describe("rag-memory", () => {
   beforeEach(() => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.supabase.co";
     process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-key";
-    process.env.VOYAGE_API_KEY = "test-voyage-key";
+    process.env.JINA_API_KEY = "test-jina-key";
   });
 
   afterEach(() => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-    delete process.env.VOYAGE_API_KEY;
+    delete process.env.JINA_API_KEY;
     jest.restoreAllMocks();
   });
 
@@ -71,8 +71,8 @@ describe("rag-memory", () => {
             }],
           });
         }
-        // Voyage embedding + Supabase insert
-        return mockResponse({ data: [{ embedding: [0.1] }] });
+        // Jina embedding + Supabase insert
+        return mockResponse({ data: [{ embedding: [0.1], index: 0 }] });
       });
 
       await extractAndSaveMemories({

@@ -21,12 +21,40 @@ const tavilyCache = new Map<
   { results: Array<{ title?: string; url?: string; content?: string }>; answer?: string; expiresAt: number }
 >();
 
-function tavilyCacheKey(query: string): string {
-  return query.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200);
+function tavilyCacheKey(
+  query: string,
+  options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {}
+): string {
+  const normalized = query.trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200);
+  // Include options in the key so that the same query with different
+  // depth/domain settings does not collide. The depth/domains/result-
+  // count tuple fully identifies a Tavily request shape.
+  const depth = options.searchDepth || "basic";
+  const domains = (options.includeDomains || []).slice().sort().join(",");
+  const max = options.maxResults || 5;
+  return `${normalized}|${depth}|${domains}|${max}`;
 }
 
-function getCachedTavily(query: string) {
-  const key = tavilyCacheKey(query);
+/**
+ * Drop expired entries from the Tavily cache. Runs opportunistically on
+ * cache reads so the map cannot grow without bound.
+ */
+function cleanupTavilyCache(): void {
+  if (tavilyCache.size === 0) return;
+  const now = Date.now();
+  for (const [k, v] of tavilyCache) {
+    if (now > v.expiresAt) {
+      tavilyCache.delete(k);
+    }
+  }
+}
+
+function getCachedTavily(
+  query: string,
+  options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {}
+) {
+  cleanupTavilyCache();
+  const key = tavilyCacheKey(query, options);
   const entry = tavilyCache.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
@@ -38,9 +66,10 @@ function getCachedTavily(query: string) {
 
 function setCachedTavily(
   query: string,
+  options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {},
   payload: { results: Array<{ title?: string; url?: string; content?: string }>; answer?: string }
 ) {
-  const key = tavilyCacheKey(query);
+  const key = tavilyCacheKey(query, options);
   tavilyCache.set(key, { ...payload, expiresAt: Date.now() + TAVILY_CACHE_TTL_MS });
   if (tavilyCache.size > TAVILY_CACHE_MAX_ENTRIES) {
     const now = Date.now();
@@ -229,7 +258,7 @@ async function tavilySearchCore(
   query: string,
   options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {}
 ): Promise<{ results: Array<{ title?: string; url?: string; content?: string }>; answer?: string }> {
-  const cached = getCachedTavily(query);
+  const cached = getCachedTavily(query, options);
   if (cached) return { results: cached.results, answer: cached.answer };
 
   const apiKey = getConfiguredApiKey("TAVILY_API_KEY");
@@ -254,7 +283,7 @@ async function tavilySearchCore(
     const data = await response.json();
     const results = Array.isArray(data?.results) ? data.results : [];
     const answer = typeof data?.answer === "string" ? data.answer : undefined;
-    setCachedTavily(query, { results, answer });
+    setCachedTavily(query, options, { results, answer });
     return { results, answer };
   } catch {
     return { results: [] };
@@ -403,7 +432,25 @@ function getCacheKey(query: string, jurisdiction?: string): string {
   return `${query.trim().toLowerCase()}|${(jurisdiction || "all").toLowerCase()}`;
 }
 
+/**
+ * Drop expired entries from the legal-search cache. Called opportunistically
+ * from `searchLegalDatabases` so the map cannot grow without bound across
+ * long-running server processes.
+ */
+function cleanupSearchCache(): void {
+  if (searchCache.size === 0) return;
+  const now = Date.now();
+  for (const [k, v] of searchCache) {
+    if (now > v.expiresAt) {
+      searchCache.delete(k);
+    }
+  }
+}
+
 function getCachedResult(query: string, jurisdiction?: string): LegalSearchResult | null {
+  // Opportunistic cleanup to bound memory usage
+  cleanupSearchCache();
+
   const key = getCacheKey(query, jurisdiction);
   const entry = searchCache.get(key);
   if (!entry) return null;
