@@ -90,25 +90,30 @@ export default function TabularReviewDetailPage() {
     fetchReview();
   }, [fetchReview]);
 
+  const reviewRef = useRef<TabularReview | null>(null);
+  useEffect(() => { reviewRef.current = review; }, [review]);
+
   const fetchDocuments = useCallback(async () => {
-    if (!review) return;
+    const r = reviewRef.current;
+    if (!r) return;
+    if (r.document_ids.length === 0) { setDocuments([]); return; }
     try {
       const response = await fetch("/api/local-vault");
       if (response.ok) {
         const data = await response.json();
         const filtered = (data.documents || []).filter(
-          (d: VaultDocument) => review.document_ids.includes(d.id)
+          (d: VaultDocument) => r.document_ids.includes(d.id)
         );
         setDocuments(filtered);
       }
     } catch (error) {
       console.error("[TabularReview] Failed to fetch documents:", error);
     }
-  }, [review]);
+  }, []);
 
   useEffect(() => {
-    fetchDocuments();
-  }, [fetchDocuments]);
+    if (review) fetchDocuments();
+  }, [review, fetchDocuments]);
 
   const updateReview = async (updates: Partial<TabularReview>) => {
     try {
@@ -205,6 +210,7 @@ export default function TabularReviewDetailPage() {
     const merged = Array.from(new Set([...review.document_ids, ...docIds]));
     await updateReview({ document_ids: merged });
     setDocsPickerOpen(false);
+    fetchDocuments();
   };
 
   const exportCsv = () => {
