@@ -29,6 +29,10 @@ const HOURLY_WINDOW_MS = 60 * 60 * 1000;
 
 function checkUserHourlyCap(userId: string): boolean {
   const now = Date.now();
+  // Opportunistic cleanup: drop entries whose window has elapsed
+  for (const [k, v] of hourlyUsage) {
+    if (now > v.resetAt) hourlyUsage.delete(k);
+  }
   const entry = hourlyUsage.get(userId);
   if (!entry || now > entry.resetAt) {
     hourlyUsage.set(userId, { count: 1, resetAt: now + HOURLY_WINDOW_MS });

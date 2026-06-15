@@ -398,6 +398,10 @@ const agentRateLimitMap = new Map<string, { count: number; windowStart: number }
 
 function checkAgentRateLimit(key: string): { allowed: boolean; message?: string } {
   const now = Date.now();
+  // Opportunistic cleanup: drop entries whose window has elapsed
+  for (const [k, v] of agentRateLimitMap) {
+    if (now - v.windowStart > 3_600_000) agentRateLimitMap.delete(k);
+  }
   const entry = agentRateLimitMap.get(key);
   if (!entry || now - entry.windowStart > 3_600_000) {
     agentRateLimitMap.set(key, { count: 1, windowStart: now });
