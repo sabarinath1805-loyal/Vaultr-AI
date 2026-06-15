@@ -23,7 +23,7 @@ export const API_KEY_NAMES = [
   "CEREBRAS_API_KEY",
   "HARVARD_CAP_API_KEY",
   "CLAUDEOPUS_API_KEY",
-  "VOYAGE_API_KEY",
+  "JINA_API_KEY",
 ] as const;
 
 // In-memory cache for API keys - populated once per server instance

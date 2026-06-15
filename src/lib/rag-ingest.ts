@@ -56,7 +56,7 @@ export async function ingestDocument(params: IngestParams): Promise<IngestResult
     }
 
     // Batch embed all chunks
-    const embeddings = await embedBatch(chunks, "document");
+    const embeddings = await embedBatch(chunks, "retrieval.passage");
 
     // Insert all rows
     const rows = chunks.map((text, index) => ({

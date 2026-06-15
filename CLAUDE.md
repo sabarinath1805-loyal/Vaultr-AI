@@ -16,8 +16,8 @@ The production target is **Singapore lawyers** handling real client data, so PII
 - **Streaming**: Vercel AI SDK (`ai` package), SSE `X-Vercel-AI-Data-Stream: v1`
 - **Package manager**: pnpm (with `pnpm-workspace.yaml`). `better-sqlite3` needs a native rebuild on install — `postinstall` script handles it.
 - **Database (server)**: SQLite via `better-sqlite3` + Drizzle ORM
-- **Database (cloud RAG)**: Supabase + pgvector — stores document chunks, matter memory, user memory with 1024-dim Voyage AI embeddings
-- **Embeddings**: Voyage AI `voyage-law-2` (legal-optimised, 1024 dimensions) — key in `VOYAGE_API_KEY`
+- **Database (cloud RAG)**: Supabase + pgvector — stores document chunks, matter memory, user memory with 1024-dim Jina AI embeddings
+- **Embeddings**: Jina AI `jina-embeddings-v3` (1024 dimensions, normalized, supports `retrieval.query` / `retrieval.passage` task adapters) — key in `JINA_API_KEY`
 - **Auth / rate-limiting / usage logging (cloud)**: Supabase, gated on `NEXT_PUBLIC_SUPABASE_URL` being set
 - **Tauri v2 desktop**: `src-tauri/tauri.conf.json` — bundle ID `com.vaultr.app`
 
@@ -124,7 +124,7 @@ All search calls go through `sanitizeSearchQuery` (strips control chars, caps at
 
 The personal-RAG stack sits on top of Voyage AI + Supabase pgvector:
 
-- `src/lib/embeddings.ts` — `embedText` / `embedDocument` (single-text, retrieval-optimised) and `embedBatch` (up to 128 inputs per request, auto-batched, 30s timeout). `chunkText(text, chunkSize = 512, overlap = 64)` splits on word boundaries and discards sub-50-char chunks. Throws if `VOYAGE_API_KEY` is missing.
+- `src/lib/embeddings.ts` — `embedText` / `embedDocument` (single-text, retrieval-optimised via Jina's `retrieval.query` / `retrieval.passage` task adapters) and `embedBatch` (up to 128 inputs per request, auto-batched, 30s timeout). Vectors are L2-normalized for cosine-via-dot-product similarity. `chunkText(text, chunkSize = 512, overlap = 64)` splits on word boundaries and discards sub-50-char chunks. Throws if `JINA_API_KEY` is missing.
 - `src/lib/rag-ingest.ts` — `ingestDocument({ userId, matterId?, documentName, content, source? })` chunks + embeds + upserts into `document_chunks`. Deletes prior chunks for the same `(user_id, document_name)` pair before re-ingesting. Fire-and-forget safe.
 - `src/lib/rag-retrieve.ts` — `retrieveRelevantChunks` (similarity > 0.65), `retrieveMatterMemory` and `retrieveUserMemory` (similarity > 0.6), and `formatRetrievedContext` which composes the three arrays into a single system-prompt section with `[documentName]` prefixes on chunks and bullet lists for memories.
 - `src/lib/rag-memory.ts` — `saveUserMemory` (with exact-content duplicate guard), `saveMatterMemory`, and `extractAndSaveMemories` which uses Claude Haiku with an 8s `AbortSignal.timeout` to extract user + matter memories from a conversation turn.
@@ -169,7 +169,7 @@ Test files go in `__tests__/` directories. The existing security-focused suites 
 - `OLLAMA_URL` — local Ollama server (default `http://localhost:11434`)
 - `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, `CEREBRAS_API_KEY`, `CLAUDEOPUS_API_KEY`, `SERPER_API_KEY`, `TAVILY_API_KEY` — cloud provider keys
 - `ANTHROPIC_BASE_URL` — custom endpoint for ClaudeOpus (ignored for localhost/Ollama patterns)
-- `VOYAGE_API_KEY` — required for personal RAG (embeddings); missing key throws on `embedText` / `embedBatch`
+- `JINA_API_KEY` — required for personal RAG (embeddings); missing key throws on `embedText` / `embedBatch`
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` — Supabase auth/rate-limiting + pgvector RAG
 - `HARVARD_CAP_API_KEY` — optional enhanced CourtListener access
 - `TMPDIR` (system) — used as fallback for `DOWNLOAD_DIR` in download endpoints; never hardcode `/tmp`
