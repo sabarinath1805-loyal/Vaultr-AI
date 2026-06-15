@@ -219,5 +219,35 @@ describe("legal-search", () => {
       // the advanced one — proving the cache key isolates option shapes.
       expect(mockFetch.mock.calls.length).toBe(2);
     });
+
+    it("drops expired entries on cache read", async () => {
+      // First populate the cache with something
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [], answer: undefined }),
+      });
+      await tavilyAdvancedSearch("expiring test");
+
+      // Advance time past the TTL (10 minutes by default)
+      jest.useFakeTimers();
+      jest.advanceTimersByTime(10 * 60 * 1000 + 1);
+
+      // Mock the second fetch (which the cleanup should trigger)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ results: [{ title: "After expiry", url: "https://z", content: "" }], answer: undefined }),
+      });
+
+      // Next cache access should trigger cleanup and return null, forcing
+      // a new fetch
+      const result = await tavilyAdvancedSearch("expiring test");
+      expect(result.results[0]?.title).toBe("After expiry");
+
+      // After cleanup and re-read, a fresh entry was added but with the
+      // same query, so the mock should have been called again.
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+
+      jest.useRealTimers();
+    });
   });
 });
