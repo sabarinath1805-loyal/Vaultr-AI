@@ -1,72 +1,87 @@
 /**
- * Voyage AI embeddings for legal-specific semantic search.
- * Model: voyage-law-2 (1024 dimensions, legal-optimized).
+ * Jina AI embeddings for legal semantic search.
+ * Model: jina-embeddings-v3 (1024 dimensions, supports Matryoshka truncation).
  * @module embeddings
  */
 
-const VOYAGE_API_URL = "https://api.voyageai.com/v1/embeddings";
-const VOYAGE_MODEL = "voyage-law-2";
+const JINA_API_URL = "https://api.jina.ai/v1/embeddings";
+const JINA_MODEL = "jina-embeddings-v3";
+const JINA_DIMENSIONS = 1024;
 const MAX_BATCH_SIZE = 128;
 
-function getVoyageApiKey(): string {
-  const key = process.env.VOYAGE_API_KEY?.trim();
-  if (!key) throw new Error("VOYAGE_API_KEY is not configured");
+function getJinaApiKey(): string {
+  const key = process.env.JINA_API_KEY?.trim();
+  if (!key) throw new Error("JINA_API_KEY is not configured");
   return key;
 }
 
 /**
  * Embed a query string for similarity search.
- * Uses input_type="query" for retrieval-optimised embeddings.
+ * Uses task="retrieval.query" for retrieval-optimised embeddings.
  */
 export async function embedText(text: string): Promise<number[]> {
-  const [result] = await embedBatch([text], "query");
+  const [result] = await embedBatch([text], "retrieval.query");
   return result;
 }
 
 /**
  * Embed a document chunk for indexing.
- * Uses input_type="document" for storage-optimised embeddings.
+ * Uses task="retrieval.passage" for storage-optimised embeddings.
  */
 export async function embedDocument(text: string): Promise<number[]> {
-  const [result] = await embedBatch([text], "document");
+  const [result] = await embedBatch([text], "retrieval.passage");
   return result;
 }
 
+type JinaTask =
+  | "retrieval.query"
+  | "retrieval.passage"
+  | "text-matching"
+  | "classification"
+  | "separation";
+
 /**
- * Batch embed up to 128 texts per Voyage API request.
+ * Batch embed up to 128 texts per Jina API request.
  * Automatically splits into multiple requests if texts exceed MAX_BATCH_SIZE.
+ * `normalized: true` produces unit-length vectors — required for cosine via dot product
+ * and matches how pgvector's `vector_cosine_ops` measures distance.
  */
 export async function embedBatch(
   texts: string[],
-  inputType: "query" | "document" = "document"
+  task: JinaTask = "retrieval.passage"
 ): Promise<number[][]> {
   if (texts.length === 0) return [];
-  const apiKey = getVoyageApiKey();
+  const apiKey = getJinaApiKey();
   const results: number[][] = [];
 
   for (let i = 0; i < texts.length; i += MAX_BATCH_SIZE) {
     const batch = texts.slice(i, i + MAX_BATCH_SIZE);
-    const response = await fetch(VOYAGE_API_URL, {
+    const response = await fetch(JINA_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: VOYAGE_MODEL,
+        model: JINA_MODEL,
         input: batch,
-        input_type: inputType,
+        normalized: true,
+        embedding_type: "float",
+        dimensions: JINA_DIMENSIONS,
+        task,
       }),
       signal: AbortSignal.timeout(30_000),
     });
 
     if (!response.ok) {
       const errorText = await response.text().catch(() => "");
-      throw new Error(`Voyage API error ${response.status}: ${errorText}`);
+      throw new Error(`Jina API error ${response.status}: ${errorText}`);
     }
 
     const data = await response.json();
-    const embeddings = (data.data as { embedding: number[] }[]) || [];
+    const embeddings = (data.data as { embedding: number[]; index: number }[]) || [];
+    // Sort by index because Jina may return results in input order, but we want to be safe.
+    embeddings.sort((a, b) => a.index - b.index);
     for (const item of embeddings) {
       results.push(item.embedding);
     }
