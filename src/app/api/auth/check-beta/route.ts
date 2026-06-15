@@ -7,7 +7,13 @@ const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 60_000;
 
 function checkRateLimit(ip: string): boolean {
+  // Opportunistic cleanup: drop entries whose window has elapsed.
+  // Prevents unbounded growth from unique-IP probes.
   const now = Date.now();
+  for (const [k, v] of rateLimitMap) {
+    if (now > v.resetAt) rateLimitMap.delete(k);
+  }
+
   const entry = rateLimitMap.get(ip);
   if (!entry || now > entry.resetAt) {
     rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
