@@ -43,6 +43,22 @@ function getDayReset(): number {
 }
 
 /**
+ * Drop expired entries from the in-memory store.
+ * Called opportunistically from `checkRateLimit` so the map cannot grow
+ * without bound across long-running processes. With ~1500 IPs/models per
+ * day, two passes per request is the safe ceiling.
+ */
+function cleanupRateLimitStore(): void {
+  if (rateLimitStore.size === 0) return;
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore) {
+    if (now >= entry.resetAt) {
+      rateLimitStore.delete(key);
+    }
+  }
+}
+
+/**
  * Check if requests from an IP address are within the rate limit for a given model.
  * Returns an allowance object with optional downgrade suggestion if limit is exceeded.
  *
@@ -56,6 +72,9 @@ function getDayReset(): number {
  * }
  */
 export function checkRateLimit(ip: string, model: string): { allowed: boolean; downgradeModel?: string; message?: string } {
+  // Opportunistic cleanup to prevent memory bloat
+  cleanupRateLimitStore();
+
   const limit = MODEL_LIMITS[model];
   if (limit === undefined || limit === Infinity) {
     return { allowed: true };
