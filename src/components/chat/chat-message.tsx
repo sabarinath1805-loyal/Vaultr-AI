@@ -796,13 +796,14 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
     <div className={`message animate-message-in mb-10 w-full max-w-4xl text-left text-sm leading-[1.75] text-[var(--text-primary)] ${(message as unknown as { agentMode?: boolean }).agentMode ? "rounded-lg bg-[var(--surface)]/30 p-4" : ""}`}>
       {message.role === "assistant" ? (
         <div className="w-full">
-          {(message as unknown as { agentMode?: boolean }).agentMode && (
-            <div className="mb-2 flex items-center gap-1.5">
-              <Zap width={24} height={24} className="text-amber-400 shrink-0" aria-hidden="true" />
-              <span className="text-xs font-medium text-[var(--text-muted)]">Lex Agent</span>
-            </div>
-          )}
-          <div className="min-w-0 text-[15px] leading-[1.75]">
+          <div className="mb-2 rounded-xl border border-white/70 bg-white/55 shadow-[0_3px_9px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-4px_9px_rgba(255,255,255,0.05)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/5 px-4 py-3">
+            {(message as unknown as { agentMode?: boolean }).agentMode && (
+              <div className="flex items-center gap-1.5 mb-3">
+                <Zap width={24} height={24} className="text-amber-400 shrink-0" aria-hidden="true" />
+                <span className="text-xs font-medium text-[var(--text-muted)]">Lex Agent</span>
+              </div>
+            )}
+            <div className="min-w-0 font-serif text-[15px] leading-[1.75] text-[var(--text-primary)]">
             {message.experimental_attachments?.some((attachment) =>
               attachment.contentType?.startsWith("image/")
             ) && (
@@ -887,6 +888,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                 </button>
               )}
             </div>
+          </div>
           </div>
         </div>
       ) : null}
