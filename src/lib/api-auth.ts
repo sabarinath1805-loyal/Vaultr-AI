@@ -118,7 +118,6 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
   // Strip zero-width chars and bidi overrides
   sanitized = sanitized.replace(/[​-‍⁠﻿‪-‮⁦-⁩]/g, "");
 
-  // eslint-disable-next-line no-control-regex
   sanitized = sanitized.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]/g, "");
 
   if (sanitized.length > maxLength) sanitized = sanitized.slice(0, maxLength);
