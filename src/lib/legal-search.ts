@@ -35,10 +35,25 @@ function tavilyCacheKey(
   return `${normalized}|${depth}|${domains}|${max}`;
 }
 
+/**
+ * Drop expired entries from the Tavily cache. Runs opportunistically on
+ * cache reads so the map cannot grow without bound.
+ */
+function cleanupTavilyCache(): void {
+  if (tavilyCache.size === 0) return;
+  const now = Date.now();
+  for (const [k, v] of tavilyCache) {
+    if (now > v.expiresAt) {
+      tavilyCache.delete(k);
+    }
+  }
+}
+
 function getCachedTavily(
   query: string,
   options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {}
 ) {
+  cleanupTavilyCache();
   const key = tavilyCacheKey(query, options);
   const entry = tavilyCache.get(key);
   if (!entry) return null;
@@ -417,7 +432,25 @@ function getCacheKey(query: string, jurisdiction?: string): string {
   return `${query.trim().toLowerCase()}|${(jurisdiction || "all").toLowerCase()}`;
 }
 
+/**
+ * Drop expired entries from the legal-search cache. Called opportunistically
+ * from `searchLegalDatabases` so the map cannot grow without bound across
+ * long-running server processes.
+ */
+function cleanupSearchCache(): void {
+  if (searchCache.size === 0) return;
+  const now = Date.now();
+  for (const [k, v] of searchCache) {
+    if (now > v.expiresAt) {
+      searchCache.delete(k);
+    }
+  }
+}
+
 function getCachedResult(query: string, jurisdiction?: string): LegalSearchResult | null {
+  // Opportunistic cleanup to bound memory usage
+  cleanupSearchCache();
+
   const key = getCacheKey(query, jurisdiction);
   const entry = searchCache.get(key);
   if (!entry) return null;
