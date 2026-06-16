@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -727,6 +728,10 @@ function NewReviewDialog({
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
             <DialogTitle>Create New Review</DialogTitle>
+            <DialogDescription>
+              Create a new tabular review and choose which columns to extract
+              from your documents.
+            </DialogDescription>
           </DialogHeader>
           <div>
             <Label htmlFor="name">Review name *</Label>

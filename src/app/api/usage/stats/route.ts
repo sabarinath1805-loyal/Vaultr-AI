@@ -16,8 +16,8 @@ export const dynamic = "force-dynamic";
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "claude-haiku-4-5-20251001": "Lex Core",
   "claude-sonnet-4-6": "Lex Pro",
-  "claude-opus-4-8": "Lex Ultra",
-  "claude-fable-5": "Lex Max",
+  "claude-opus-4-7": "Lex Ultra",
+  "claude-opus-4-8": "Lex Max",
 };
 
 function formatResponseTime(ms: number): string {

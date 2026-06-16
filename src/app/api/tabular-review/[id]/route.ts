@@ -180,7 +180,15 @@ export async function PATCH(
   if (Array.isArray(body.columns)) updates.columns = body.columns;
   if (typeof body.name === "string") updates.name = body.name;
   if (typeof body.documentType === "string") updates.document_type = body.documentType;
-  if (Array.isArray(body.documentIds)) updates.document_ids = body.documentIds;
+  // Accept both camelCase (documentIds) and snake_case (document_ids) for
+  // document attachments — the detail page sends snake_case, the create page
+  // sends camelCase. Persist both to the same column.
+  const documentIds = Array.isArray(body.documentIds)
+    ? body.documentIds
+    : Array.isArray(body.document_ids)
+      ? body.document_ids
+      : null;
+  if (documentIds) updates.document_ids = documentIds;
   updates.updated_at = new Date().toISOString();
 
   const { error } = await supabase

@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -208,9 +209,12 @@ export default function TabularReviewDetailPage() {
     if (!review) return;
     // De-dupe and merge with existing
     const merged = Array.from(new Set([...review.document_ids, ...docIds]));
-    await updateReview({ document_ids: merged });
     setDocsPickerOpen(false);
-    fetchDocuments();
+    // updateReview → fetchReview → setReview → effect re-runs fetchDocuments.
+    // Don't call fetchDocuments() directly here: reviewRef.current is still
+    // the stale review before the re-render, which would clear `documents`
+    // and flash "No documents yet".
+    await updateReview({ document_ids: merged });
   };
 
   const exportCsv = () => {
@@ -428,7 +432,7 @@ export default function TabularReviewDetailPage() {
       {/* Cell expand modal */}
       {selectedCell && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--overlay)]"
           onClick={() => setSelectedCell(null)}
         >
           <div
@@ -789,10 +793,10 @@ function AddDocumentsDialog({
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-3 border-b border-[var(--border)]">
           <DialogTitle>Add documents from Vault</DialogTitle>
-          <p className="mt-1 text-xs text-[var(--text-muted)]">
+          <DialogDescription className="mt-1 text-xs text-[var(--text-muted)]">
             Pick documents to attach to this review. Existing documents are
             hidden.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="px-6 pt-3 pb-2">

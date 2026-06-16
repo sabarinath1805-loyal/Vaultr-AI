@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Message } from "ai/react";
 import { ChatRequestOptions } from "ai";
 import ChatMessage from "./chat-message";
-import { ThinkingIndicator } from "./thinking-indicator";
-import { AgentStepTracker } from "./agent-step-tracker";
+import { ThinkingBar } from "./thinking-bar";
 import type { LegalSearchResult } from "@/lib/legal-search";
 
 interface ChatListProps {
@@ -15,13 +14,29 @@ interface ChatListProps {
   searchingLegalMessageId: string | null;
   activeModel?: string | null;
   agentThinkingActive?: boolean;
-  agentCurrentStep?: string;
-  agentCompletedSteps?: string[];
-  agentElapsedSeconds?: number;
   onEditMessage: (messageId: string, content: string) => void;
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
+}
+
+function getStandaloneLabel(activeModel?: string | null): string {
+  // Tie the bar label to the model tier when we know it; fall back to
+  // a generic "Lex" label so the bar reads naturally.
+  if (!activeModel) return "Lex";
+  if (activeModel.includes("opus-4-8") || activeModel.includes("fable")) {
+    return "Lex Max";
+  }
+  if (activeModel.includes("opus-4-7")) {
+    return "Lex Ultra";
+  }
+  if (activeModel.includes("sonnet-4-6")) {
+    return "Lex Pro";
+  }
+  if (activeModel.includes("haiku-4-5")) {
+    return "Lex Core";
+  }
+  return "Lex";
 }
 
 export default function ChatList({
@@ -33,9 +48,6 @@ export default function ChatList({
   searchingLegalMessageId,
   activeModel,
   agentThinkingActive = false,
-  agentCurrentStep = "",
-  agentCompletedSteps = [],
-  agentElapsedSeconds = 0,
   onEditMessage,
   reload,
 }: ChatListProps) {
@@ -89,6 +101,7 @@ export default function ChatList({
                 legalSources={message.role === "assistant" ? legalSourcesMap[message.id] : undefined}
                 isSearchingLegal={message.role === "assistant" && message.id === searchingLegalMessageId}
                 previousUserMessage={prevUserMsg}
+                activeModel={activeModel}
                 onEditMessage={onEditMessage}
                 reload={reload}
               />
@@ -96,15 +109,19 @@ export default function ChatList({
           })}
           {showStandaloneThinking && !agentThinkingActive && (
             <div className="message animate-message-in w-full text-left">
-              <ThinkingIndicator visible activeModel={activeModel} />
+              <ThinkingBar
+                visible
+                activeModelLabel={getStandaloneLabel(activeModel)}
+                isActive
+              />
             </div>
           )}
           {agentThinkingActive && (
             <div className="message animate-message-in w-full text-left">
-              <AgentStepTracker
-                currentStep={agentCurrentStep}
-                completedSteps={agentCompletedSteps}
-                elapsedSeconds={agentElapsedSeconds}
+              <ThinkingBar
+                visible
+                activeModelLabel="Lex Agent"
+                isActive
               />
             </div>
           )}

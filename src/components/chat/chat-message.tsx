@@ -15,8 +15,7 @@ import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import { SourcesFooter } from "@/components/chat/reasoning-timeline";
 import { LegalSourcesPanel } from "@/components/legal-sources-panel";
 import type { LegalSearchResult } from "@/lib/legal-search";
-import { ThinkingIndicator } from "./thinking-indicator";
-import { ThinkingProcess, type ThinkingStep } from "./thinking-process";
+import { ThinkingBar } from "./thinking-bar";
 
 // Detect generate_docx tool calls in message content
 const DOCX_TOOL_REGEX = /generate_docx\s*\(\s*(\{[\s\S]*?\})\s*\)/g;
@@ -488,13 +487,31 @@ export type ChatMessageProps = {
   legalSources?: LegalSearchResult | null;
   isSearchingLegal?: boolean;
   previousUserMessage?: string;
+  activeModel?: string | null;
   reload: (
     chatRequestOptions?: ChatRequestOptions
   ) => Promise<string | null | undefined>;
   onEditMessage: (messageId: string, content: string) => void;
 };
 
-function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, isSearchingLegal, previousUserMessage, reload, onEditMessage }: ChatMessageProps) {
+function getInlineModelLabel(activeModel?: string | null): string {
+  if (!activeModel) return "Lex";
+  if (activeModel.includes("opus-4-8") || activeModel.includes("fable")) {
+    return "Lex Max";
+  }
+  if (activeModel.includes("opus-4-7")) {
+    return "Lex Ultra";
+  }
+  if (activeModel.includes("sonnet-4-6")) {
+    return "Lex Pro";
+  }
+  if (activeModel.includes("haiku-4-5")) {
+    return "Lex Core";
+  }
+  return "Lex";
+}
+
+function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, isSearchingLegal, previousUserMessage, activeModel, reload, onEditMessage }: ChatMessageProps) {
   const [isCopied, setIsCopied] = useState<boolean>(false);
   const [editing, setEditing] = useState(false);
   const [draftContent, setDraftContent] = useState(message.content);
@@ -517,36 +534,6 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
   const isCurrentlyStreaming = Boolean(isLoading && isLast);
   const webSearchMatch = message.content.match(/<web-search-used([^>]*)\/>/);
   const webSearchUsed = Boolean(webSearchMatch);
-  const thinkingSteps = useMemo((): ThinkingStep[] => {
-    if (message.role !== "assistant") return [];
-    const steps: ThinkingStep[] = [];
-    const hasLegal = Boolean(effectiveLegalSources?.cases?.length);
-    const hasWeb = webSearchUsed;
-    const streaming = Boolean(isLoading && isLast);
-    if (hasLegal || streaming) {
-      steps.push({ id: "jurisdiction", label: "Detecting jurisdiction...", status: hasLegal || !streaming ? "done" : "active" });
-    }
-    if (hasLegal) {
-      const dbCount = effectiveLegalSources?.databases_searched?.length || 0;
-      const caseCount = effectiveLegalSources?.cases?.length || 0;
-      steps.push({ id: "legal-search", label: "Searching legal databases...", status: "done", detail: `Found ${caseCount} cases across ${dbCount} databases` });
-    } else if (streaming && isSearchingLegal) {
-      steps.push({ id: "legal-search", label: "Searching legal databases...", status: "active" });
-    }
-    if (hasWeb) {
-      steps.push({ id: "web-search", label: "Running web search...", status: "done" });
-    } else if (streaming) {
-      steps.push({ id: "web-search", label: "Running web search...", status: streaming && !hasLegal ? "active" : "pending" });
-    }
-    if (steps.length > 0) {
-      if (!streaming && cleanContent.length > 0) {
-        steps.push({ id: "synthesis", label: "Synthesising response...", status: "done" });
-      } else if (streaming) {
-        steps.push({ id: "synthesis", label: "Synthesising response...", status: cleanContent.length > 50 ? "active" : "pending" });
-      }
-    }
-    return steps;
-  }, [message.role, effectiveLegalSources, webSearchUsed, isLoading, isLast, isSearchingLegal, cleanContent]);
   const webSearchSources = useMemo(() => {
     const encodedSources = webSearchMatch?.[1]?.match(/\ssources="([^"]*)"/)?.[1];
     if (!encodedSources) return [];
@@ -686,7 +673,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
             <textarea
               value={draftContent}
               onChange={(event) => setDraftContent(event.target.value)}
-              className="min-h-[96px] w-full resize-y rounded-[20px] bg-[var(--user-bubble)] px-4 py-3 text-sm leading-[1.6] text-[var(--user-bubble-text)] outline-none ring-1 ring-black/10 focus:ring-black/20"
+              className="min-h-[96px] w-full resize-y rounded-[20px] bg-[var(--user-bubble)] px-4 py-3 text-sm leading-[1.6] text-[var(--user-bubble-text)] outline-none ring-1 ring-[var(--border)] focus:ring-[var(--text-muted)]"
               autoFocus
             />
             <div className="mt-1 flex justify-end gap-2">
@@ -793,10 +780,10 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
   }
 
   return (
-    <div className={`message animate-message-in mb-10 w-full max-w-4xl text-left text-sm leading-[1.75] text-[var(--text-primary)] ${(message as unknown as { agentMode?: boolean }).agentMode ? "rounded-lg bg-[var(--surface)]/30 p-4" : ""}`}>
+    <div className={`message animate-message-in mb-10 w-full max-w-4xl text-left text-sm leading-[1.75] text-[var(--text-primary)] ${(message as unknown as { agentMode?: boolean }).agentMode ? "rounded-lg bg-[var(--surface)] p-4" : ""}`}>
       {message.role === "assistant" ? (
         <div className="w-full">
-          <div className="mb-2 rounded-xl border border-white/70 bg-white/55 shadow-[0_3px_9px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-4px_9px_rgba(255,255,255,0.05)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/5 px-4 py-3">
+          <div className="mb-2 rounded-xl border border-[var(--border)] bg-[var(--bg)] shadow-[0_3px_9px_rgba(15,23,42,0.03)] px-4 py-3">
             {(message as unknown as { agentMode?: boolean }).agentMode && (
               <div className="flex items-center gap-1.5 mb-3">
                 <Zap width={24} height={24} className="text-amber-400 shrink-0" aria-hidden="true" />
@@ -821,9 +808,12 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
                   ))}
               </div>
             )}
-            {showThinking && <ThinkingIndicator visible />}
-            {thinkingSteps.length > 0 && (
-              <ThinkingProcess steps={thinkingSteps} isStreaming={isCurrentlyStreaming} />
+            {showThinking && (
+              <ThinkingBar
+                visible
+                activeModelLabel={getInlineModelLabel(activeModel)}
+                isActive={isCurrentlyStreaming}
+              />
             )}
             <div className="prose prose-sm max-w-none text-[15px] leading-[1.75] transition-opacity duration-300 prose-p:my-3 prose-pre:rounded-[var(--radius-sm)] prose-pre:bg-[var(--surface-muted)] prose-pre:p-3 prose-code:rounded-[var(--radius-sm)] prose-code:bg-[var(--surface-muted)] prose-code:px-1 prose-code:py-0.5 prose-code:text-[var(--text-primary)] prose-a:text-[var(--accent)] prose-a:no-underline hover:prose-a:underline">
               <Markdown remarkPlugins={[remarkGfm, remarkBreaks]} components={markdownComponents}>{cleanContent}</Markdown>

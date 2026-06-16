@@ -10,7 +10,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
 import type { AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { ANTHROPIC_CORE_MODEL, isLexModel, groqIdToLexName } from "@/lib/models";
-import { AGENT_STEP_IDS } from "@/components/chat/agent-step-tracker";
 import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { createBrowserSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
@@ -96,9 +95,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const [searchingLegalMessageId, setSearchingLegalMessageId] = React.useState<string | null>(null);
   const [homeGreeting, setHomeGreeting] = React.useState("Morning, Counselor.");
   const [agentMode, setAgentMode] = React.useState(false);
-  const [agentCurrentStep, setAgentCurrentStep] = React.useState<string>("");
-  const [agentCompletedSteps, setAgentCompletedSteps] = React.useState<string[]>([]);
-  const [agentElapsedSeconds, setAgentElapsedSeconds] = React.useState(0);
   const [agentThinkingActive, setAgentThinkingActive] = React.useState(false);
   const agentElapsedRef = React.useRef<NodeJS.Timeout | null>(null);
   React.useEffect(() => {
@@ -369,13 +365,13 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         createdAt: new Date(),
       };
       activeAssistantMessageRef.current = assistantMessage;
-      setAgentCurrentStep("parse");
-      setAgentCompletedSteps([]);
-      setAgentElapsedSeconds(0);
       setAgentThinkingActive(true);
       if (agentElapsedRef.current) clearInterval(agentElapsedRef.current);
       agentElapsedRef.current = setInterval(() => {
-        setAgentElapsedSeconds((s) => s + 1);
+        // Tick — currently only used to keep the elapsed timer alive
+        // for the thinking bar's internal animations. The bar itself
+        // doesn't surface a counter, so this is intentionally a no-op
+        // setter; the timer is cleared on first text token below.
       }, 1000);
 
       try {
@@ -425,22 +421,12 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             const payload = trimmed.slice(sepIdx + 1);
 
             if (prefix === "2") {
-              // Data annotation — check for agent_step progress
+              // Data annotation — we no longer surface per-step agent
+              // progress in the UI (the new ThinkingBar is a single
+              // collapsible bar without step labels), so just consume
+              // the payload and continue.
               try {
-                const annotations = JSON.parse(payload);
-                if (Array.isArray(annotations)) {
-                  for (const ann of annotations) {
-                    if (ann.type === "agent_step" && typeof ann.step === "string") {
-                      if (ann.status === "active") {
-                        setAgentCurrentStep(ann.step);
-                      } else if (ann.status === "done") {
-                        setAgentCompletedSteps((prev) =>
-                          prev.includes(ann.step) ? prev : [...prev, ann.step]
-                        );
-                      }
-                    }
-                  }
-                }
+                JSON.parse(payload);
               } catch {
                 // Ignore parse errors
               }
@@ -965,9 +951,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
             searchingLegalMessageId={searchingLegalMessageId}
             activeModel={selectedModel}
             agentThinkingActive={agentThinkingActive}
-            agentCurrentStep={agentCurrentStep}
-            agentCompletedSteps={agentCompletedSteps}
-            agentElapsedSeconds={agentElapsedSeconds}
             onEditMessage={handleEditMessage}
             reload={async () => {
               const retryMessages = removeLatestMessage();

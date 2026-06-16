@@ -335,7 +335,7 @@ export function ComposerCard({
   return (
     <>
       <form onSubmit={submitWithReset} className="w-full" style={{ maxWidth: "780px" }}>
-        <div className="rounded-[18px] border border-white/65 bg-white/60 shadow-[0_4px_10px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.85),inset_0_-6px_14px_rgba(255,255,255,0.18)] backdrop-blur-2xl md:rounded-[22px] dark:border-white/10 dark:bg-white/5">
+        <div className="rounded-[18px] border border-[var(--border)] bg-[var(--bg)] shadow-[0_4px_10px_rgba(15,23,42,0.12)] md:rounded-[22px]">
           {(selectedWorkflow || attachedDocuments.length > 0 || selectedSources.length > 0) && (
             <div className="flex flex-wrap gap-1.5 px-2 pt-2">
               <SourcePills selectedSources={selectedSources} onRemove={removeSource} />
@@ -552,7 +552,7 @@ export function ComposerCard({
                   }
                 }}
                 disabled={!isLoading && !input.trim()}
-                className="relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[10px] border border-white/30 bg-gradient-to-b from-neutral-700 to-black text-white shadow-[0_5px_14px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.24)] backdrop-blur-xl transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:from-neutral-600 disabled:to-black disabled:opacity-70"
+                className="relative flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-[10px] border border-[var(--border)] bg-[var(--accent)] text-[var(--bg-primary)] shadow-[0_2px_6px_rgba(15,23,42,0.15)] transition-all duration-150 active:enabled:scale-95 disabled:cursor-default disabled:opacity-70"
                 aria-label={isLoading ? "Stop response" : "Send message"}
               >
                 {isLoading ? (

@@ -175,7 +175,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                           toast("Private Mode runs entirely on your device. Responses may be slower depending on your machine.", { duration: 6000 });
                         }
                       }}
-                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-black/5"
+                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-[var(--hover)]"
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>
                         <span className="flex min-w-0 flex-1 flex-col">
@@ -206,7 +206,7 @@ export function ModelSelector({ disabled, direction = "up" }: ModelSelectorProps
                         setSelectedModel(modelId);
                         setOpen(false);
                       }}
-                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-black/5"
+                      className="w-full rounded-[var(--radius-sm)] border-0 bg-transparent text-left transition-[background-color] duration-150 hover:bg-[var(--hover)]"
                       title={isMax ? "Comprehensive analysis — allow 1-2 minutes" : undefined}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px" }}>

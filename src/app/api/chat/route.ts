@@ -468,7 +468,7 @@ export async function POST(req: Request) {
         return geminiResponse;
       }
       // Gemini 503/timeout — fall back to Groq
-      // (Lex Max = Fable 5, Lex Ultra = Opus; Gemini is its own tier name.)
+      // (Lex Max = Opus 4.8, Lex Ultra = Opus 4.7; Gemini is its own tier name.)
       const failedTierName = groqIdToLexName(geminiModel);
       activeModel = GROQ_DEFAULT_MODEL;
       usesCloudReasoning = false;
@@ -1160,7 +1160,7 @@ async function streamAnthropicResponse({
   if (!apiKey) throw new Error("Missing CLAUDEOPUS_API_KEY");
 
   const baseUrl = getAnthropicBaseUrl();
-  const maxTokens = (model === "claude-fable-5" || model === "claude-opus-4-8") ? 16384 : 8192;
+  const maxTokens = (model === "claude-opus-4-7" || model === "claude-opus-4-8") ? 16384 : 8192;
 
   // ClaudeOpus.pro is OpenAI-compatible — system message goes in the messages array
   const messagesPayload = [

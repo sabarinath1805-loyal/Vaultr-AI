@@ -1,7 +1,7 @@
 /**
  * Agent Mode v2 API Route
  *
- * 7-step internal pipeline using Fable 5 (claude-fable-5) as the core
+ * 7-step internal pipeline using Lex Max (claude-opus-4-8) as the core
  * reasoning engine. Emits SSE progress events for the step tracker UI.
  *
  * Steps: parse → matter → search → fetch → tavily → synthesise → draft
@@ -32,8 +32,8 @@ RESPONSE STYLE:
 - Always flag when analysis crosses jurisdictions.
 - Never reproduce search process noise or database names.`;
 
-const AGENT_MODEL = ANTHROPIC_MAX_MODEL; // claude-fable-5
-const FALLBACK_MODEL = ANTHROPIC_ULTRA_MODEL; // claude-opus-4-8
+const AGENT_MODEL = ANTHROPIC_MAX_MODEL; // claude-opus-4-8
+const FALLBACK_MODEL = ANTHROPIC_ULTRA_MODEL; // claude-opus-4-7
 const PIPELINE_TIMEOUT_MS = 180_000;
 const AGENT_RATE_LIMIT_PER_HOUR = 10;
 
@@ -94,7 +94,7 @@ async function tavilySearch(
 /*  LLM call helper                                                    */
 /* ------------------------------------------------------------------ */
 
-async function callFable5(
+async function callClaudeOpus(
   systemPrompt: string,
   userMessage: string,
   model: string,
@@ -102,7 +102,7 @@ async function callFable5(
   stream: false,
   maxTokens?: number
 ): Promise<string>;
-async function callFable5(
+async function callClaudeOpus(
   systemPrompt: string,
   userMessage: string,
   model: string,
@@ -110,7 +110,7 @@ async function callFable5(
   stream: true,
   maxTokens?: number
 ): Promise<Response>;
-async function callFable5(
+async function callClaudeOpus(
   systemPrompt: string,
   userMessage: string,
   model: string,
@@ -179,7 +179,7 @@ async function runAgentPipeline(
   controller.enqueue(encodeProgress("parse", "active"));
   try {
     if (apiKey) {
-      const parseResult = await callFable5(
+      const parseResult = await callClaudeOpus(
         "Extract from this lawyer's request: (1) the main task type [research/draft/review/analyse], (2) key legal topics as a search query, (3) jurisdictions mentioned or implied. Return JSON: {\"taskType\":\"...\",\"searchQuery\":\"...\",\"jurisdiction\":\"...\"}",
         message,
         AGENT_MODEL,
@@ -283,12 +283,12 @@ async function runAgentPipeline(
   let model = AGENT_MODEL;
   let response: Response;
   try {
-    response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true, 32000);
+    response = await callClaudeOpus(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true, 32000);
   } catch {
-    // Fallback to claude-opus-4-8
+    // Fallback to claude-opus-4-7
     model = FALLBACK_MODEL;
     try {
-      response = await callFable5(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true, 32000);
+      response = await callClaudeOpus(LEX_AGENT_SYSTEM_PROMPT, userMessageWithContext, model, signal, true, 32000);
     } catch {
       const placeholder = buildPlaceholderResponse(message, legalResults, webSearch);
       controller.enqueue(encodeText(placeholder));
