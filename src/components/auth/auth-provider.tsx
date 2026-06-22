@@ -136,17 +136,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // Not authenticated — show login
-  // TODO: re-enable auth before beta launch
   if (!user) {
-    // Dev bypass: when Supabase is configured but no user is signed in, render
-    // children directly in development. Production must always show login.
-    if (process.env.NODE_ENV === "development") {
-      return (
-        <AuthContext.Provider value={{ user: null, session: null, loading: false, signOut }}>
-          {children}
-        </AuthContext.Provider>
-      );
-    }
     return <LoginForm />;
   }
 

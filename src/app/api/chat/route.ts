@@ -130,26 +130,21 @@ export async function POST(req: Request) {
   let authenticatedUserId: string | null = null;
   if (isSupabaseConfigured()) {
     const authHeader = req.headers.get("authorization");
-    // TODO: remove dev bypass before beta launch
-    if (process.env.NODE_ENV === "development" && !authHeader) {
-      authenticatedUserId = "00000000-0000-0000-0000-000000000001";
-    } else {
-      const user = await getSessionUser(authHeader);
-      if (!user) {
-        return new Response(
-          JSON.stringify({ error: "Authentication required." }),
-          { status: 401, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      const approved = await isBetaUser(user.email || "");
-      if (!approved) {
-        return new Response(
-          JSON.stringify({ error: "Your account is pending beta approval." }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
-        );
-      }
-      authenticatedUserId = user.id;
+    const user = await getSessionUser(authHeader);
+    if (!user) {
+      return new Response(
+        JSON.stringify({ error: "Authentication required." }),
+        { status: 401, headers: { "Content-Type": "application/json" } }
+      );
     }
+    const approved = await isBetaUser(user.email || "");
+    if (!approved) {
+      return new Response(
+        JSON.stringify({ error: "Your account is pending beta approval." }),
+        { status: 403, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    authenticatedUserId = user.id;
   }
 
   function recordUsageForProvider(request: Request, model: string | null, userId: string | null, responseTimeMs?: number, jurisdiction?: string) {

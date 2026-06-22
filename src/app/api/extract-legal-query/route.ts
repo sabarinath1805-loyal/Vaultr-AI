@@ -9,14 +9,9 @@ export async function POST(request: NextRequest) {
     // Auth gate — require authenticated user when Supabase is configured
     if (isSupabaseConfigured()) {
       const authHeader = request.headers.get("authorization");
-      // TODO: remove dev bypass before beta launch
-      if (process.env.NODE_ENV === "development" && !authHeader) {
-        // Allow dev bypass
-      } else {
-        const user = await getSessionUser(authHeader);
-        if (!user) {
-          return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
+      const user = await getSessionUser(authHeader);
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
     }
 

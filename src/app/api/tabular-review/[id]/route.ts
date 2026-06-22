@@ -26,15 +26,11 @@ export async function GET(
   let userId: string | null = null;
   const authHeader = req.headers.get("authorization");
 
-  if (process.env.NODE_ENV === "development" && !authHeader) {
-    userId = "00000000-0000-0000-0000-000000000001";
-  } else {
-    const user = await getSessionUser(authHeader);
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-    }
-    userId = user.id;
+  const user = await getSessionUser(authHeader);
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
+  userId = user.id;
 
   const { data, error } = await supabase
     .from("tabular_reviews")
@@ -67,15 +63,11 @@ export async function POST(
   let userId: string | null = null;
   const authHeader = req.headers.get("authorization");
 
-  if (process.env.NODE_ENV === "development" && !authHeader) {
-    userId = "00000000-0000-0000-0000-000000000001";
-  } else {
-    const user = await getSessionUser(authHeader);
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-    }
-    userId = user.id;
+  const user = await getSessionUser(authHeader);
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
+  userId = user.id;
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body.documentId !== "string" || typeof body.columnIndex !== "number") {
@@ -161,15 +153,11 @@ export async function PATCH(
   let userId: string | null = null;
   const authHeader = req.headers.get("authorization");
 
-  if (process.env.NODE_ENV === "development" && !authHeader) {
-    userId = "00000000-0000-0000-0000-000000000001";
-  } else {
-    const user = await getSessionUser(authHeader);
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-    }
-    userId = user.id;
+  const user = await getSessionUser(authHeader);
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
+  userId = user.id;
 
   const body = await req.json().catch(() => null);
   if (!body) {
@@ -214,15 +202,11 @@ export async function DELETE(
   let userId: string | null = null;
   const authHeader = req.headers.get("authorization");
 
-  if (process.env.NODE_ENV === "development" && !authHeader) {
-    userId = "00000000-0000-0000-0000-000000000001";
-  } else {
-    const user = await getSessionUser(authHeader);
-    if (!user) {
-      return NextResponse.json({ error: "Authentication required." }, { status: 401 });
-    }
-    userId = user.id;
+  const user = await getSessionUser(authHeader);
+  if (!user) {
+    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
+  userId = user.id;
 
   const { error } = await supabase
     .from("tabular_reviews")
