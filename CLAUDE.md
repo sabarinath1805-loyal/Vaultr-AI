@@ -29,10 +29,7 @@ The production target is **Singapore lawyers** handling real client data, so PII
 - `src-tauri/src/lib.rs` — `enable_macos_default_menu` must always stay `true`.
 
 **Remove before beta launch** (dev-only escape hatches):
-- `src/lib/api-auth.ts` — the `NODE_ENV === "development"` bypass that returns the synthetic dev UUID `00000000-0000-0000-0000-000000000001`.
-- `src/components/auth/auth-provider.tsx` — the dev branch that renders children when Supabase is configured but no user is signed in.
-- `src/middleware.ts` — the dev branch that forwards the dev UUID via `x-vaultr-user-id` header.
-- Audit: `grep -rn "00000000-0000-0000-0000-000000000001" src/` — every match must be inside a `NODE_ENV === "development"` check.
+- (All dev auth bypasses have been removed. Local dev must run with a real Supabase project, or a properly seeded test user.)
 
 ## Commands
 

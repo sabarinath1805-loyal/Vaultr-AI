@@ -15,13 +15,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // TODO: remove dev bypass before beta launch
-    let userId: string;
-    if (process.env.NODE_ENV === "development" && !req.headers.get("authorization")) {
-      userId = "00000000-0000-0000-0000-000000000001";
-    } else {
-      userId = (await requireAuth(req)).userId;
-    }
+    const userId = (await requireAuth(req)).userId;
 
     // Validate request size
     const sizeError = await validateRequestSize(req);
@@ -101,13 +95,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // TODO: remove dev bypass before beta launch
-    let userId: string;
-    if (process.env.NODE_ENV === "development" && !req.headers.get("authorization")) {
-      userId = "00000000-0000-0000-0000-000000000001";
-    } else {
-      userId = (await requireAuth(req)).userId;
-    }
+    const userId = (await requireAuth(req)).userId;
 
     // Validate request size
     const sizeError = await validateRequestSize(req);
