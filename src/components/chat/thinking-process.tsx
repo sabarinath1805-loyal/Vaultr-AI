@@ -19,6 +19,10 @@ interface ThinkingProcessProps {
   citationMatchCount?: number;
 }
 
+// Rotation cadence for the "thinking" placeholder text. Slow enough to
+// feel intentional, fast enough that the indicator does not appear stuck.
+const THINKING_PHRASE_ROTATION_MS = 2000;
+
 const ROTATING_PHRASES = [
   "Detecting jurisdiction...",
   "Searching legal databases...",
@@ -36,7 +40,7 @@ export function ThinkingProcess({ steps, isStreaming, activeModel, reasoningCont
     if (!isStreaming) return;
     const interval = setInterval(() => {
       setPhraseIndex((i) => (i + 1) % ROTATING_PHRASES.length);
-    }, 2000);
+    }, THINKING_PHRASE_ROTATION_MS);
     return () => clearInterval(interval);
   }, [isStreaming]);
 

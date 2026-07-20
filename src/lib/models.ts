@@ -50,6 +50,14 @@ export interface GroqModel {
   description: string;
 }
 
+export interface ModelDisplayMetadata {
+  badge: string;
+  color: string;
+  name: string;
+  modelId: string;
+  provider: string;
+}
+
 export const ANTHROPIC_CORE_MODEL = "claude-haiku-4-5-20251001";
 export const ANTHROPIC_PRO_MODEL = "claude-sonnet-4-6";
 export const ANTHROPIC_ULTRA_MODEL = "claude-opus-4-8";
@@ -260,7 +268,7 @@ export function groqIdToLexName(groqId: string): string {
  * @param provider - The provider type from the GroqModel.
  * @returns A display string (e.g., "Anthropic", "Google", "Cerebras").
  */
-export function getCloudProviderLabel(provider: GroqModel["provider"]) {
+export function getCloudProviderLabel(provider: GroqModel["provider"]): string {
   if (provider === "anthropic") return "Anthropic";
   if (provider === "cerebras") return "Cerebras";
   if (provider === "gemini") return "Google";
@@ -286,7 +294,7 @@ export const OLLAMA_CLOUD_FALLBACK_MODELS = [
  * @param modelId - The model ID to look up.
  * @returns An object with `badge`, `color`, `name`, `modelId`, and `provider` fields for UI rendering.
  */
-export function getModelDisplayMetadata(modelId: string) {
+export function getModelDisplayMetadata(modelId: string): ModelDisplayMetadata {
   const groqModel = GROQ_MODELS.find((model) => model.groqId === modelId);
   if (groqModel) {
     return {

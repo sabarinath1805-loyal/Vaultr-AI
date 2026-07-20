@@ -16,8 +16,14 @@ import useChatStore, { type AttachedWorkflow } from "@/app/hooks/useChatStore";
 import { ANTHROPIC_CORE_MODEL, isLexModel, isThinkingCapableModel, sortModelsByLexOrder } from "@/lib/models";
 import { SourcesDropdown, SourcePills, buildJurisdictionPrompt } from "@/components/chat/sources-dropdown";
 
-
-interface ComposerCardProps {
+// Maximum time the submit handler will wait for newly-attached documents
+// to hydrate their content (text / dataUrl) from the local vault store
+// before sending the request anyway. Picked to cover slow IndexedDB reads
+// without making the chat feel unresponsive.
+const DOC_CONTENT_WAIT_MS = 3000;
+// Polling interval while waiting for document content. Cheap and bounded
+// — the loop is bounded above by DOC_CONTENT_WAIT_MS.
+const DOC_CONTENT_POLL_MS = 50;
   input: string;
   handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmit: (
@@ -210,7 +216,7 @@ export function ComposerCard({
     const docIds = docs.map((doc) => doc.id);
     const startedAt = Date.now();
 
-    while (Date.now() - startedAt < 3000) {
+    while (Date.now() - startedAt < DOC_CONTENT_WAIT_MS) {
       const latestDocuments = useLocalVaultStore.getState().documents;
       const resolvedDocuments = docIds
         .map((docId) => latestDocuments.find((item) => item.id === docId))
@@ -223,7 +229,7 @@ export function ComposerCard({
         return resolvedDocuments;
       }
 
-      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      await new Promise((resolve) => window.setTimeout(resolve, DOC_CONTENT_POLL_MS));
     }
 
     const latestDocuments = useLocalVaultStore.getState().documents;
@@ -241,9 +247,6 @@ export function ComposerCard({
         let extractedText = extractClientDocumentText(doc);
         if (!extractedText) {
           extractedText = await extractServerDocumentText(doc);
-        }
-        if (extractedText) {
-          // Document text extracted successfully
         }
         return {
           ...doc,

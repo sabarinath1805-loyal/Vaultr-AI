@@ -17,10 +17,14 @@ import useChatStore from "@/app/hooks/useChatStore";
 import { toast } from "sonner";
 
 function hasShownPrivateWarning(): boolean {
+  // sessionStorage throws in Safari private mode and when storage is
+  // disabled at the browser level — both are recoverable: we just lose
+  // the "warned once" persistence for this tab.
   try { return sessionStorage.getItem("private-mode-warned") === "true"; } catch { return false; }
 }
 function markPrivateWarningShown(): void {
-  try { sessionStorage.setItem("private-mode-warned", "true"); } catch { /* ignore */ }
+  // See hasShownPrivateWarning — failure to write is non-fatal.
+  try { sessionStorage.setItem("private-mode-warned", "true"); } catch { /* storage unavailable, ignore */ }
 }
 
 interface ModelSelectorProps {

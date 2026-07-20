@@ -12,6 +12,12 @@ import useLocalVaultStore, { rehydrateLocalVaultSafely } from "@/app/hooks/useLo
 import type { LocalDocument } from "@/lib/local-documents";
 import { selectTauriDocumentFiles } from "@/lib/tauri-client";
 
+// Comma-separated MIME / extension list applied to the hidden <input type="file">
+// for attaching documents. The list mirrors what the local-vault / extractor
+// pipeline can actually parse on the client; keep in sync with
+// lib/local-documents.ts.
+const DOCUMENT_FILE_ACCEPT = ".pdf,.doc,.docx,.txt";
+
 interface AddDocButtonProps {
   onSelectDoc: (doc: LocalDocument) => void;
   onBrowseAll: () => void;
@@ -55,7 +61,7 @@ export function AddDocButton({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.doc,.docx,.txt"
+        accept={DOCUMENT_FILE_ACCEPT}
         multiple
         className="hidden"
         onChange={handleUpload}
