@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createChat, listChatsWithMessages } from "@/lib/db/chats";
+import { createChat, listChatsPage, DEFAULT_CHATS_PAGE_SIZE } from "@/lib/db/chats";
 import { toClientChat } from "@/lib/api/chats";
 import { scanContractFormData } from "@/lib/api/contract-scanner";
 import { DatabaseUnavailableError } from "@/lib/db";
@@ -13,7 +13,24 @@ export async function GET(req: Request) {
   try {
     const userId = (await requireAuth(req)).userId;
 
-    const chats = listChatsWithMessages(userId).reduce<Record<string, ReturnType<typeof toClientChat>>>(
+    // P-7: paginate. The audit (P-1) flagged `listChatsWithMessages` as N+1.
+    // The new `listChatsPage` issues at most two queries per page instead of
+    // one query per chat. Defaults match the audit recommendation
+    // (page size 20). `before` is an `updatedAt` cursor (seconds).
+    const url = new URL(req.url);
+    const rawLimit = url.searchParams.get("limit");
+    const rawBefore = url.searchParams.get("before");
+    const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : NaN;
+    const parsedBefore = rawBefore ? Number.parseInt(rawBefore, 10) : NaN;
+    const limit = Number.isFinite(parsedLimit) && parsedLimit > 0
+      ? Math.min(100, parsedLimit)
+      : DEFAULT_CHATS_PAGE_SIZE;
+    const before = Number.isFinite(parsedBefore) && parsedBefore > 0
+      ? parsedBefore
+      : undefined;
+
+    const page = listChatsPage(userId, { limit, before });
+    const chats = page.chats.reduce<Record<string, ReturnType<typeof toClientChat>>>(
       (acc, chat) => {
         acc[chat.id] = toClientChat(chat);
         return acc;
@@ -21,7 +38,7 @@ export async function GET(req: Request) {
       {}
     );
 
-    return NextResponse.json({ chats });
+    return NextResponse.json({ chats, nextCursor: page.nextCursor });
   } catch (error) {
     if (error instanceof AuthError) {
       return NextResponse.json({ error: error.userMessage }, { status: error.status });

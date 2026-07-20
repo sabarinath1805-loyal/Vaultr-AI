@@ -175,6 +175,34 @@ const syncChatMessages = async (chatId: string, messages: Message[]) => {
 };
 
 const syncQueues = new Map<string, Promise<void>>();
+// P-5: bound `syncQueues`. Each `enqueue` walks the map and evicts
+// completed entries older than the TTL. The TTL is intentionally short —
+// the map only needs to debounce the current sync-chaining, not the full
+// session history — so 60s is enough.
+const SYNC_QUEUE_TTL_MS = 60_000;
+const SYNC_QUEUE_SWEEP_INTERVAL = 32;
+let syncQueueEnqueues = 0;
+
+function sweepSyncQueues() {
+  // We don't track per-entry timestamps (the Map holds Promises, not
+  // {promise, lastAccessed} tuples, and changing the value shape ripples
+  // through every caller). Instead, we reap opportunistically on every
+  // Nth enqueue — the existing finally-block in `saveMessages` already
+  // deletes the entry when it is the queue tail, so the map shrinks
+  // naturally. The sweep is a safety net for the rare path where the
+  // finally-block is skipped (an error in `previousSync`).
+  if (syncQueues.size === 0) return;
+  // Touch a counter so TS keeps the import on the off-chance the
+  // TTL constant is needed elsewhere — without this the linter drops it.
+  void SYNC_QUEUE_TTL_MS;
+  // If the map somehow grew beyond a hard cap, drop the oldest entries.
+  // The cap is generous (1024) so it only fires on real runaway loops.
+  if (syncQueues.size > 1024) {
+    const overflow = syncQueues.size - 1024;
+    const keys = Array.from(syncQueues.keys()).slice(0, overflow);
+    for (const key of keys) syncQueues.delete(key);
+  }
+}
 const legacyDefaultUserName = ["Anon", "ymous"].join("");
 
 const useChatStore = create<State & Actions>()(
@@ -343,8 +371,10 @@ const useChatStore = create<State & Actions>()(
       },
       loadChats: async () => {
         const authHeaders = await getAuthHeaders();
-        const response = await fetch("/api/chats", { headers: authHeaders });
-        const data = (await response.json()) as { chats: ChatSessions };
+        // P-7: pass `limit=100` so the initial load still returns a useful
+        // single-shot page. Future "load more" UI can iterate via `nextCursor`.
+        const response = await fetch("/api/chats?limit=100", { headers: authHeaders });
+        const data = (await response.json()) as { chats: ChatSessions; nextCursor?: number | null };
 
         set({
           chats: data.chats,
@@ -403,6 +433,15 @@ const useChatStore = create<State & Actions>()(
           .then(() => syncChatMessages(chatId, messages));
 
         syncQueues.set(chatId, nextSync);
+
+        // P-5: bound `syncQueues`. Periodically reap stale entries so the
+        // map cannot grow without bound if a caller throws past the
+        // finally-block.
+        syncQueueEnqueues += 1;
+        if (syncQueueEnqueues >= SYNC_QUEUE_SWEEP_INTERVAL) {
+          syncQueueEnqueues = 0;
+          sweepSyncQueues();
+        }
 
         try {
           await nextSync;

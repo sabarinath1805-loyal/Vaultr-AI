@@ -99,6 +99,11 @@ export function ComposerCard({
   const [selectedSources, setSelectedSources] = React.useState<string[]>([]);
 
   const modePopoverRef = React.useRef<HTMLDivElement>(null);
+  // P-13: in-flight guard for the submit handler. Set true while a submit
+  // is awaiting document extraction / network; reset to false when the
+  // chain finishes. Rejects re-entry (double-Enter, double-click) for the
+  // duration of the in-flight window.
+  const submitInFlightRef = React.useRef(false);
   const documents = useLocalVaultStore((state) => state.documents);
   const projects = useLocalVaultStore((state) => state.projects);
   const searchParams = useSearchParams();
@@ -235,15 +240,28 @@ export function ComposerCard({
     options?: ChatRequestOptions
   ) => {
     event.preventDefault();
+    // P-13: in-flight ref guards against accidental double-submit (Enter
+    // twice in quick succession, double-click on the send button, or
+    // the same keystroke landing in two overlapping React events).
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    try {
+      await runSubmit(event, options);
+    } finally {
+      submitInFlightRef.current = false;
+    }
+  };
+
+  const runSubmit = async (
+    event: React.FormEvent<HTMLFormElement>,
+    options?: ChatRequestOptions
+  ) => {
     const documentsWithContent = await waitForDocumentContent(attachedDocuments);
     const documentsWithExtractedText = await Promise.all(
       documentsWithContent.map(async (doc) => {
         let extractedText = extractClientDocumentText(doc);
         if (!extractedText) {
           extractedText = await extractServerDocumentText(doc);
-        }
-        if (extractedText) {
-          // Document text extracted successfully
         }
         return {
           ...doc,

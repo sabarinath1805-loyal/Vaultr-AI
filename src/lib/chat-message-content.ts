@@ -1,5 +1,11 @@
+// P-11: combined pass. The original code ran three sequential regex passes
+// (THINK_BLOCK_REGEX, THINK_TAG_REGEX, DANGLING_THINK_TAG_REGEX) which all
+// scanned the same string. The middle pass is redundant — once the first
+// pass consumes a well-formed `<think>…</think>` block, there are no stray
+// `<think>` / `</think>` tags left for the second pass to find. The dangling
+// pass stays because it handles partial trailing tags that the streaming
+// state machine intentionally leaves alone for cross-chunk reconstruction.
 const THINK_BLOCK_REGEX = /<think\b[^>]*>([\s\S]*?)(?:<\/think>|$)/gi;
-const THINK_TAG_REGEX = /<\/?think\b[^>]*>/gi;
 const DANGLING_THINK_TAG_REGEX = /<\/?think\b[^>]*$/i;
 const WEB_SEARCH_MARKER_REGEX = /<web-search-used[^>]*\/>\s*/gi;
 const DOCUMENT_ANALYZED_MARKER_REGEX = /<document-analyzed[^>]*\/>/gi;
@@ -88,7 +94,6 @@ export function extractThinkContent(content: string) {
 export function stripAssistantMarkup(content: string) {
   const cleaned = content
     .replace(THINK_BLOCK_REGEX, "")
-    .replace(THINK_TAG_REGEX, "")
     .replace(DANGLING_THINK_TAG_REGEX, "")
     .replace(WEB_SEARCH_MARKER_REGEX, "")
     .replace(DOCUMENT_ANALYZED_MARKER_REGEX, "")
