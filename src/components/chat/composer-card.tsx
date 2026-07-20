@@ -24,6 +24,8 @@ const DOC_CONTENT_WAIT_MS = 3000;
 // Polling interval while waiting for document content. Cheap and bounded
 // — the loop is bounded above by DOC_CONTENT_WAIT_MS.
 const DOC_CONTENT_POLL_MS = 50;
+
+interface ComposerCardProps {
   input: string;
   handleInputChange: (event: React.ChangeEvent<HTMLTextAreaElement>) => void;
   handleSubmit: (
