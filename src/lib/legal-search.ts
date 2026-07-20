@@ -16,6 +16,19 @@ import { getConfiguredApiKey } from "./tauri-env";
  */
 const TAVILY_CACHE_TTL_MS = 10 * 60 * 1000;
 const TAVILY_CACHE_MAX_ENTRIES = 100;
+
+/**
+ * Best-effort debug logging for the external-API catch blocks. We treat
+ * failures as "no data, fall through to Tavily" — but in development we
+ * want to know whether EUR-Lex times out, Indian Kanoon 5xxs, etc.
+ * Production swallows the error to keep the assistant responsive when a
+ * single legal DB is offline.
+ */
+function logLegalDbFailure(source: string, error: unknown): void {
+  if (process.env.NODE_ENV === "production") return;
+  console.warn(`[legal-search:${source}] ${(error as Error)?.message || error}`);
+}
+
 const tavilyCache = new Map<
   string,
   { results: Array<{ title?: string; url?: string; content?: string }>; answer?: string; expiresAt: number }
@@ -36,8 +49,13 @@ function tavilyCacheKey(
 }
 
 /**
- * Drop expired entries from the Tavily cache. Runs opportunistically on
- * cache reads so the map cannot grow without bound.
+ * Drop expired entries from the Tavily cache.
+ *
+ * P-14: moved off the read path. Every cache read used to walk the entire
+ * map looking for expired entries, which is O(N) on every Tavily hit. We
+ * now do this lazily on writes (which is where new entries actually grow
+ * the map) and skip it on the read path. The TTL check on the *target*
+ * key (line below) still evicts the single expired entry we care about.
  */
 function cleanupTavilyCache(): void {
   if (tavilyCache.size === 0) return;
@@ -53,7 +71,6 @@ function getCachedTavily(
   query: string,
   options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {}
 ) {
-  cleanupTavilyCache();
   const key = tavilyCacheKey(query, options);
   const entry = tavilyCache.get(key);
   if (!entry) return null;
@@ -69,6 +86,9 @@ function setCachedTavily(
   options: { includeDomains?: string[]; searchDepth?: "basic" | "advanced"; maxResults?: number } = {},
   payload: { results: Array<{ title?: string; url?: string; content?: string }>; answer?: string }
 ) {
+  // P-14: lazy TTL sweep on the write path. Cheap because writes are rare
+  // relative to reads, and it keeps the map from drifting past the cap.
+  cleanupTavilyCache();
   const key = tavilyCacheKey(query, options);
   tavilyCache.set(key, { ...payload, expiresAt: Date.now() + TAVILY_CACHE_TTL_MS });
   if (tavilyCache.size > TAVILY_CACHE_MAX_ENTRIES) {
@@ -82,6 +102,15 @@ function setCachedTavily(
     tavilyCache.clear();
     for (const [k, v] of kept) tavilyCache.set(k, v);
   }
+}
+
+/**
+ * Reset the Tavily cache. Exported for tests so each `tavilyAdvancedSearch
+ * (shared cache)` describe block starts from an empty module-scope cache.
+ * Production callers should not use this — the cache is per-process.
+ */
+export function __resetTavilyCacheForTests(): void {
+  tavilyCache.clear();
 }
 
 /**
@@ -211,7 +240,8 @@ async function searchEurLex(query: string): Promise<LegalCase[]> {
         source: "EUR-Lex",
       };
     });
-  } catch {
+  } catch (err) {
+    logLegalDbFailure("EUR-Lex", err);
     return [];
   }
 }
@@ -241,7 +271,8 @@ async function searchIndianKanoon(query: string): Promise<LegalCase[]> {
       url: `https://indiankanoon.org/doc/${item.tid}/`,
       source: "Indian Kanoon",
     }));
-  } catch {
+  } catch (err) {
+    logLegalDbFailure("Indian Kanoon", err);
     return [];
   }
 }
@@ -285,7 +316,8 @@ async function tavilySearchCore(
     const answer = typeof data?.answer === "string" ? data.answer : undefined;
     setCachedTavily(query, options, { results, answer });
     return { results, answer };
-  } catch {
+  } catch (err) {
+    logLegalDbFailure("Tavily", err);
     return { results: [] };
   }
 }
@@ -358,7 +390,8 @@ async function fetchWikipediaSummary(query: string): Promise<string> {
     if (!extract || extract.length < 50) return "";
     const tokens = extract.split(/\s+/);
     return tokens.slice(0, 300).join(" ");
-  } catch {
+  } catch (err) {
+    logLegalDbFailure("Wikipedia", err);
     return "";
   }
 }

@@ -5,18 +5,38 @@ import {
   tavilyIsWarranted,
   tavilyAdvancedSearch,
   JURISDICTION_DB_PRIORITY,
+  __resetTavilyCacheForTests,
   type LegalCase,
 } from "@/lib/legal-search";
+
+// Mock the Tauri env key cache so tavilyAdvancedSearch has a key to use.
+// Without this, the function short-circuits at line ~274 (no fetch, no
+// cache write) and every cache/cleanup assertion below fails on the
+// trivially-returned `{ results: [] }`. The single test that verifies
+// the "missing key" path explicitly unmocks and re-mocks for its scope.
+jest.mock("@/lib/tauri-env", () => {
+  const actual = jest.requireActual("@/lib/tauri-env");
+  return {
+    ...actual,
+    getConfiguredApiKey: (key: string) => (key === "TAVILY_API_KEY" ? "test-tavily-key" : actual.getConfiguredApiKey(key)),
+  };
+});
 
 describe("legal-search", () => {
   let mockFetch: jest.SpyInstance;
 
   beforeEach(() => {
     mockFetch = jest.spyOn(global, "fetch");
+    // The Tavily cache is module-scope. Reset it before each test so
+    // entries populated by prior tests do not satisfy later assertions
+    // (or block fresh fetches when the test wants to assert cache misses).
+    __resetTavilyCacheForTests();
   });
 
   afterEach(() => {
     mockFetch.mockRestore();
+    __resetTavilyCacheForTests();
+    jest.useRealTimers();
   });
 
   describe("module smoke test", () => {
@@ -144,8 +164,16 @@ describe("legal-search", () => {
 
   describe("tavilyAdvancedSearch (shared cache)", () => {
     it("returns empty results when TAVILY_API_KEY is missing", async () => {
-      // Default tauri-env mock: no key configured
-      const result = await tavilyAdvancedSearch("some uncached query");
+      // For this test only, simulate the missing-key branch by mocking
+      // the env cache lookup to return an empty string. We use
+      // jest.isolateModules so the temporary mock does not leak into
+      // sibling tests in this file (they need the default key).
+      jest.resetModules();
+      jest.doMock("@/lib/tauri-env", () => ({
+        getConfiguredApiKey: () => "",
+      }));
+      const { tavilyAdvancedSearch: tavilyAdvancedSearchNoKey } = require("@/lib/legal-search") as typeof import("@/lib/legal-search");
+      const result = await tavilyAdvancedSearchNoKey("some uncached query");
       expect(result.results).toEqual([]);
     });
 
@@ -220,31 +248,37 @@ describe("legal-search", () => {
       expect(mockFetch.mock.calls.length).toBe(2);
     });
 
-    it("drops expired entries on cache read", async () => {
-      // First populate the cache with something
+    it("drops expired entries on cache write", async () => {
+      // P-14: cleanup moved off the read path to the write path. Eviction
+      // is performed lazily inside `setCachedTavily` so the read path no
+      // longer walks the entire map on every Tavily hit.
+
+      // 1. Seed the cache with something
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ results: [], answer: undefined }),
       });
-      await tavilyAdvancedSearch("expiring test");
+      await tavilyAdvancedSearch("write-path eviction test");
 
-      // Advance time past the TTL (10 minutes by default)
+      // 2. Advance time past the TTL (10 minutes by default).
       jest.useFakeTimers();
       jest.advanceTimersByTime(10 * 60 * 1000 + 1);
 
-      // Mock the second fetch (which the cleanup should trigger)
+      // 3. Mock the second fetch (the write-path cleanup should evict the
+      // stale entry, so this call hits the network).
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: async () => ({ results: [{ title: "After expiry", url: "https://z", content: "" }], answer: undefined }),
       });
 
-      // Next cache access should trigger cleanup and return null, forcing
-      // a new fetch
-      const result = await tavilyAdvancedSearch("expiring test");
+      // 4. The next call should return null from the read path (entry is
+      //    still there but past its TTL — getCachedTavily evicts the
+      //    single expired key on read), then write the new response.
+      const result = await tavilyAdvancedSearch("write-path eviction test");
       expect(result.results[0]?.title).toBe("After expiry");
 
-      // After cleanup and re-read, a fresh entry was added but with the
-      // same query, so the mock should have been called again.
+      // Two fetches total: the original seed + the post-expiry fetch.
+      // The cleanup-then-write happens entirely inside setCachedTavily.
       expect(mockFetch).toHaveBeenCalledTimes(2);
 
       jest.useRealTimers();

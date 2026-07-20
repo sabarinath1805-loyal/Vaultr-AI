@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { getDb } from ".";
 import { chats, messages } from "./schema";
@@ -120,9 +120,125 @@ export function getChat(id: string, ownerId?: string): ChatWithMessages | null {
 }
 
 /**
+ * Maximum number of chats returned by a single call to `listChatsPage`.
+ *
+ * Used by the home-screen / history route to keep the JSON payload bounded.
+ * Callers that need deeper history can pass a higher `limit` (capped at 100)
+ * or chain via the `before` cursor.
+ */
+export const DEFAULT_CHATS_PAGE_SIZE = 20;
+export const MAX_CHATS_PAGE_SIZE = 100;
+
+export interface ListChatsPageOptions {
+  /** How many chats to return. Defaults to {@link DEFAULT_CHATS_PAGE_SIZE}, capped at {@link MAX_CHATS_PAGE_SIZE}. */
+  limit?: number;
+  /**
+   * Cursor for pagination — return chats whose `updatedAt` is strictly less than this epoch-second value.
+   * Pass `undefined` (or omit) to fetch the most recent page.
+   */
+  before?: number;
+}
+
+export interface ListChatsPageResult {
+  chats: ChatWithMessages[];
+  nextCursor: number | null;
+}
+
+/**
+ * List a paginated, JOIN-friendly page of chats (each with its messages) for an owner.
+ *
+ * Replaces the N+1 in {@link listChatsWithMessages} with two queries:
+ *   1. Top-N chats ordered by `updatedAt` desc, optionally filtered by an `updatedAt` cursor.
+ *   2. A single `messages` query for `chat_id IN (…)`, ordered by `(chat_id, created_at)`.
+ * The in-memory pass groups the rows by `chatId` so each chat receives its
+ * own chronologically-ordered message list. This keeps the round-trip count
+ * constant regardless of how many chats are on the page.
+ *
+ * @param ownerId - When provided, scopes the page to a single owner. When omitted, returns chats across all owners.
+ * @param options - Pagination knobs. `limit` defaults to 20, capped at 100. `before` is an `updatedAt` cursor (seconds).
+ * @returns `{ chats, nextCursor }` — `nextCursor` is the `updatedAt` of the last returned chat (use it as the `before` value to fetch the next page) or `null` when there are no more chats.
+ * @throws Error if the underlying SQLite database is unavailable.
+ */
+export function listChatsPage(
+  ownerId?: string,
+  options: ListChatsPageOptions = {}
+): ListChatsPageResult {
+  const db = getDb();
+  const limit = Math.min(
+    MAX_CHATS_PAGE_SIZE,
+    Math.max(1, options.limit ?? DEFAULT_CHATS_PAGE_SIZE)
+  );
+
+  const cursorCondition =
+    typeof options.before === "number"
+      ? lt(chats.updatedAt, options.before)
+      : undefined;
+
+  const chatList = ownerId
+    ? db
+        .select()
+        .from(chats)
+        .where(
+          cursorCondition
+            ? and(eq(chats.ownerId, ownerId), cursorCondition)
+            : eq(chats.ownerId, ownerId)
+        )
+        .orderBy(desc(chats.updatedAt))
+        .limit(limit)
+        .all()
+    : db
+        .select()
+        .from(chats)
+        .where(cursorCondition ?? undefined)
+        .orderBy(desc(chats.updatedAt))
+        .limit(limit)
+        .all();
+
+  if (chatList.length === 0) {
+    return { chats: [], nextCursor: null };
+  }
+
+  const chatIds = chatList.map((chat) => chat.id);
+  const chatIdSet = new Set(chatIds);
+
+  const allMessages = db
+    .select()
+    .from(messages)
+    .where(inArray(messages.chatId, chatIds))
+    .orderBy(asc(messages.chatId), asc(messages.createdAt))
+    .all();
+
+  const messagesByChatId = new Map<string, MessageRecord[]>();
+  for (const message of allMessages) {
+    // Defensive — `inArray` already filters, but keep the Set check explicit
+    // so the mapping never picks up a stray row from a parallel insert.
+    if (!chatIdSet.has(message.chatId)) continue;
+    const bucket = messagesByChatId.get(message.chatId);
+    if (bucket) {
+      bucket.push(message);
+    } else {
+      messagesByChatId.set(message.chatId, [message]);
+    }
+  }
+
+  const chatsWithMessages: ChatWithMessages[] = chatList.map((chat) => ({
+    ...chat,
+    messages: messagesByChatId.get(chat.id) ?? [],
+  }));
+
+  const nextCursor =
+    chatList.length < limit ? null : chatList[chatList.length - 1]?.updatedAt ?? null;
+
+  return { chats: chatsWithMessages, nextCursor };
+}
+
+/**
  * List all chats (with their messages) owned by a user (or all chats when no owner is given).
  *
- * Note: this is O(chats × messages) — it issues one message-select per chat. For the home screen, prefer `listChats` and lazy-load messages per chat.
+ * Note: this is O(chats × messages) — it issues one message-select per chat. Kept
+ * for callers that need the complete history in one shot (e.g. export tooling).
+ * The home-screen / `/api/chats` route uses {@link listChatsPage} instead, which
+ * runs at most two queries per page.
  *
  * @param ownerId - When provided, scopes to a single owner. When omitted, returns every chat in the database.
  * @returns Array of `ChatWithMessages` with messages ordered by `createdAt` ascending. Chats themselves are ordered by `updatedAt` descending.
@@ -131,14 +247,23 @@ export function getChat(id: string, ownerId?: string): ChatWithMessages | null {
 export function listChatsWithMessages(ownerId?: string): ChatWithMessages[] {
   const db = getDb();
   const chatList = ownerId ? listChats(ownerId) : listChats();
+  if (chatList.length === 0) return [];
+  const ids = chatList.map((chat) => chat.id);
+  const allMessages = db
+    .select()
+    .from(messages)
+    .where(inArray(messages.chatId, ids))
+    .orderBy(asc(messages.chatId), asc(messages.createdAt))
+    .all();
+  const messagesByChatId = new Map<string, MessageRecord[]>();
+  for (const message of allMessages) {
+    const bucket = messagesByChatId.get(message.chatId);
+    if (bucket) bucket.push(message);
+    else messagesByChatId.set(message.chatId, [message]);
+  }
   return chatList.map((chat) => ({
     ...chat,
-    messages: db
-      .select()
-      .from(messages)
-      .where(eq(messages.chatId, chat.id))
-      .orderBy(asc(messages.createdAt))
-      .all(),
+    messages: messagesByChatId.get(chat.id) ?? [],
   }));
 }
 

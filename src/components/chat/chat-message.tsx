@@ -585,7 +585,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
     [webSearchSources]
   );
 
-  const markdownComponents: Components = {
+  const markdownComponents: Components = useMemo(() => ({
     h1: ({ children }) => (
       <h1 className="text-lg font-bold mt-4 mb-2 text-[var(--text-primary)]">
         {children}
@@ -649,7 +649,7 @@ function ChatMessage({ message, isLast, isLoading, showThinking, legalSources, i
     td: ({ children }) => (
       <td className="border border-[var(--border)] px-3 py-2 text-[var(--text-primary)]">{children}</td>
     ),
-  };
+  }), []);
 
   const handleCopy = () => {
     const plain = cleanContent
