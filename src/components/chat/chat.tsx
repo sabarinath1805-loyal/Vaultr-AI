@@ -15,11 +15,18 @@ import { stripAssistantMarkup } from "@/lib/chat-message-content";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { createBrowserSupabaseClient, isSupabaseConfigured } from "@/lib/supabase";
 import { toast } from "sonner";
+import { logError } from "@/lib/logger";
+import {
+  type ResponseFlowState,
+  getChatErrorMessage,
+} from "@/components/chat/chat-flow-types";
 
-type ResponseFlowState = "idle" | "thinking" | "typing" | "streaming" | "done";
 const TYPEWRITER_CHARS_PER_SECOND = 500;
 const TYPEWRITER_CHARS_PER_TICK = 20;
 const THINKING_FADE_MS = 150;
+// How often the agent-mode elapsed-time counter ticks while the pipeline is
+// running. 1s is the resolution exposed in the UI ("12s elapsed" etc).
+const AGENT_ELAPSED_TICK_MS = 1000;
 
 function parseDataStreamLine(line: string) {
   const trimmed = line.trim();
@@ -129,7 +136,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const pathname = usePathname();
   const isOpenEmptyChat = pathname.startsWith("/c/");
   const usePrivacyMode = !cloudMode;
-  const shouldDirectStreamLexMax = false;
 
   React.useEffect(() => {
     const nextChatId = isOpenEmptyChat ? id : null;
@@ -316,26 +322,15 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   const handleResponseError = React.useCallback(
     async (error: Error) => {
       clearResponseFlow();
-      console.error(error.message);
-      if (error.cause) console.error(error.cause);
-
-      function getErrorMessage(err: Error): string {
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
-          return "No internet connection. Check your network and try again.";
-        }
-        const msg = err.message || "";
-        if (msg.includes("503")) return "Lex is under high demand right now. Try again in a moment.";
-        if (msg.includes("401") || msg.includes("403")) return "Authentication error. Check your API keys in Settings.";
-        if (msg.includes("429")) return "Rate limit reached. Try switching to a different Lex tier.";
-        if (/timeout/i.test(msg)) return "Lex timed out. Try again or switch to a faster tier.";
-        if (!cloudMode) return "Lex is unavailable. Make sure Ollama is running and try again.";
-        return "Something went wrong. Try regenerating or switching models.";
-      }
+      logError("chat", "Chat request failed", {
+        message: error.message,
+        cause: error.cause instanceof Error ? error.cause.message : undefined,
+      });
 
       const errorMessage: Message = {
         id: generateId(),
         role: "assistant",
-        content: getErrorMessage(error),
+        content: getChatErrorMessage(error, cloudMode),
         createdAt: new Date(),
       };
 
@@ -376,7 +371,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       if (agentElapsedRef.current) clearInterval(agentElapsedRef.current);
       agentElapsedRef.current = setInterval(() => {
         setAgentElapsedSeconds((s) => s + 1);
-      }, 1000);
+      }, AGENT_ELAPSED_TICK_MS);
 
       try {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -665,7 +660,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               }));
             }
           } catch (e) {
-            console.error("Failed to parse legal sources:", e);
+            logError("chat", "Failed to parse legal sources", e);
           }
         }
         setSearchingLegalMessageId(null);
@@ -784,7 +779,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
 
     setMessages(nextMessages);
     setLoadingSubmit(true);
-    beginThinking(shouldDirectStreamLexMax);
+    beginThinking(false);
     setThinkingMessageId(userMessage.id);
     // Read user profile from localStorage for personalization
     let userProfile: { name?: string; firm?: string; jurisdiction?: string } | undefined;
@@ -806,7 +801,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       jurisdictionPrompt: requestBody?.jurisdictionPrompt,
       selectedSources: requestBody?.selectedSources,
       defaultJurisdiction,
-      directStream: shouldDirectStreamLexMax,
+      directStream: false,
       ...(base64Images ? { data: { images: base64Images } } : {}),
       ...(userProfile?.name ? { userProfile } : {}),
     };
@@ -824,7 +819,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         typeof selectedModel === "string" ? selectedModel : undefined
       );
     } else {
-      void handleChatStream(requestPayload, userMessage, nextMessages, shouldDirectStreamLexMax);
+      void handleChatStream(requestPayload, userMessage, nextMessages, false);
     }
   };
 
@@ -860,7 +855,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     setMessages(retryMessages);
     await saveMessages(id, retryMessages);
     setLoadingSubmit(true);
-    beginThinking(shouldDirectStreamLexMax);
+    beginThinking(false);
     setThinkingMessageId(updatedUserMessage.id);
     await handleChatStream(
       {
@@ -869,11 +864,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
         workflowPrompt: pendingWorkflow?.prompt,
         usePrivacyMode,
         messages: retryMessages,
-        directStream: shouldDirectStreamLexMax,
+        directStream: false,
       },
       updatedUserMessage,
       retryMessages,
-      shouldDirectStreamLexMax
+      false
     );
   };
 
@@ -977,7 +972,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               if (!lastRetryMessage) return null;
 
               setLoadingSubmit(true);
-              beginThinking(shouldDirectStreamLexMax);
+              beginThinking(false);
               setThinkingMessageId(lastRetryMessage.id);
               await handleChatStream(
                 {
@@ -985,11 +980,11 @@ export default function Chat({ initialMessages, id }: ChatProps) {
                   usePrivacyMode,
                   workflowPrompt: pendingWorkflow?.prompt,
                   messages: retryMessages,
-                  directStream: shouldDirectStreamLexMax,
+                  directStream: false,
                 },
                 lastRetryMessage,
                 retryMessages,
-                shouldDirectStreamLexMax
+                false
               );
               return null;
             }}

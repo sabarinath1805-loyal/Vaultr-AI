@@ -17,6 +17,7 @@ import { LegalSourcesPanel } from "@/components/legal-sources-panel";
 import type { LegalSearchResult } from "@/lib/legal-search";
 import { ThinkingIndicator } from "./thinking-indicator";
 import { ThinkingProcess, type ThinkingStep } from "./thinking-process";
+import { logError } from "@/lib/logger";
 
 // Detect generate_docx tool calls in message content
 const DOCX_TOOL_REGEX = /generate_docx\s*\(\s*(\{[\s\S]*?\})\s*\)/g;
@@ -36,6 +37,11 @@ const DOCUMENT_PATTERNS: { regex: RegExp; prefix: string }[] = [
 ];
 
 const MIN_DOCUMENT_LENGTH = 800;
+
+// Base URL for "search the citation on Google" fallback links rendered in
+// the source list. The placeholder is replaced at render time via
+// encodeURIComponent on the citation text + " law".
+const GOOGLE_SEARCH_URL_TEMPLATE = "https://www.google.com/search?q=";
 
 // Only show docx download when user explicitly requested document generation
 const DOCX_REQUEST_KEYWORDS = /\b(?:draft|generate|create a document|download|word doc|docx|write me a contract|prepare an agreement|write me an? (?:nda|contract|agreement|lease|memorandum|letter)|generate a (?:document|contract|agreement))\b/i;
@@ -97,8 +103,14 @@ function DocxDownloadButton({ params }: { params: { title: string; sections: unk
   }, [params]);
 
   useEffect(() => {
-    generate();
-  }, [generate]);
+    // Fire once on mount only; retries are triggered explicitly by the
+    // error-state button. Depending on `generate` (which re-fires when
+    // `params` changes) would risk regenerating mid-download.
+    if (status === "idle") {
+      void generate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (status === "generating") {
     return (
@@ -235,8 +247,8 @@ function ExportButtons({ content, messageId }: { content: string; messageId: str
         a.click();
         document.body.removeChild(a);
       }
-    } catch {
-      console.error(`Failed to export as ${format}`);
+    } catch (e) {
+      logError("chat-message", "Document export failed", { format, error: e });
     } finally {
       setExporting(null);
     }
@@ -423,7 +435,7 @@ function CitationsPanel({ content, attachedDocuments }: { content: string; attac
                   <div className="flex items-start gap-2">
                     <span className="shrink-0 text-[11px] font-medium text-[var(--text-tertiary)] tabular-nums" style={{ minWidth: "18px" }}>{idx + 1}.</span>
                     <a
-                      href={`https://www.google.com/search?q=${encodeURIComponent(c.text + " law")}`}
+                      href={`${GOOGLE_SEARCH_URL_TEMPLATE}${encodeURIComponent(c.text + " law")}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-[13px] text-[var(--text-primary)] hover:underline cursor-pointer"
