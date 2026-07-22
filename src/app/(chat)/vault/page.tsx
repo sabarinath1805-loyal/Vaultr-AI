@@ -18,6 +18,21 @@ import {
 const CHECK_W = "w-8 shrink-0";
 const NAME_COL_W = "w-[300px] shrink-0";
 
+// Escape the five characters that have special meaning inside HTML text content.
+// `report.title`, `clause.title`, `clause.risk`, `clause.issue`, and the
+// formatted date / risk summary all originate from AI-extracted scan content —
+// a prompt-injected clause value (e.g. `<img src=x onerror=alert(1)>`) would
+// otherwise become executable HTML when the user clicks "Export PDF / Print".
+function escapeHtml(value: unknown): string {
+  const str = typeof value === "string" ? value : value == null ? "" : String(value);
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export default function VaultPage() {
   const [search, setSearch] = useState("");
   const [newVaultOpen, setNewVaultOpen] = useState(false);
@@ -114,11 +129,16 @@ export default function VaultPage() {
     const clauses = analysis?.clauses || [];
     printable.document.write(`
       <html>
-        <head><title>${report.title}</title></head>
+        <head><title>${escapeHtml(report.title)}</title></head>
         <body style="font-family: Arial, sans-serif; padding: 32px;">
-          <h1>${report.title}</h1>
-          <p>${formatReportDate(report.date)} · ${getReportRiskSummary(report)}</p>
-          ${clauses.map((clause) => `<h2>${clause.title || "Clause"}</h2><p><strong>${clause.risk || "Risk"}</strong></p><p>${clause.issue || ""}</p>`).join("")}
+          <h1>${escapeHtml(report.title)}</h1>
+          <p>${escapeHtml(formatReportDate(report.date))} · ${escapeHtml(getReportRiskSummary(report))}</p>
+          ${clauses
+            .map(
+              (clause) =>
+                `<h2>${escapeHtml(clause.title || "Clause")}</h2><p><strong>${escapeHtml(clause.risk || "Risk")}</strong></p><p>${escapeHtml(clause.issue || "")}</p>`
+            )
+            .join("")}
         </body>
       </html>
     `);

@@ -45,11 +45,34 @@ export async function selectTauriDocumentFiles() {
 interface TauriFilePayload {
   filename: string;
   bytes: number[];
+  /**
+   * Populated by the Rust `read_files` command when a file was rejected
+   * (bad extension, too large, not a regular file, etc.). When non-null, the
+   * Rust side has NOT read the file — `bytes` will be empty. The JS layer
+   * surfaces this as a hard failure so the user sees the rejection reason.
+   */
+  error: string | null;
 }
 
+// Internal: not exported. The only legitimate source of paths is the dialog
+// plugin's `open()` return value above; any other caller forwarding arbitrary
+// paths would be a misuse, so the helper is kept off the public surface.
 async function createFilesFromTauriPaths(paths: string[]) {
   const { invoke } = await import("@tauri-apps/api/core");
   const files = await invoke<TauriFilePayload[]>("read_files", { paths });
+
+  const errors: string[] = [];
+  for (const file of files) {
+    if (file.error) {
+      errors.push(`${file.filename}: ${file.error}`);
+    }
+  }
+  if (errors.length) {
+    throw new Error(
+      `Tauri rejected ${errors.length} file${errors.length === 1 ? "" : "s"}: ${errors.join("; ")}`
+    );
+  }
+
   return files.map((file) => {
     const bytes = new Uint8Array(file.bytes);
     return new File([bytes], file.filename, { type: inferDocumentMimeType(file.filename) });
