@@ -39,7 +39,17 @@ export class AuthError extends Error {
  */
 export async function requireAuth(req: Request): Promise<{ userId: string; email: string }> {
   if (!isSupabaseConfigured()) {
-    throw new AuthError(503, "Authentication service not configured");
+    // Production must use real Supabase auth — the boot guard above
+    // already throws on import in that case, so this branch is only
+    // reachable in dev/staging/local.
+    if (process.env.NODE_ENV === "production") {
+      throw new AuthError(503, "Authentication service not configured");
+    }
+    // Private-mode fallback: derive a per-machine stable identity.
+    // The DB layer treats owner_id as opaque TEXT, so the synthetic
+    // UUID flows through unmodified. See src/lib/local-user.ts.
+    const { localUser } = await import("@/lib/local-user");
+    return { userId: localUser.userId, email: localUser.email };
   }
 
   const authHeader = req.headers.get("authorization");

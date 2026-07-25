@@ -135,6 +135,10 @@ scripts/                   # Build helpers (e.g. favicon generation)
 
 For an exhaustive map of `src/lib/` and the streaming/streaming-stripping state machine in `src/app/api/chat/route.ts`, see `CLAUDE.md`.
 
+## Docs
+
+- [`docs/private-mode.md`](docs/private-mode.md) — how the app behaves when Supabase isn't configured, and how to enable real machine-bound IDs.
+
 ---
 
 ## License

@@ -39,6 +39,10 @@ next-env.d.ts
 .env
 
 # local app data
-/.vaultr/test-plan-*
+/.vaultr
+/supabase/.temp/
+/supabase/.branches/
+/supabase/.env
+test-plan-*
 test-report-*
 test-screenshots/

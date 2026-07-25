@@ -7,9 +7,11 @@
  * - When Supabase is configured, every /api/* route (except a small allow-list
  *   of pre-auth / health endpoints) requires a valid Bearer token. Unauthenticated
  *   requests get a 401.
- * - When Supabase is NOT configured, the route layer's own guards handle the
- *   "private mode" fallback. We still attach the security headers and the
- *   global rate-limit, but we do not 401.
+ * - When Supabase is NOT configured AND NODE_ENV !== "production", the route
+ *   layer's `requireAuth` returns a per-machine local user identity derived
+ *   in `src/lib/local-user.ts`. We still attach the security headers and the
+ *   global rate-limit, but we do not 401. In production, this branch is
+ *   unreachable because the boot guard in `src/lib/api-auth.ts` throws.
  * - Adds HSTS, COOP, CORP, Referrer-Policy on every response.
  * - Adds a 60 req/min per-IP global rate limit for /api/*.
  */
