@@ -2,7 +2,7 @@
 
 import React from "react";
 import TextareaAutosize from "react-textarea-autosize";
-import { ChatRequestOptions } from "ai";
+import type { ChatRequestOptions } from "@/lib/chat-types";
 import { ArrowRight, Check, File, FileText, FolderOpen, Library, Sparkles, Square, X, Zap } from "lucide-react";
 import { IconCloud, IconLock } from "@tabler/icons-react";
 import { useSearchParams } from "next/navigation";

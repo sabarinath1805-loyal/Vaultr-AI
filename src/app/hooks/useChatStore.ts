@@ -1,4 +1,4 @@
-import type { Message } from "ai/react";
+import type { ChatMessage as Message } from "@/lib/chat-types";
 import type { ChatSession, ChatSessions } from "@/lib/api/chats";
 import type { ContractAnalysis } from "@/lib/contract-scanner";
 import { ANTHROPIC_CORE_MODEL, isCloudModel, isLexModel } from "@/lib/models";

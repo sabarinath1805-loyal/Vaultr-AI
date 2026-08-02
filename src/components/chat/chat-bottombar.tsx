@@ -1,4 +1,4 @@
-import { ChatRequestOptions } from "ai";
+import type { ChatRequestOptions } from "@/lib/chat-types";
 import type React from "react";
 import { ComposerCard } from "@/components/chat/composer-card";
 

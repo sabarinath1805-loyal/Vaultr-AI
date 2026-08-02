@@ -1,4 +1,4 @@
-import type { Message } from "ai/react";
+import type { ChatMessage as Message } from "@/lib/chat-types";
 import type { ChatWithMessages, MessageRecord } from "@/lib/db/chats";
 
 export interface ChatSession {

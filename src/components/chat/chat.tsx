@@ -2,9 +2,9 @@
 
 import ChatList from "./chat-list";
 import ChatBottombar from "./chat-bottombar";
-import { ChatRequestOptions, generateId } from "ai";
-import { Message, useChat } from "ai/react";
+import { generateId } from "ai";
 import React from "react";
+import type { ChatMessage as Message, ChatRequestOptions } from "@/lib/chat-types";
 import useChatStore from "@/app/hooks/useChatStore";
 import { usePathname, useRouter } from "next/navigation";
 import { SnowflakeIcon } from "@/components/icons/snowflake";
@@ -78,24 +78,14 @@ export default function Chat({ initialMessages, id }: ChatProps) {
     index: number;
   } | null>(null);
 
-  const {
-    messages,
-    input,
-    handleInputChange,
-    isLoading,
-    stop,
-    setMessages,
-    setInput,
-  } = useChat({
-    id,
-    initialMessages,
-    onResponse: () => {},
-    onError: async (error) => {
-      setLoadingSubmit(false);
-      handleResponseError(error);
-    },
-  });
+  const [messages, setMessages] = React.useState<Message[]>(initialMessages);
+  const [input, setInput] = React.useState("");
+  const handleInputChange = React.useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) => setInput(event.target.value),
+    []
+  );
   const [loadingSubmit, setLoadingSubmit] = React.useState(false);
+  const isLoading = loadingSubmit;
   const [responseFlowState, setResponseFlowState] = React.useState<ResponseFlowState>("idle");
   const [thinkingMessageId, setThinkingMessageId] = React.useState<string | null>(null);
   const [directStreamingActive, setDirectStreamingActive] = React.useState(false);
@@ -873,7 +863,6 @@ export default function Chat({ initialMessages, id }: ChatProps) {
   };
 
   const handleStop = () => {
-    stop();
     activeResponseAbortRef.current?.abort();
     setLoadingSubmit(false);
     const activeTypewriterState = typewriterStateRef.current;

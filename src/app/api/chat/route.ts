@@ -1,7 +1,7 @@
 import { LEX_SYSTEM_PROMPT, OLLAMA_DEFAULT_URL } from "@/lib/lex";
 import { GoogleGenerativeAI, type Content } from "@google/generative-ai";
-import { createOllama } from "ollama-ai-provider";
-import { streamText, type CoreMessage } from "ai";
+import { createOllama } from "ai-sdk-ollama";
+import { streamText, type ModelMessage } from "ai";
 import {
   ANTHROPIC_CORE_MODEL,
   GROQ_DEFAULT_MODEL,
@@ -906,7 +906,7 @@ async function streamOllamaCloudResponse({
     messages: [
       ...initialMessages,
       { role: "user", content: userMessage },
-    ] as CoreMessage[],
+    ] as ModelMessage[],
     abortSignal,
   });
   const encoder = new TextEncoder();

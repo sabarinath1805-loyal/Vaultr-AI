@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Message } from "ai/react";
-import { ChatRequestOptions } from "ai";
+import type { ChatMessage as Message, ChatRequestOptions } from "@/lib/chat-types";
 import ChatMessage from "./chat-message";
 import { ThinkingIndicator } from "./thinking-indicator";
 import { AgentStepTracker } from "./agent-step-tracker";
