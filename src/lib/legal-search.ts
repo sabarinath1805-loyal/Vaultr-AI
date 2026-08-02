@@ -165,7 +165,7 @@ export interface LegalSearchResult {
 // existing "courtlistener" references in jurisdiction priority maps don't
 // crash — they'll just get empty results.
 async function searchCourtListener(query: string): Promise<LegalCase[]> {
-  // Intentionally disabled — see CLAUDE.md / bug tracker.
+  // Intentionally disabled pending the corresponding security review.
   return [];
 }
 

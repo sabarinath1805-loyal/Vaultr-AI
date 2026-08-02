@@ -1,48 +1,145 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-.yarn/install-state.gz
-
-# testing
-/coverage
-
-# next.js
-/.next/
+# --- Next.js ---------------------------------------------------------------
+.next/
 /out/
+build/
+dist/
+.vercel/
+next-env.d.ts
+*.tsbuildinfo
 
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
+# --- Node ------------------------------------------------------------------
+node_modules/
+.pnpm-store/
+.pnp/
+.pnp.*
+.npm/
 npm-debug.log*
+pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+/package-lock.json
+/yarn.lock
+/bun.lock
+/bun.lockb
 
-# local env files
-.env*.local
+# --- Tauri / Rust ----------------------------------------------------------
+src-tauri/target/
+src-tauri/gen/schemas/
+src-tauri/keys/
+*.dmg
+*.msi
+*.msix
+*.app
+*.pkg
+*.deb
+*.rpm
+*.AppImage
+*.exe
+*.dSYM/
+*.app.tar.gz
+*.nsis.zip
 
-# vercel
-.vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# env
+# --- Environment & Secrets -------------------------------------------------
 .env
+.env.*
+!.env.example
+!.env.*.example
+.envrc
+.direnv/
+*.secret
+*.secret.*
+*.secrets
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+secrets/
+credentials/
+private-keys/
+service-account*.json
+*-service-account.json
+firebase-adminsdk*.json
+google-services.json
+GoogleService-Info.plist
 
-# local app data
-/.vaultr
-/supabase/.temp/
-/supabase/.branches/
-/supabase/.env
-test-plan-*
-test-report-*
-test-screenshots/
+# --- Supabase --------------------------------------------------------------
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+supabase/.env.*
+supabase/.supabase/
+
+# --- Local app data --------------------------------------------------------
+.vaultr/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# --- AI assistant / IDE context --------------------------------------------
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.cursorrules
+.cursorignore
+.aider*
+.windsurfrules
+copilot-instructions.md
+*.mdc
+.claude/
+.agents/
+.cursor/
+.windsurf/
+.continue/
+.codeium/
+.junie/
+.kiro/
+.amazonq/
+.roo/
+.roomodes
+.codex/
+.github/copilot-instructions.md
+.github/instructions/
+.github/agents/
+.github/prompts/
+
+# --- IDE -------------------------------------------------------------------
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.iml
+*.suo
+*.user
+*.code-workspace
+
+# --- OS --------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# --- Logs & caches ---------------------------------------------------------
+*.log
+*.log.*
+logs/
+.cache/
+.turbo/
+.nx/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+coverage/
+
+# --- Personal notes & audit ------------------------------------------------
+TODO.md
+NOTES.md
+DEVLOG.md
+scratch/
+tmp/
+temp/
+audit/

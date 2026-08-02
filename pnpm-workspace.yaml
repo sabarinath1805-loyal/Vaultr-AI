@@ -1,6 +1,14 @@
 packages:
   - "."
 
+allowBuilds:
+  better-sqlite3: true
+  bufferutil: true
+  esbuild: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true
+
 # Allow specific packages to run install scripts.
 # better-sqlite3 needs a native rebuild on install (postinstall handles it).
 # The `ignoredBuiltDependencies` field is the pnpm v9 syntax which still

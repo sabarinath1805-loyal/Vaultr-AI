@@ -33,7 +33,7 @@ This is a heavily modified fork of [`nextjs-ollama-llm-ui`](https://github.com/j
 - Jina AI embeddings
 - Tauri v2 (desktop)
 
-See `CLAUDE.md` for the full architecture walkthrough, API surface, and codebase guardrails.
+The source layout, API routes, and project guardrails are documented below.
 
 ---
 
@@ -65,7 +65,7 @@ Copy `.env.local.example` to `.env.local` and fill in any keys you want to use. 
 | `JINA_API_KEY`               | Personal-RAG embedding calls throw on use.                           |
 | Other provider keys          | That provider is hidden from the model selector.                     |
 
-See `CLAUDE.md` → *Environment variables* for the full list and what each controls.
+See `.env.local.example` and [`docs/private-mode.md`](docs/private-mode.md) for environment configuration details.
 
 ### Develop
 
@@ -125,7 +125,7 @@ src/
   components/              # UI components (chat, contract-scanner, …)
   hooks/                   # useChatStore (Zustand + idb-keyval),
                            # useLocalVaultStore, useSpeechRecognition
-  lib/                     # Backend helpers (see CLAUDE.md → Architecture)
+  lib/                     # Backend helpers and integrations
 __tests__/                 # Jest suites (security/, rag/, lib/)
 src-tauri/                 # Tauri v2 desktop shell
 supabase/migrations/       # SQL migrations (001 → 006)
@@ -133,7 +133,7 @@ public/                    # Static assets
 scripts/                   # Build helpers (e.g. favicon generation)
 ```
 
-For an exhaustive map of `src/lib/` and the streaming/streaming-stripping state machine in `src/app/api/chat/route.ts`, see `CLAUDE.md`.
+The chat streaming and streaming-stripping state machine lives in `src/app/api/chat/route.ts`.
 
 ## Docs
 
