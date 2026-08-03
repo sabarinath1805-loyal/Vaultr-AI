@@ -10,7 +10,7 @@
   <a href="https://github.com/sabarinath1805-loyal/Vaultr-AI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/sabarinath1805-loyal/Vaultr-AI/ci.yml?branch=master&label=build" alt="Build status" /></a>
   <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" />
   <img src="https://img.shields.io/badge/version-1.0.0-informational.svg" alt="Version 1.0.0" />
-  <img src="https://img.shields.io/badge/node-%3E%3D18-green.svg" alt="Node 18 or newer" />
+  <img src="https://img.shields.io/badge/node-22%20LTS-green.svg" alt="Node 22 LTS required" />
   <img src="https://img.shields.io/badge/pnpm-11-orange.svg" alt="pnpm 11" />
   <img src="https://img.shields.io/badge/open%20source-yes-brightgreen.svg" alt="Open source" />
 </p>
@@ -60,11 +60,12 @@ The browser UI lives in `src/app` and `src/components`; server routes are in `sr
 
 ### Prerequisites
 
-Install Node.js 18+, pnpm 11, and (for desktop builds) Rust, the Tauri system prerequisites, and Ollama if you want local inference. See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for platform-specific packages.
+**Node 22 LTS is required. Do not use Node 24:** `better-sqlite3` does not provide a prebuilt Windows binary for Node 24 and its native compilation fails on a typical Windows setup. The repository includes `.nvmrc` with the supported major version. Install Node 22 LTS, then install pnpm 11 and (for desktop builds) Rust, the Tauri system prerequisites, and Ollama if you want local inference. See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for platform-specific packages.
 
 ```bash
 git clone https://github.com/sabarinath1805-loyal/Vaultr-AI.git
 cd Vaultr-AI
+nvm use                         # Node 22, when using nvm
 pnpm install
 cp .env.example .env.local       # macOS/Linux
 # Copy-Item .env.example .env.local  # Windows PowerShell
