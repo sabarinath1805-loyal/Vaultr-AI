@@ -63,7 +63,6 @@ export function scrubPII(value: unknown, depth = 0): unknown {
  * Use this instead of raw console.error in API routes that handle user input.
  */
 export function safeError(...args: unknown[]): void {
-  // eslint-disable-next-line no-console
   console.error(...args.map((a) => scrubPII(a)));
 }
 

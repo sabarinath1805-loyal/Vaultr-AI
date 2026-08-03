@@ -71,6 +71,7 @@ export class DatabaseUnavailableError extends Error {
   }
 }
 
+/** Return the initialized Drizzle database or throw a typed availability error. */
 export function getDb() {
   if (!db) {
     throw new DatabaseUnavailableError(dbInitError?.message || "Vaultr database is unavailable");
@@ -79,6 +80,7 @@ export function getDb() {
   return db;
 }
 
+/** Return the initialization error captured while opening the local database. */
 export function getDbInitError() {
   return dbInitError;
 }

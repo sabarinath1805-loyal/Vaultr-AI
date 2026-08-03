@@ -137,10 +137,12 @@ export function readMatters(): Matter[] {
   }
 }
 
+/** Persist the complete local matter list. */
 export function writeMatters(matters: Matter[]) {
   safeStorage.setItem(MATTERS_STORAGE_KEY, JSON.stringify(matters));
 }
 
+/** Read document, chat, and scan links associated with a matter. */
 export function readMatterLinks(matterId: string): MatterLinks {
   try {
     const saved = safeStorage.getItem(MATTER_LINKS_STORAGE_KEY);
@@ -151,6 +153,7 @@ export function readMatterLinks(matterId: string): MatterLinks {
   }
 }
 
+/** Persist the linked resources for a matter. */
 export function writeMatterLinks(matterId: string, links: MatterLinks) {
   const saved = safeStorage.getItem(MATTER_LINKS_STORAGE_KEY);
   const allLinks = saved ? JSON.parse(saved) : {};
@@ -181,6 +184,7 @@ export function addTimelineEntry(
   return { ...matter, timeline: [entry, ...matter.timeline] };
 }
 
+/** Replace one matter in a list and persist the resulting list. */
 export function persistMatterUpdate(matters: Matter[], updated: Matter): Matter[] {
   const next = matters.map((m) => (m.id === updated.id ? updated : m));
   writeMatters(next);
@@ -195,10 +199,12 @@ export function totalBillingFees(entries: BillingEntry[]): number {
   return entries.reduce((sum, e) => sum + e.hours * e.rate, 0);
 }
 
+/** Sum billable hours across a matter's billing entries. */
 export function totalBillingHours(entries: BillingEntry[]): number {
   return entries.reduce((sum, e) => sum + e.hours, 0);
 }
 
+/** Render billing entries and totals as CSV text for export. */
 export function billingToCSV(entries: BillingEntry[], matterName: string, currency = "USD"): string {
   const header = `Date,Description,Hours,Rate (${currency}),Amount (${currency})`;
   const rows = entries.map(
@@ -222,6 +228,7 @@ export function getUpcomingDatesCount(matter: Matter): number {
   }).length;
 }
 
+/** Count matter dates that have passed as of the current time. */
 export function getOverdueDatesCount(matter: Matter): number {
   const now = new Date();
   return matter.keyDates.filter((d) => new Date(d.date) < now).length;

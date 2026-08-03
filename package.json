@@ -1,7 +1,27 @@
 {
   "name": "Vaultr",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
+  "description": "Local-first AI legal assistant for private contract analysis, legal research, and matter management.",
+  "author": "Sabarinath",
+  "homepage": "https://vaultr.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sabarinath1805-loyal/Vaultr-AI.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sabarinath1805-loyal/Vaultr-AI/issues"
+  },
+  "keywords": [
+    "legal-ai",
+    "local-first",
+    "privacy",
+    "ollama",
+    "tauri",
+    "nextjs",
+    "open-source"
+  ],
+  "license": "MIT",
   "scripts": {
     "dev": "NODE_OPTIONS=--max-old-space-size=4096 next dev",
     "build": "next build --webpack",

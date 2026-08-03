@@ -30,6 +30,7 @@ import { getConfiguredApiKey } from "@/lib/tauri-env";
 import { searchLegalDatabases, formatCasesForContext, parseJurisdictionCode, tavilyIsWarranted, tavilyAdvancedSearch, type LegalCase } from "@/lib/legal-search";
 import { retrieveRelevantChunks, retrieveMatterMemory, retrieveUserMemory, formatRetrievedContext } from "@/lib/rag-retrieve";
 import { extractAndSaveMemories } from "@/lib/rag-memory";
+import { logError, logInfo } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -153,7 +154,7 @@ export async function POST(req: Request) {
     recordUsage(ip, model);
     if (userId) {
       logUsage(userId, model, ip, responseTimeMs, jurisdiction).catch((err) => {
-        console.error("[Usage Log Error] Failed to log usage:", err);
+        logError("chat/usage", "Failed to log usage", err);
       });
     }
   }
@@ -291,7 +292,7 @@ export async function POST(req: Request) {
             try {
               extractedText = await extractDocumentText(document);
             } catch (error) {
-              console.error(`Failed to extract text from ${document.filename}:`, error);
+              logError("chat/documents", `Failed to extract text from ${document.filename}`, error);
             }
             if (!extractedText) {
               console.warn(`[Document] No text extracted for ${document.filename}`);
@@ -387,13 +388,15 @@ export async function POST(req: Request) {
         }
         return anthropicResponse;
       } catch (anthropicErr) {
-        console.error(`[Anthropic] ${anthropicModel} failed, trying next Lex tier`, anthropicErr);
+        logError("chat/anthropic", `${anthropicModel} failed, trying next Lex tier`, anthropicErr);
         const currentIdx = ANTHROPIC_FALLBACK_CHAIN.indexOf(anthropicModel);
         const fallbackTiers = ANTHROPIC_FALLBACK_CHAIN.slice(currentIdx + 1);
         let resolved = false;
         for (const nextModel of fallbackTiers) {
           try {
-            console.log(`[Anthropic Fallback] Trying ${groqIdToLexName(nextModel)} (${nextModel})`);
+            logInfo("chat/anthropic", `Trying fallback ${groqIdToLexName(nextModel)}`, {
+              model: nextModel,
+            });
             const fbResponse = await streamAnthropicResponse({
               model: nextModel,
               systemMessage,
@@ -410,11 +413,11 @@ export async function POST(req: Request) {
             recordUsageForProvider(req, nextModel, authenticatedUserId, Date.now() - requestStartTime, typeof defaultJurisdiction === "string" ? defaultJurisdiction : undefined);
             return fbResponse;
           } catch (fbErr) {
-            console.error(`[Anthropic Fallback] ${nextModel} also failed`, fbErr);
+            logError("chat/anthropic", `${nextModel} fallback failed`, fbErr);
           }
         }
         if (!resolved) {
-          console.log("[Anthropic Fallback] All Lex tiers failed, falling back to Groq");
+          logInfo("chat/anthropic", "All Lex tiers failed; falling back to Groq");
           fallbackModelUsed = GROQ_DEFAULT_MODEL;
           activeModel = GROQ_DEFAULT_MODEL;
           usesCloudReasoning = false;
@@ -508,7 +511,7 @@ export async function POST(req: Request) {
               attachedDocuments,
               abortSignal: abortController.signal,
             });
-            console.log(`[Ollama Cloud] Fallback to ${fallbackModel} succeeded`); // intentional operational log
+          logInfo("chat/ollama", `Fallback to ${fallbackModel} succeeded`);
             return fbResponse;
           } catch (error) {
             console.error(`[Ollama Cloud] Fallback ${fallbackModel} failed:`, error);
@@ -686,7 +689,7 @@ export async function POST(req: Request) {
     if (!privacyMode) {
       for (const fallbackModel of OLLAMA_CLOUD_FALLBACK_MODELS) {
         try {
-          console.log(`[Fallback] Primary provider failed, trying Ollama Cloud (${fallbackModel})`, primaryError);
+          logError("chat/fallback", `Primary provider failed; trying Ollama Cloud (${fallbackModel})`, primaryError);
           const fbAbort = new AbortController();
           const fbTimeout = setTimeout(() => fbAbort.abort(), 30_000);
           const fbResponse = await streamOllamaCloudResponse({

@@ -3,6 +3,7 @@ export interface DropdownPosition {
   left: number;
 }
 
+/** Calculate a viewport-safe position for a dropdown anchored to an element. */
 export function getFixedDropdownPosition(
   anchor: HTMLElement,
   width: number,

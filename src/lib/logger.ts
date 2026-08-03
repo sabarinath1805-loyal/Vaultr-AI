@@ -1,7 +1,7 @@
 /**
  * Tiny structured logger.
  *
- * Wraps `console.error` / `console.warn` so that callers can attach a
+ * Wraps `console.info` / `console.error` / `console.warn` so that callers can attach a
  * `scope` tag and key/value context without inlining `console.error(...)`
  * everywhere. The format mirrors what server-side routes already emit:
  *   [scope] message { key: value, ... }
@@ -22,6 +22,12 @@ function formatContext(context?: LogContext): string {
   }
 }
 
+/** Write an informational event with an explicit application scope. */
+export function logInfo(scope: string, message: string, context?: LogContext): void {
+  console.info(`[${scope}] ${message}${formatContext(context)}`);
+}
+
+/** Write an error event and preserve useful error details when provided. */
 export function logError(scope: string, message: string, context?: LogContext | unknown): void {
   // Some callers pass the raw error as the 3rd arg; coerce to a sensible object.
   const ctx: LogContext | undefined =
@@ -33,6 +39,7 @@ export function logError(scope: string, message: string, context?: LogContext | 
   console.error(`[${scope}] ${message}${formatContext(ctx)}`);
 }
 
+/** Write a warning event with an explicit application scope. */
 export function logWarn(scope: string, message: string, context?: LogContext | unknown): void {
   const ctx: LogContext | undefined =
     context === undefined

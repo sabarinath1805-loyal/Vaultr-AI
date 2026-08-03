@@ -22,6 +22,7 @@ Do not include commentary.
 Every key and string value must use double quotes.
 Do not emit control characters.`;
 
+/** Scan an uploaded contract in cloud or private Ollama mode. */
 export async function scanContractFormData(formData: FormData, userId?: string) {
   const file = formData.get("file");
   const mode = formData.get("mode") === "private" ? "private" : "cloud";

@@ -427,6 +427,7 @@ const JURISDICTION_KEYWORDS: { pattern: RegExp; code: string }[] = [
   { pattern: /\b(?:canada|canadian|scc|onca|bcca|ontario|alberta)\b/i, code: "ca" },
 ];
 
+/** Infer a jurisdiction code from legal terminology in a free-form query. */
 export function detectJurisdiction(query: string): string | undefined {
   const lower = query.toLowerCase();
   for (const { pattern, code } of JURISDICTION_KEYWORDS) {

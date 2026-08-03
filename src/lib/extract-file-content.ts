@@ -1,6 +1,7 @@
 import mammoth from "mammoth";
 import { extractPdfText } from "@/lib/file-extraction/pdf-extractor";
 
+/** Extract text from a supported browser `File` object. */
 export async function extractFileContent(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);

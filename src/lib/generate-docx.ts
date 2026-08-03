@@ -23,6 +23,7 @@ export interface DocxGenerateResponse {
   filename: string;
 }
 
+/** Request a server-generated DOCX for the supplied structured sections. */
 export async function generateDocx(params: DocxGenerateRequest): Promise<DocxGenerateResponse> {
   const response = await fetch("/api/generate-docx", {
     method: "POST",

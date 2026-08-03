@@ -1,3 +1,4 @@
+/** Ask the server to reduce a user message to a focused legal-search query. */
 export async function extractLegalSearchQuery(
   userMessage: string
 ): Promise<string> {

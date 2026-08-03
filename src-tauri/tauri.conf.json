@@ -1,8 +1,10 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Vaultr",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.vaultr.app",
+  "description": "A local-first AI legal assistant for private legal work.",
+  "author": "Sabarinath",
   "build": {
     "frontendDist": "../.next",
     "devUrl": "http://localhost:3000",

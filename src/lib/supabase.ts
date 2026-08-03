@@ -22,6 +22,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const PERSIST_SESSION =
   process.env.NEXT_PUBLIC_SUPABASE_PERSIST_SESSION === "true";
 
+/** Return whether the public Supabase URL and anon key are both configured. */
 export function isSupabaseConfigured(): boolean {
   return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 }
@@ -30,6 +31,7 @@ export function isSupabaseConfigured(): boolean {
 
 let browserClient: SupabaseClient | null = null;
 
+/** Create the browser Supabase client with the app's privacy-aware auth settings. */
 export function createBrowserSupabaseClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) return null;
   if (browserClient) return browserClient;
@@ -58,6 +60,7 @@ export function createBrowserSupabaseClient(): SupabaseClient | null {
 
 let serverClient: SupabaseClient | null = null;
 
+/** Create the server-only Supabase client using the service-role key. */
 export function createServerSupabaseClient(): SupabaseClient | null {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
   if (!SUPABASE_URL || !serviceKey) return null;
@@ -100,6 +103,7 @@ export function maskIpAddress(ip: string | null | undefined): string | null {
 
 // ---------- Beta user check ----------
 
+/** Check whether an email address has been approved for the hosted beta. */
 export async function isBetaUser(email: string): Promise<boolean> {
   const client = createServerSupabaseClient();
   if (!client) return true; // dev fallback
@@ -147,6 +151,7 @@ interface RateLimitResult {
   resetsAt: string | null;
 }
 
+/** Enforce a per-user, per-model daily quota in Supabase. */
 export async function checkSupabaseRateLimit(
   userId: string,
   model: string,
@@ -192,6 +197,7 @@ export async function checkSupabaseRateLimit(
 
 // ---------- Auth helpers ----------
 
+/** Resolve a bearer token to its Supabase user, or return null when invalid. */
 export async function getSessionUser(authHeader: string | null) {
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.slice(7);

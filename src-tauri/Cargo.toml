@@ -1,10 +1,10 @@
 [package]
 name = "Vaultr"
-version = "0.1.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+version = "1.0.0"
+description = "A local-first AI legal assistant for private legal work."
+authors = ["Sabarinath"]
+license = "MIT"
+repository = "https://github.com/sabarinath1805-loyal/Vaultr-AI"
 edition = "2021"
 rust-version = "1.77.2"
 

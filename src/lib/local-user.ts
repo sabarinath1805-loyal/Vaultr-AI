@@ -44,7 +44,6 @@ function deriveMachineId(): string {
     // (no native binding); on Windows it reads the MachineGuid from
     // HKLM\SOFTWARE\Microsoft\Cryptography. `true` returns the hashed
     // form so the raw GUID never leaves the process.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { machineIdSync } = require("node-machine-id") as {
       machineIdSync: (hashed?: boolean) => string;
     };

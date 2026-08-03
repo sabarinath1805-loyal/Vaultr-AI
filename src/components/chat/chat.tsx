@@ -611,9 +611,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
               content: nextContent,
             };
             activeAssistantMessageRef.current = visibleAssistantMessage;
-            if (!directStreamingActive) {
-              setDirectStreamingActive(true);
-            }
+            setDirectStreamingActive(true);
             setMessages([...requestMessages, visibleAssistantMessage]);
           }
         }
@@ -695,6 +693,7 @@ export default function Chat({ initialMessages, id }: ChatProps) {
       isOpenEmptyChat,
       router,
       saveMessages,
+      selectedModel,
       setMessages,
       startTypewriter,
     ]

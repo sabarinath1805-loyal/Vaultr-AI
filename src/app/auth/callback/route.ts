@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
+import { logError, logInfo } from "@/lib/logger";
 
+/** Exchange a Supabase auth code and redirect the browser to the requested path. */
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
@@ -23,7 +25,7 @@ export async function GET(request: Request) {
                 cookieStore.set(name, value, options);
               });
             } catch (e) {
-              console.error("[auth/callback] setAll error:", e);
+              logError("auth/callback", "Failed to persist auth cookies", e);
             }
           },
         },
@@ -31,11 +33,14 @@ export async function GET(request: Request) {
     );
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-    console.log("[auth/callback] exchange result:", { error: error?.message, user: data?.user?.email });
+    logInfo("auth/callback", "Supabase exchange completed", {
+      error: error?.message,
+      user: data?.user?.email,
+    });
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
-    console.error("[auth/callback] exchange failed:", error);
+    logError("auth/callback", "Supabase exchange failed", error);
   }
 
   return NextResponse.redirect(`${origin}/auth/error`);

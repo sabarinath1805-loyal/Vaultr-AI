@@ -1,5 +1,6 @@
 import { getConfiguredApiKey } from './tauri-env';
 
+/** Extract one requested fact from a document cell using the configured model. */
 export async function analyseCell(params: {
   documentText: string;
   columnQuestion: string;

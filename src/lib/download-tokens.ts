@@ -41,12 +41,14 @@ function sweep(now: number) {
   }
 }
 
+/** Issue a single-use, short-lived token bound to a user and filename. */
 export function issueDownloadToken(userId: string, filename: string): { token: string; expiresIn: number } {
   const token = crypto.randomBytes(24).toString("hex");
   validTokens.set(token, { userId, filename, expiresAt: Date.now() + TOKEN_TTL_MS });
   return { token, expiresIn: TOKEN_TTL_MS };
 }
 
+/** Validate and consume a download token; returns false for invalid or expired tokens. */
 export function consumeDownloadToken(token: string, userId: string, filename: string): boolean {
   sweep(Date.now());
   const entry = validTokens.get(token);

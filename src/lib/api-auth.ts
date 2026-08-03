@@ -114,6 +114,7 @@ export function sanitizeString(input: string, maxLength: number = 1000): string 
   return sanitized.trim();
 }
 
+/** Validate the canonical UUID format used by persisted chat and matter ids. */
 export function isValidUUID(id: string): boolean {
   if (typeof id !== "string") return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);

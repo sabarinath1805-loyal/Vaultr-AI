@@ -14,6 +14,7 @@ export type ChatSessions = Record<string, ChatSession>;
 const toIsoString = (timestamp: number) =>
   new Date(timestamp * 1000).toISOString();
 
+/** Convert a persisted message row to the client chat-message shape. */
 export function toClientMessage(message: MessageRecord): Message {
   return {
     id: message.id,
@@ -23,6 +24,7 @@ export function toClientMessage(message: MessageRecord): Message {
   };
 }
 
+/** Convert a persisted chat and its messages to the client session shape. */
 export function toClientChat(chat: ChatWithMessages): ChatSession {
   return {
     id: chat.id,

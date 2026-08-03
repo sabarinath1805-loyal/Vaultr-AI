@@ -7,6 +7,7 @@ interface SpeechRecognitionOptions {
 }
 
 const useSpeechToText = (options: SpeechRecognitionOptions = {}) => {
+  const { continuous = false, interimResults = true, lang = "en-US" } = options;
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -20,9 +21,9 @@ const useSpeechToText = (options: SpeechRecognitionOptions = {}) => {
     const recognition = new window.webkitSpeechRecognition();
     recognitionRef.current = recognition;
 
-    recognition.interimResults = options.interimResults || true;
-    recognition.lang = options.lang || "en-US";
-    recognition.continuous = options.continuous || false;
+    recognition.interimResults = interimResults;
+    recognition.lang = lang;
+    recognition.continuous = continuous;
 
     if ("webkitSpeechGrammarList" in window) {
       const grammar =
@@ -57,7 +58,7 @@ const useSpeechToText = (options: SpeechRecognitionOptions = {}) => {
         recognitionRef.current.stop();
       }
     };
-  }, []);
+  }, [continuous, interimResults, lang]);
 
   const startListening = () => {
     if (recognitionRef.current && !isListening) {

@@ -16,6 +16,7 @@ export type ClientApiKeyName = (typeof ALL_API_KEY_NAMES)[number];
 export type ClientApiKeyValues = Partial<Record<ClientApiKeyName, string>>;
 export type ClientApiKeyStatus = Record<ClientApiKeyName, boolean>;
 
+/** Detect whether the current browser context is running inside the Tauri shell. */
 export function isTauriDesktop() {
   return (
     typeof window !== "undefined" &&
@@ -23,6 +24,7 @@ export function isTauriDesktop() {
   );
 }
 
+/** Open the native document picker and return the selected files. */
 export async function selectTauriDocumentFiles() {
   if (!isTauriDesktop()) return null;
 
