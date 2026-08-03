@@ -1,146 +1,94 @@
-# Vaultr
+<p align="center">
+  <img src="public/icon-512.png" alt="Vaultr logo" width="112" />
+</p>
 
-A legal AI assistant for **Singapore lawyers** — multi-provider LLM chat with RAG over legal databases and personal documents, document processing, contract scanning, and matter (legal case) management.
+<h1 align="center">Vaultr</h1>
 
-Web app + Tauri v2 desktop bundle.
+<p align="center"><strong>Private legal intelligence, in your hands.</strong><br />A local-first AI legal assistant for research, contracts, and matters.</p>
 
-This is a heavily modified fork of [`nextjs-ollama-llm-ui`](https://github.com/jakobhoeg/nextjs-ollama-llm-ui).
+<p align="center">
+  <a href="https://github.com/sabarinath1805-loyal/Vaultr-AI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/sabarinath1805-loyal/Vaultr-AI/ci.yml?branch=master&label=build" alt="Build status" /></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license" />
+  <img src="https://img.shields.io/badge/version-1.0.0-informational.svg" alt="Version 1.0.0" />
+  <img src="https://img.shields.io/badge/node-%3E%3D18-green.svg" alt="Node 18 or newer" />
+  <img src="https://img.shields.io/badge/pnpm-11-orange.svg" alt="pnpm 11" />
+  <img src="https://img.shields.io/badge/open%20source-yes-brightgreen.svg" alt="Open source" />
+</p>
 
----
+Vaultr is a local-first AI legal assistant: in Private Mode, your documents and conversations stay on your device. Cloud providers, legal search, authentication, and Supabase-backed RAG are optional and opt-in.
 
-## Features
+## Why Vaultr
 
-- **Multi-provider chat** — Ollama (local), Groq, Anthropic direct, Anthropic via ClaudeOpus proxy, Cerebras, Gemini, Ollama Cloud. Lex cloud lineup (Core / Pro / Ultra / Max) is the default; switch freely per chat.
-- **Agent Mode (v2)** — deterministic 7-step pipeline (`parse → matter → search → fetch → tavily → synthesise → draft`) driven by `claude-fable-5`, with live step-tracker UI.
-- **Legal RAG** — parallel queries across CourtListener, Caselaw Access Project, EUR-Lex, Indian Kanoon, jurisdiction-scoped Tavily search, and Wikipedia for legal concepts. Auto-detects jurisdiction (US / UK / EU / AU / SG / IN / CA).
-- **Personal RAG** — Jina AI embeddings (`jina-embeddings-v3`, 1024-dim) over your documents, matter memory, and user memory, stored in Supabase pgvector.
-- **Document processing** — upload PDF / DOCX, extract text, embed, ingest into the personal vault. IndexedDB-backed by default.
-- **Contract Scanner** — extract clauses, classify risks, generate risk-report PDFs.
-- **Matters** — organise chats, documents, and memories per legal case.
-- **Tabular Review** — extract per-column answers from a document via a single LLM call.
-- **Voice input** — speech recognition in the composer.
-- **Code highlighting**, **light / dark mode**, **per-user usage telemetry**, **beta-user auth gate** (Supabase).
+- 🔒 **Private by default** - local Ollama inference, SQLite storage, and an IndexedDB vault.
+- ⚖️ **Legal workflows** - contract scanning, matter management, document review, and legal research.
+- 🧠 **Multi-model** - switch providers per conversation and keep a local fallback available.
+- 🔎 **Grounded research** - retrieve relevant cases and citations from configured legal sources.
+- 📝 **Practical output** - export responses, generate DOCX files, and track risks clearly.
+- 🖥️ **Desktop-first option** - package the same app in a Tauri v2 shell for macOS, Windows, and Linux.
 
----
+## Supported providers
 
-## Tech stack
+| Provider | Use | Configuration |
+| --- | --- | --- |
+| Ollama | Local/private models | `OLLAMA_URL` |
+| Groq | Fast hosted inference and fallback | `GROQ_API_KEY` |
+| Gemini | Google-hosted models | `GEMINI_API_KEY` |
+| OpenAI-compatible | ClaudeOpus gateway and compatible endpoints | `CLAUDEOPUS_API_KEY`, `ANTHROPIC_BASE_URL` |
 
-- Next.js 16.2 (App Router) + TypeScript, webpack-based production build
-- shadcn/ui + Radix UI, Tailwind CSS, Framer Motion, Lucide, sonner
-- Zustand with `idb-keyval` IndexedDB persistence
-- Vercel AI SDK, SSE (`X-Vercel-AI-Data-Stream: v1`)
-- SQLite + Drizzle ORM (server), Supabase + pgvector (cloud RAG / auth / usage)
-- Jina AI embeddings
-- Tauri v2 (desktop)
+## Screenshots
 
-The source layout, API routes, and project guardrails are documented below.
+<!-- Replace these paths with final screenshots before launch. -->
+![Vaultr chat workspace](docs/screenshots/chat-workspace.png)
+![Vaultr contract scanner](docs/screenshots/contract-scanner.png)
+![Vaultr private mode](docs/screenshots/private-mode.png)
 
----
+## Architecture
+
+```text
+Next.js 16 App Router + TypeScript
+        |
+        +-- Tauri v2 desktop shell
+        +-- SQLite + Drizzle (local chats and metadata)
+        +-- IndexedDB (local vault and UI state)
+        +-- Optional Supabase + pgvector (auth, usage, cloud RAG)
+        +-- Ollama, Groq, Gemini, and OpenAI-compatible providers
+```
+
+The browser UI lives in `src/app` and `src/components`; server routes are in `src/app/api`; shared integrations are in `src/lib`; migrations are in `supabase/migrations`; and the desktop shell is in `src-tauri`.
 
 ## Quick start
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm (the project uses pnpm — there is intentionally no `package-lock.json`)
-- (Optional) Ollama running locally for offline / private mode — `OLLAMA_URL` defaults to `http://localhost:11434`
-- (Optional) A Supabase project if you want cloud RAG + auth + usage logging
-
-### Install
+Install Node.js 18+, pnpm 11, and (for desktop builds) Rust, the Tauri system prerequisites, and Ollama if you want local inference. See the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for platform-specific packages.
 
 ```bash
+git clone https://github.com/sabarinath1805-loyal/Vaultr-AI.git
+cd Vaultr-AI
 pnpm install
+cp .env.example .env.local       # macOS/Linux
+# Copy-Item .env.example .env.local  # Windows PowerShell
+pnpm dev
 ```
 
-The `postinstall` script rebuilds `better-sqlite3` against your local Node ABI.
-
-### Configure
-
-Copy `.env.local.example` to `.env.local` and fill in any keys you want to use. Every key is optional — the app degrades gracefully:
-
-| Key missing              | Effect                                                                    |
-|--------------------------|---------------------------------------------------------------------------|
-| `OLLAMA_URL` set, no others | App runs offline in **Private Mode** with local Ollama.               |
-| `NEXT_PUBLIC_SUPABASE_URL`  | Personal RAG + auth + usage logging disable; private mode is unauthenticated. |
-| `JINA_API_KEY`               | Personal-RAG embedding calls throw on use.                           |
-| Other provider keys          | That provider is hidden from the model selector.                     |
-
-See `.env.local.example` and [`docs/private-mode.md`](docs/private-mode.md) for environment configuration details.
-
-### Develop
+Open `http://localhost:3000`. Run `pnpm tauri:dev` for the desktop shell. Configure only the providers you need; every environment variable is documented in `.env.example`.
 
 ```bash
-pnpm dev                 # Next.js dev server on http://localhost:3000
-pnpm tauri:dev           # Tauri desktop dev (drives the Next.js dev server)
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm tauri:build
 ```
 
-### Build & deploy
+## Contributing
 
-```bash
-pnpm build               # Standalone Next.js build into .next/
-pnpm start               # Serve the production build
-pnpm tauri:build         # Tauri desktop bundle (src-tauri/)
-firebase deploy          # Static deploy of `out/` to Firebase Hosting
-```
-
----
-
-## Scripts
-
-| Script              | What it does                                                 |
-|---------------------|--------------------------------------------------------------|
-| `pnpm dev`          | Dev server (`NODE_OPTIONS=--max-old-space-size=4096`)        |
-| `pnpm build`        | Production build, webpack, standalone output                 |
-| `pnpm start`        | Serve the production build                                   |
-| `pnpm lint`         | ESLint flat config                                           |
-| `pnpm test`         | Jest suite (ts-jest, node env)                               |
-| `pnpm test:watch`   | Jest watch mode                                              |
-| `pnpm tauri:dev`    | Tauri desktop dev                                            |
-| `pnpm tauri:build`  | Tauri desktop bundle                                         |
-| `npx tsc --noEmit`  | Type-check without emit (the build itself ignores TS errors) |
-
-Targeted examples:
-
-```bash
-npx jest __tests__/security/auth.test.ts                 # Single test file
-npx jest -t "isValidUUID"                                # Single test by name
-npx jest __tests__/security --testPathPattern=security   # A directory
-```
-
----
-
-## Project layout
-
-```
-src/
-  app/
-    (chat)/                # Web UI: chat, contract-scanner, history, matters,
-                           #   models, settings, tabular-review, usage, vault, workflows
-    api/                   # Server routes (chat, agent, chats, contract-scanner,
-                           #   download-token, download, export-response,
-                           #   extract-document, extract-legal-query, generate-docx,
-                           #   legal-search, local-vault, matters, model,
-                           #   scan-reports, tabular-review, tags, usage/stats,
-                           #   auth/check-beta)
-  components/              # UI components (chat, contract-scanner, …)
-  hooks/                   # useChatStore (Zustand + idb-keyval),
-                           # useLocalVaultStore, useSpeechRecognition
-  lib/                     # Backend helpers and integrations
-__tests__/                 # Jest suites (security/, rag/, lib/)
-src-tauri/                 # Tauri v2 desktop shell
-supabase/migrations/       # SQL migrations (001 → 006)
-public/                    # Static assets
-scripts/                   # Build helpers (e.g. favicon generation)
-```
-
-The chat streaming and streaming-stripping state machine lives in `src/app/api/chat/route.ts`.
-
-## Docs
-
-- [`docs/private-mode.md`](docs/private-mode.md) — how the app behaves when Supabase isn't configured, and how to enable real machine-bound IDs.
-
----
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. Bug fixes, tests, documentation, accessibility improvements, UI work, and new model integrations are welcome.
 
 ## License
 
-See `LICENSE`.
+Vaultr is released under the [MIT License](LICENSE).
+
+## Built by
+
+Vaultr is built by **Sabarinath**, a 13-year-old student in Singapore, as a student-built open source project. Contributions, thoughtful feedback, and responsible issue reports are welcome.
