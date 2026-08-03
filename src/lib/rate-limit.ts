@@ -68,7 +68,7 @@ function cleanupRateLimitStore(): void {
  * @example
  * const result = checkRateLimit("192.168.1.1", "lex-ultra");
  * if (!result.allowed && result.downgradeModel) {
- *   console.log(`Try ${result.downgradeModel} instead`);
+ *   console.info(`Try ${result.downgradeModel} instead`);
  * }
  */
 export function checkRateLimit(ip: string, model: string): { allowed: boolean; downgradeModel?: string; message?: string } {
