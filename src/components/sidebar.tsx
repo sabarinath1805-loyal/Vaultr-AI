@@ -2,133 +2,226 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import { safeStorage } from "@/lib/safe-storage";
+import { useEffect, useMemo, useState } from "react";
 import {
-  IconBriefcase,
-  IconChevronLeft,
-  IconChevronRight,
-  IconFileSearch,
-  IconFolder,
-  IconHistory,
-  IconMessage2,
-  IconPlus,
-  IconSettings,
-} from "@tabler/icons-react";
+  ChevronDown,
+  ChevronsUpDown,
+  FileSearch,
+  Folder,
+  History,
+  Library,
+  MessageSquare,
+  PanelLeft,
+  Table2,
+  Workflow,
+} from "lucide-react";
 import useChatStore from "@/app/hooks/useChatStore";
 
-const primaryItems = [
-  { href: "/", label: "Lex", icon: IconMessage2 },
-  { href: "/matters", label: "Matters", icon: IconBriefcase },
-  { href: "/review", label: "Review", icon: IconFileSearch },
-  { href: "/research", label: "Research", icon: IconFileSearch },
+const navItems = [
+  { href: "/", label: "Lex", icon: MessageSquare },
+  { href: "/matters", label: "Matters", icon: Folder },
+  { href: "/vault", label: "Vault", icon: Library },
+  { href: "/tabular-review", label: "Tabular Review", icon: Table2 },
+  { href: "/workflows", label: "Workflows", icon: Workflow },
 ];
 
-const libraryItems = [
-  { href: "/vault", label: "Vault", icon: IconFolder },
-  { href: "/history", label: "Threads", icon: IconHistory },
-];
+interface SidebarProps {
+  isOpen: boolean;
+  onToggle: () => void;
+}
 
-export function Sidebar() {
+function featureIcon(Icon: React.ComponentType<{ className?: string }>, active: boolean) {
+  return (
+    <span
+      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border shadow-sm ${
+        active
+          ? "border-white bg-white text-gray-900"
+          : "border-white/80 bg-gradient-to-b from-white to-gray-100 text-gray-700"
+      }`}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
+export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [collapsed, setCollapsed] = useState(false);
+  const chats = useChatStore((state) => state.chats);
+  const loadChats = useChatStore((state) => state.loadChats);
+  const setCurrentChatId = useChatStore((state) => state.setCurrentChatId);
   const resetComposerState = useChatStore((state) => state.resetComposerState);
+  const userName = useChatStore((state) => state.userName);
+  const organisation = useChatStore((state) => state.organisation);
+  const [historyCollapsed, setHistoryCollapsed] = useState(false);
+  const [toolsCollapsed, setToolsCollapsed] = useState(false);
 
   useEffect(() => {
-    const saved = safeStorage.getItem("vaultr-sidebar-collapsed");
-    const narrow = window.matchMedia("(max-width: 760px)").matches;
-    setCollapsed(narrow || saved === "true");
-  }, []);
+    void loadChats();
+  }, [loadChats]);
 
-  useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--sidebar-current-w",
-      collapsed ? "var(--sidebar-collapsed-w)" : "var(--sidebar-w)",
-    );
-  }, [collapsed]);
-
-  const toggleCollapsed = () => {
-    setCollapsed((value) => {
-      safeStorage.setItem("vaultr-sidebar-collapsed", String(!value));
-      return !value;
-    });
-  };
+  const recentChats = useMemo(
+    () =>
+      Object.values(chats ?? {})
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+        .slice(0, 12),
+    [chats],
+  );
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/" || pathname.startsWith("/c/");
-    if (href === "/review") {
-      return pathname.startsWith("/review") || pathname.startsWith("/contract-scanner") || pathname.startsWith("/tabular-review") || pathname.startsWith("/workflows");
-    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const nav = (items: typeof primaryItems) => (
-    <nav className="space-y-0.5">
-      {items.map(({ href, label, icon: Icon }) => {
-        const active = isActive(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            title={label}
-            className={`group flex h-9 items-center rounded-[var(--radius-sm)] transition-colors ${
-              collapsed ? "mx-auto w-9 justify-center" : "gap-2.5 px-2.5"
-            } ${active ? "bg-[var(--surface-elevated)] text-[var(--text)]" : "text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]"}`}
-          >
-            <Icon size={16} stroke={1.6} />
-            {!collapsed && <span className="truncate text-[13px] font-medium">{label}</span>}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-
   return (
-    <aside className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ${collapsed ? "w-[var(--sidebar-collapsed-w)]" : "w-[var(--sidebar-w)]"}`}>
-      <div className={`flex h-[72px] items-center ${collapsed ? "justify-center" : "justify-between px-3"}`}>
-        <Link href="/" onClick={() => resetComposerState()} className="flex items-center gap-2 text-[var(--text)]" title="Vaultr">
-          <span aria-hidden className="text-[23px] leading-none">✳</span>
-          {!collapsed && <span className="font-display text-[24px] leading-none">Vaultr</span>}
-        </Link>
-        {!collapsed && (
-          <button type="button" onClick={toggleCollapsed} className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-faint)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]" aria-label="Collapse sidebar">
-            <IconChevronLeft size={15} />
-          </button>
-        )}
-      </div>
-
-      {collapsed && (
-        <button type="button" onClick={toggleCollapsed} className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-faint)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]" aria-label="Expand sidebar">
-          <IconChevronRight size={15} />
-        </button>
-      )}
-
-      <div className={`min-h-0 flex-1 overflow-y-auto ${collapsed ? "px-1.5" : "px-2.5"}`}>
-        {!collapsed && <div className="mb-2 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">Work</div>}
-        {nav(primaryItems)}
-
-        <div className="my-4 border-t border-[var(--border)]" />
-        {!collapsed && <div className="mb-2 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">Library</div>}
-        {nav(libraryItems)}
-
+    <>
+      {isOpen && (
         <button
           type="button"
-          onClick={() => router.push("/matters")}
-          title="New matter"
-          className={`mt-5 flex h-9 items-center rounded-[var(--radius-sm)] border border-[var(--border-strong)] text-[var(--text)] transition-colors hover:bg-[var(--surface-elevated)] ${collapsed ? "mx-auto w-9 justify-center" : "w-full gap-2 px-2.5"}`}
-        >
-          <IconPlus size={15} />
-          {!collapsed && <span className="text-[12px] font-medium">New matter</span>}
-        </button>
-      </div>
+          className="fixed inset-0 z-[98] bg-gray-300/20 md:hidden"
+          onClick={onToggle}
+          aria-label="Close sidebar"
+        />
+      )}
 
-      <div className={`${collapsed ? "p-1.5" : "p-2.5"} pb-3`}>
-        <Link href="/settings" title="Settings" className={`flex h-9 items-center rounded-[var(--radius-sm)] text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)] ${collapsed ? "justify-center" : "gap-2.5 px-2.5"}`}>
-          <IconSettings size={16} stroke={1.6} />
-          {!collapsed && <span className="text-[13px] font-medium">Settings</span>}
-        </Link>
-      </div>
-    </aside>
+      <aside
+        className={`vaultr-liquid absolute z-[99] my-2 ml-2 flex h-[calc(100dvh-1rem)] flex-col overflow-visible rounded-2xl transition-all duration-300 md:relative md:my-3 md:ml-3 md:h-[calc(100dvh-1.5rem)] ${
+          isOpen ? "w-64" : "max-md:hidden w-14"
+        }`}
+      >
+        <div className="flex items-center justify-between px-2.5 py-3">
+          {isOpen && (
+            <Link
+              href="/"
+              onClick={() => resetComposerState()}
+              className="flex items-center gap-1.5 px-2 transition-opacity hover:opacity-80"
+            >
+              <span className="flex h-[22px] w-[22px] items-center justify-center text-[21px] leading-none text-gray-900">⁂</span>
+              <span className="font-display text-2xl font-light text-gray-900">Vaultr</span>
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={onToggle}
+            className="flex h-9 w-9 items-center justify-center rounded-md text-gray-700 transition-colors hover:bg-white/70"
+            title={isOpen ? "Close sidebar" : "Open sidebar"}
+            aria-label={isOpen ? "Close sidebar" : "Open sidebar"}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-2.5">
+          {navItems.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href);
+            return (
+              <button
+                key={href}
+                type="button"
+                onClick={() => router.push(href)}
+                title={!isOpen ? label : undefined}
+                className={`my-0.5 flex h-9 w-full items-center gap-3 rounded-md px-2.5 py-2 text-left transition-colors ${
+                  active ? "bg-white/85 text-gray-900 shadow-sm" : "text-gray-700 hover:bg-white/60"
+                }`}
+              >
+                {featureIcon(Icon, active)}
+                {isOpen && <span className="truncate text-sm font-medium">{label}</span>}
+              </button>
+            );
+          })}
+        </div>
+
+        {isOpen && (
+          <div className="mt-4 flex min-h-0 flex-1 flex-col gap-4">
+            <section>
+              <button
+                type="button"
+                onClick={() => setToolsCollapsed((value) => !value)}
+                className="mb-2 flex w-full items-center justify-between px-5 text-xs font-semibold text-gray-500 transition-colors hover:text-gray-700"
+              >
+                <span>Review tools</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${toolsCollapsed ? "-rotate-90" : ""}`} />
+              </button>
+              {!toolsCollapsed && (
+                <div className="space-y-1 px-2.5">
+                  <Link href="/contract-scanner" className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-gray-700 transition-colors hover:bg-white/60">
+                    <FileSearch className="h-3.5 w-3.5" />
+                    <span>Contract Scanner</span>
+                  </Link>
+                  <Link href="/review" className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-gray-700 transition-colors hover:bg-white/60">
+                    <Table2 className="h-3.5 w-3.5" />
+                    <span>Review hub</span>
+                  </Link>
+                </div>
+              )}
+            </section>
+
+            <section className="flex min-h-0 flex-1 flex-col">
+              <button
+                type="button"
+                onClick={() => setHistoryCollapsed((value) => !value)}
+                className="mb-2 flex w-full items-center justify-between px-5 text-xs font-semibold text-gray-500 transition-colors hover:text-gray-700"
+              >
+                <span>Lex History</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${historyCollapsed ? "-rotate-90" : ""}`} />
+              </button>
+
+              {!historyCollapsed && (
+                <div className="min-h-0 flex-1 overflow-y-auto px-2.5">
+                  {recentChats.length === 0 ? (
+                    <div className="px-2.5 py-2 text-xs text-gray-500">No chats yet</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {recentChats.map((chat) => {
+                        const active = pathname === `/c/${chat.id}`;
+                        return (
+                          <button
+                            key={chat.id}
+                            type="button"
+                            onClick={() => {
+                              setCurrentChatId(chat.id);
+                              router.push(`/c/${chat.id}`);
+                            }}
+                            className={`flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs transition-colors ${
+                              active ? "bg-white/85 text-gray-900 shadow-sm" : "text-gray-700 hover:bg-white/60"
+                            }`}
+                            title={chat.title || "Untitled thread"}
+                          >
+                            <History className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+                            <span className="truncate">{chat.title || "Untitled thread"}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
+        <div className="mt-auto p-1">
+          <button
+            type="button"
+            onClick={() => router.push("/settings")}
+            className={`flex w-full items-center border-t border-white/60 px-2.5 py-3 transition-colors hover:bg-white/60 ${isOpen ? "rounded-xl" : "justify-center rounded-xl"}`}
+            title={!isOpen ? "Settings" : undefined}
+          >
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-700 font-display text-sm font-medium text-white">
+              {(userName || "V").trim().charAt(0).toUpperCase()}
+            </div>
+            {isOpen && (
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-2 pl-3 text-left">
+                <div className="min-w-0">
+                  <div className="truncate text-xs font-medium text-gray-900">{userName || "Vaultr user"}</div>
+                  <div className="truncate text-[10px] text-gray-500">{organisation || "Settings"}</div>
+                </div>
+                <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+              </div>
+            )}
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
