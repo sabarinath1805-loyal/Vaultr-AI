@@ -1,25 +1,36 @@
 import Link from "next/link";
-import { IconArrowRight, IconBook2, IconMessage2 } from "@tabler/icons-react";
+import { ArrowRight, BookOpen, MessageSquare } from "lucide-react";
 
 export default function ResearchPage() {
   return (
-    <main className="h-screen overflow-y-auto bg-[var(--bg)]">
-      <div className="mx-auto max-w-5xl px-6 py-14 md:px-10 md:py-20">
-        <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--text-faint)]">Research</p>
-        <h1 className="max-w-3xl text-4xl leading-[1.05] text-[var(--text)] md:text-5xl">Research law with the evidence kept close.</h1>
-        <p className="mt-5 max-w-2xl text-[14px] leading-6 text-[var(--text-muted)]">The dedicated research workspace is being built on Vaultr&apos;s existing legal-search and citation pipeline. For now, start in Lex to use the working research flow without changing any backend behavior.</p>
+    <main className="h-full overflow-y-auto bg-[var(--app-background)] px-4 py-4 md:px-8 md:py-6">
+      <div className="mx-auto max-w-5xl">
+        <div className="mb-6">
+          <h1 className="font-sans text-2xl font-semibold tracking-tight text-gray-900">Research</h1>
+          <p className="mt-1 text-sm text-gray-500">Legal research powered by Lex and Vaultr&apos;s existing source pipeline.</p>
+        </div>
 
-        <div className="mt-12 max-w-2xl border-y border-[var(--border)] py-7">
-          <div className="flex gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text-muted)]"><IconBook2 size={18} stroke={1.5} /></div>
-            <div>
-              <h2 className="text-[25px] leading-tight text-[var(--text)]">Legal research in Lex</h2>
-              <p className="mt-2 text-[13px] leading-5 text-[var(--text-muted)]">Use the existing legal source search, citation parsing, and streaming answer flow today. The next migration stage will bring those same capabilities into this workspace with a persistent source inspector.</p>
-              <Link href="/" className="mt-5 inline-flex items-center gap-2 text-[12px] font-semibold text-[var(--text)] hover:underline">
-                <IconMessage2 size={15} /> Open Lex <IconArrowRight size={14} />
-              </Link>
+        <div className="overflow-hidden rounded-2xl border border-white/70 bg-white/55 shadow-[0_-1px_6px_rgba(15,23,42,0.034),0_4px_9px_rgba(15,23,42,0.074),inset_0_1px_0_rgba(255,255,255,0.85)] backdrop-blur-2xl">
+          <Link href="/" className="group flex items-center gap-4 px-5 py-4 transition-colors hover:bg-white/70">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white bg-gradient-to-b from-white to-gray-100 text-gray-700 shadow-sm">
+              <BookOpen className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-gray-900">Research with Lex</div>
+              <div className="mt-0.5 text-xs leading-5 text-gray-500">Search legal sources, analyze authorities, and keep citations attached to the answer.</div>
             </div>
-          </div>
+            <ArrowRight className="h-4 w-4 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-gray-700" />
+          </Link>
+          <Link href="/history" className="group flex items-center gap-4 border-t border-gray-200/70 px-5 py-4 transition-colors hover:bg-white/70">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white bg-gradient-to-b from-white to-gray-100 text-gray-700 shadow-sm">
+              <MessageSquare className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-gray-900">Research history</div>
+              <div className="mt-0.5 text-xs leading-5 text-gray-500">Return to previous Lex threads and research work.</div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-gray-700" />
+          </Link>
         </div>
       </div>
     </main>
