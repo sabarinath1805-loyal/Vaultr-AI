@@ -6,7 +6,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronsUpDown,
-  FileSearch,
   Folder,
   History,
   Library,
@@ -16,6 +15,7 @@ import {
   Workflow,
 } from "lucide-react";
 import useChatStore from "@/app/hooks/useChatStore";
+import { readMatters, type Matter } from "@/lib/matters";
 
 const navItems = [
   { href: "/", label: "Lex", icon: MessageSquare },
@@ -54,11 +54,17 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
   const userName = useChatStore((state) => state.userName);
   const organisation = useChatStore((state) => state.organisation);
   const [historyCollapsed, setHistoryCollapsed] = useState(false);
-  const [toolsCollapsed, setToolsCollapsed] = useState(false);
+  const [mattersCollapsed, setMattersCollapsed] = useState(false);
+  const [recentMatters, setRecentMatters] = useState<Matter[]>([]);
 
   useEffect(() => {
     void loadChats();
-  }, [loadChats]);
+    setRecentMatters(
+      [...readMatters()]
+        .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+        .slice(0, 5),
+    );
+  }, [loadChats, pathname]);
 
   const recentChats = useMemo(
     () =>
@@ -136,22 +142,36 @@ export function Sidebar({ isOpen, onToggle }: SidebarProps) {
             <section>
               <button
                 type="button"
-                onClick={() => setToolsCollapsed((value) => !value)}
+                onClick={() => setMattersCollapsed((value) => !value)}
                 className="mb-2 flex w-full items-center justify-between px-5 text-xs font-semibold text-gray-500 transition-colors hover:text-gray-700"
               >
-                <span>Review tools</span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${toolsCollapsed ? "-rotate-90" : ""}`} />
+                <span>Recent Matters</span>
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform ${mattersCollapsed ? "-rotate-90" : ""}`} />
               </button>
-              {!toolsCollapsed && (
+
+              {!mattersCollapsed && (
                 <div className="space-y-1 px-2.5">
-                  <Link href="/contract-scanner" className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-gray-700 transition-colors hover:bg-white/60">
-                    <FileSearch className="h-3.5 w-3.5" />
-                    <span>Contract Scanner</span>
-                  </Link>
-                  <Link href="/review" className="flex h-8 items-center gap-2 rounded-md px-2.5 text-xs text-gray-700 transition-colors hover:bg-white/60">
-                    <Table2 className="h-3.5 w-3.5" />
-                    <span>Review hub</span>
-                  </Link>
+                  {recentMatters.length === 0 ? (
+                    <div className="px-2.5 py-2 text-xs text-gray-500">No matters yet</div>
+                  ) : (
+                    recentMatters.map((matter) => {
+                      const active = pathname === `/matters/${matter.id}` || pathname.startsWith(`/matters/${matter.id}/`);
+                      return (
+                        <button
+                          key={matter.id}
+                          type="button"
+                          onClick={() => router.push(`/matters/${matter.id}`)}
+                          title={matter.name}
+                          className={`flex h-8 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs transition-colors ${
+                            active ? "bg-white/85 text-gray-900 shadow-sm" : "text-gray-700 hover:bg-white/60"
+                          }`}
+                        >
+                          <Folder className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+                          <span className="truncate">{matter.name}</span>
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </section>
