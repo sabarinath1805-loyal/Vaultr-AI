@@ -5,48 +5,47 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { safeStorage } from "@/lib/safe-storage";
 import {
-  IconMessage2,
-  IconFolder,
   IconBriefcase,
-  IconScan,
-  IconChartBar,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFileSearch,
+  IconFolder,
   IconHistory,
-  IconSettings,
+  IconMessage2,
   IconPlus,
-  IconLayoutSidebar,
+  IconSettings,
 } from "@tabler/icons-react";
-import { Grid2X2, Table2 } from "lucide-react";
 import useChatStore from "@/app/hooks/useChatStore";
 
-const navItems = [
+const primaryItems = [
   { href: "/", label: "Lex", icon: IconMessage2 },
-  { href: "/vault", label: "Vault", icon: IconFolder },
   { href: "/matters", label: "Matters", icon: IconBriefcase },
-  { href: "/models", label: "Models", icon: Grid2X2 },
-  { href: "/contract-scanner", label: "Contract Scanner", icon: IconScan },
-  { href: "/tabular-review", label: "Tabular Review", icon: Table2 },
-  { href: "/workflows", label: "Workflows", icon: IconChartBar },
-  { href: "/history", label: "Threads", icon: IconHistory },
-  { href: "/settings", label: "Settings", icon: IconSettings },
+  { href: "/review", label: "Review", icon: IconFileSearch },
+  { href: "/research", label: "Research", icon: IconFileSearch },
 ];
 
-const navClass =
-  "flex h-9 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 text-sm text-[var(--text)] transition-[background-color] duration-150";
+const libraryItems = [
+  { href: "/vault", label: "Vault", icon: IconFolder },
+  { href: "/history", label: "Threads", icon: IconHistory },
+];
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
   const resetComposerState = useChatStore((state) => state.resetComposerState);
-  const cloudMode = useChatStore((state) => state.cloudMode);
 
   useEffect(() => {
     const saved = safeStorage.getItem("vaultr-sidebar-collapsed");
-    setCollapsed(saved === "true");
+    const narrow = window.matchMedia("(max-width: 760px)").matches;
+    setCollapsed(narrow || saved === "true");
   }, []);
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--sidebar-current-w", collapsed ? "40px" : "220px");
+    document.documentElement.style.setProperty(
+      "--sidebar-current-w",
+      collapsed ? "var(--sidebar-collapsed-w)" : "var(--sidebar-w)",
+    );
   }, [collapsed]);
 
   const toggleCollapsed = () => {
@@ -56,88 +55,79 @@ export function Sidebar() {
     });
   };
 
-  const isNavActive = (href: string) => {
-    if (href === "/") {
-      return pathname === "/" || pathname.startsWith("/c/");
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/" || pathname.startsWith("/c/");
+    if (href === "/review") {
+      return pathname.startsWith("/review") || pathname.startsWith("/contract-scanner") || pathname.startsWith("/tabular-review") || pathname.startsWith("/workflows");
     }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
+  const nav = (items: typeof primaryItems) => (
+    <nav className="space-y-0.5">
+      {items.map(({ href, label, icon: Icon }) => {
+        const active = isActive(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            title={label}
+            className={`group flex h-9 items-center rounded-[var(--radius-sm)] transition-colors ${
+              collapsed ? "mx-auto w-9 justify-center" : "gap-2.5 px-2.5"
+            } ${active ? "bg-[var(--surface-elevated)] text-[var(--text)]" : "text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]"}`}
+          >
+            <Icon size={16} stroke={1.6} />
+            {!collapsed && <span className="truncate text-[13px] font-medium">{label}</span>}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+
   return (
-    <aside className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ease-in-out ${collapsed ? "w-10" : "w-[var(--sidebar-w)]"}`}>
-      <div className={`flex items-center ${collapsed ? "justify-center px-1" : "justify-between px-3"} pb-[14px] pt-[52px]`}>
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 text-[var(--text)]"
-          title="Vaultr"
-          onClick={() => resetComposerState()}
-        >
-          <span style={{ fontSize: '36px', fontFamily: 'serif', lineHeight: 1, position: 'relative', top: '-2px', color: '#3a3632', fontWeight: 300 }}>✳</span>
-          {!collapsed && <span className="text-[18px] font-medium leading-none">Vaultr</span>}
+    <aside className={`flex h-screen shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] transition-[width] duration-200 ${collapsed ? "w-[var(--sidebar-collapsed-w)]" : "w-[var(--sidebar-w)]"}`}>
+      <div className={`flex h-[72px] items-center ${collapsed ? "justify-center" : "justify-between px-3"}`}>
+        <Link href="/" onClick={() => resetComposerState()} className="flex items-center gap-2 text-[var(--text)]" title="Vaultr">
+          <span aria-hidden className="text-[23px] leading-none">✳</span>
+          {!collapsed && <span className="font-display text-[24px] leading-none">Vaultr</span>}
         </Link>
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className={`${collapsed ? "hidden" : "flex"} h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-[color,background-color] duration-150 hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]`}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          <IconLayoutSidebar size={16} />
-        </button>
+        {!collapsed && (
+          <button type="button" onClick={toggleCollapsed} className="flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-faint)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]" aria-label="Collapse sidebar">
+            <IconChevronLeft size={15} />
+          </button>
+        )}
       </div>
 
       {collapsed && (
-        <button
-          type="button"
-          onClick={toggleCollapsed}
-          className="mx-auto mb-2 flex h-7 w-7 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-muted)] transition-colors hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]"
-          aria-label="Expand sidebar"
-        >
-          <IconLayoutSidebar size={16} />
+        <button type="button" onClick={toggleCollapsed} className="mx-auto mb-3 flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] text-[var(--text-faint)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)]" aria-label="Expand sidebar">
+          <IconChevronRight size={15} />
         </button>
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-1">
-        <nav className="flex flex-col gap-1">
-          {navItems
-            .filter((item) => !cloudMode || item.href !== "/models")
-            .map(({ href, label, icon: Icon }) => {
-            const active = isNavActive(href);
-            return (
-              <Link
-                key={label}
-                href={href}
-                title={label}
-                className={`${collapsed ? "mx-auto flex h-8 w-8 items-center justify-center rounded-[var(--radius-sm)] px-0" : navClass} ${
-                  active
-                    ? "bg-[var(--bg-tertiary)] font-medium"
-                    : "font-normal hover:bg-[var(--bg-tertiary)]"
-                }`}
-              >
-                <Icon
-                  size={16}
-                  className={
-                    active ? "text-[var(--text)]" : "text-[var(--text-muted)]"
-                  }
-                />
-                {!collapsed && <span className="truncate">{label}</span>}
-              </Link>
-            );
-          })}
-        </nav>
+      <div className={`min-h-0 flex-1 overflow-y-auto ${collapsed ? "px-1.5" : "px-2.5"}`}>
+        {!collapsed && <div className="mb-2 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">Work</div>}
+        {nav(primaryItems)}
 
-        {!collapsed && (
-          <button
-            type="button"
-            onClick={() => {
-              resetComposerState();
-              router.push("/");
-            }}
-            className="mt-4 flex w-full items-center gap-2 rounded-[var(--radius-sm)] border border-[var(--border)] px-3 py-[7px] text-[13px] text-[var(--text)] transition-colors hover:bg-[var(--bg-tertiary)]"
-          >
-            <IconPlus className="h-3.5 w-3.5 text-[var(--text-muted)]" />
-            New Thread
-          </button>
-        )}
+        <div className="my-4 border-t border-[var(--border)]" />
+        {!collapsed && <div className="mb-2 px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-faint)]">Library</div>}
+        {nav(libraryItems)}
+
+        <button
+          type="button"
+          onClick={() => router.push("/matters")}
+          title="New matter"
+          className={`mt-5 flex h-9 items-center rounded-[var(--radius-sm)] border border-[var(--border-strong)] text-[var(--text)] transition-colors hover:bg-[var(--surface-elevated)] ${collapsed ? "mx-auto w-9 justify-center" : "w-full gap-2 px-2.5"}`}
+        >
+          <IconPlus size={15} />
+          {!collapsed && <span className="text-[12px] font-medium">New matter</span>}
+        </button>
+      </div>
+
+      <div className={`${collapsed ? "p-1.5" : "p-2.5"} pb-3`}>
+        <Link href="/settings" title="Settings" className={`flex h-9 items-center rounded-[var(--radius-sm)] text-[var(--text-muted)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text)] ${collapsed ? "justify-center" : "gap-2.5 px-2.5"}`}>
+          <IconSettings size={16} stroke={1.6} />
+          {!collapsed && <span className="text-[13px] font-medium">Settings</span>}
+        </Link>
       </div>
     </aside>
   );
