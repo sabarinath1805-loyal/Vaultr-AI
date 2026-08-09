@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { PanelLeft } from "lucide-react";
 import { Sidebar } from "@/components/sidebar";
 import useChatStore from "@/app/hooks/useChatStore";
@@ -8,6 +9,7 @@ import { OnboardingModal, hasCompletedOnboarding } from "@/components/onboarding
 import { safeStorage } from "@/lib/safe-storage";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   const themePreference = useChatStore((state) => state.themePreference);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isSidebarOpenDesktop, setIsSidebarOpenDesktop] = useState(true);
@@ -79,7 +81,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <PanelLeft className="h-4 w-4" />
             </button>
           </div>
-          <main className="flex h-full min-h-0 w-full flex-1 flex-col overflow-y-auto md:overflow-hidden">
+          <main
+            data-route={pathname}
+            className="flex h-full min-h-0 w-full flex-1 flex-col overflow-y-auto md:overflow-hidden"
+          >
             {children}
           </main>
         </div>
