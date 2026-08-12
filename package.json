@@ -4,6 +4,11 @@
     "scripts": {
         "test:e2e": "playwright test",
         "test:e2e:local": "bash scripts/e2e-local-stack.sh",
+        "check:schema": "node scripts/check-schema-drift.mjs",
+        "bootstrap:schema": "node scripts/bootstrap-schema.mjs",
+        "check:schema:bootstrap": "node scripts/check-schema-bootstrap.mjs",
+        "build:workflows": "node scripts/build-workflows.js",
+        "check:workflows": "node scripts/check-workflow-freshness.mjs",
         "test:e2e:headed": "playwright test --headed",
         "test:e2e:ui": "playwright test --ui"
     },
@@ -14,7 +19,7 @@
         "typescript": "^5.8.3"
     },
     "engines": {
-        "node": ">=22"
+        "node": ">=22 <23"
     },
     "license": "AGPL-3.0-only"
 }

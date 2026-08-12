@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "node:crypto";
 import { requireAuth } from "../middleware/auth";
 import { createServerSupabase } from "../lib/supabase";
 import {
@@ -24,6 +25,22 @@ import {
 } from "../lib/documentVersions";
 import { ensureDocAccess } from "../lib/access";
 import { singleFileUpload } from "../lib/upload";
+import { validateUploadedFile } from "../lib/fileValidation";
+import { recordAuditEvent } from "../lib/auditEvents";
+import {
+  isDocumentProcessable,
+  scanDocumentBuffer,
+  scanResultProcessingState,
+} from "../lib/documentScanning";
+import {
+  isDocumentVersionTrusted,
+  scanVersionContent,
+  UNTRUSTED_DOCUMENT_VERSION_STATE,
+} from "../lib/documentVersionSecurity";
+import {
+  isDocumentPromotionConflict,
+  promoteDocumentVersion,
+} from "../lib/documentPromotion";
 import {
   ALLOWED_DOCUMENT_TYPES,
   ALLOWED_DOCUMENT_TYPES_LABEL,
@@ -36,6 +53,29 @@ const isDev = process.env.NODE_ENV !== "production";
 const devLog = (...args: Parameters<typeof console.log>) => {
   if (isDev) console.log(...args);
 };
+
+async function recordVersionScanFailure(
+  db: ReturnType<typeof createServerSupabase>,
+  userId: string,
+  documentId: string,
+  scan: Awaited<ReturnType<typeof scanVersionContent>>,
+) {
+  await recordAuditEvent(db, {
+    userId,
+    action:
+      scan.scan.status === "quarantined"
+        ? "document.quarantine"
+        : "document.scan.failure",
+    resourceType: "document_version",
+    resourceId: documentId,
+    success: false,
+    metadata: {
+      scan_status: scan.scan.status,
+      provider: scan.scan.provider,
+      processing_state: scan.processingState,
+    },
+  });
+}
 
 async function deleteDocumentAndVersionFiles(
   db: ReturnType<typeof createServerSupabase>,
@@ -108,6 +148,13 @@ documentsRouter.delete("/:documentId", requireAuth, async (req, res) => {
     return void res.status(404).json({ detail: "Document not found" });
 
   await deleteDocumentAndVersionFiles(db, documentId);
+  await recordAuditEvent(db, {
+    userId,
+    action: "document.delete",
+    resourceType: "document",
+    resourceId: documentId,
+    success: true,
+  });
   res.status(204).send();
 });
 
@@ -229,6 +276,14 @@ documentsRouter.post("/download-zip", requireAuth, async (req, res) => {
   );
 
   const content = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+  await recordAuditEvent(db, {
+    userId,
+    action: "document.export",
+    resourceType: "document_export",
+    resourceId: null,
+    success: true,
+    metadata: { requested_count: document_ids.length, exported_count: docs.length },
+  });
   res.setHeader("Content-Type", "application/zip");
   res.setHeader("Content-Disposition", 'attachment; filename="documents.zip"');
   res.send(content);
@@ -410,7 +465,7 @@ documentsRouter.post(
 
     const { data: targetDoc } = await db
       .from("documents")
-      .select("id, user_id, project_id")
+      .select("id, user_id, project_id, current_version_id")
       .eq("id", documentId)
       .single();
     if (!targetDoc)
@@ -418,6 +473,8 @@ documentsRouter.post(
     const targetAccess = await ensureDocAccess(targetDoc, userId, userEmail, db);
     if (!targetAccess.ok)
       return void res.status(404).json({ detail: "Document not found" });
+    if (!targetAccess.isOwner)
+      return void res.status(403).json({ detail: "Only the document owner can create versions" });
 
     const { data: sourceDoc } = await db
       .from("documents")
@@ -463,6 +520,17 @@ documentsRouter.post(
     const suffix =
       sourceType ||
       (filename.includes(".") ? filename.split(".").pop()!.toLowerCase() : "");
+    const scan = await scanVersionContent(Buffer.from(bytes), filename);
+    if (!scan.trusted) {
+      await recordVersionScanFailure(db, userId, documentId, scan);
+      return void res
+        .status(scan.scan.status === "quarantined" ? 422 : 503)
+        .json({
+          detail:
+            scan.scan.detail ??
+            "Document version could not pass the required security scan.",
+        });
+    }
     const versionSlug = crypto.randomUUID().replace(/-/g, "");
     const key = versionStorageKey(userId, documentId, versionSlug, filename);
     const contentType = contentTypeForDocumentType(suffix);
@@ -515,7 +583,13 @@ documentsRouter.post(
       .from("document_versions")
       .select("version_number")
       .eq("document_id", documentId)
-      .in("source", ["upload", "user_upload", "assistant_edit"])
+      .in("source", [
+        "upload",
+        "user_upload",
+        "assistant_edit",
+        "user_accept",
+        "user_reject",
+      ])
       .order("version_number", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
@@ -535,6 +609,7 @@ documentsRouter.post(
         size_bytes: active.size_bytes ?? bytes.byteLength,
         page_count: active.page_count,
         content_sha256: contentSha256(bytes),
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
       })
       .select("id, version_number, source, created_at, filename")
       .single();
@@ -545,17 +620,34 @@ documentsRouter.post(
         .json({ detail: "Failed to record new version." });
     }
 
-    const { error: updateDocErr } = await db
-      .from("documents")
-      .update({
-        current_version_id: versionRow.id,
-      })
-      .eq("id", documentId);
-    if (updateDocErr) {
-      console.error("[versions/copy] current version update failed", updateDocErr);
+    const { error: trustErr } = await db
+      .from("document_versions")
+      .update({ processing_state: "ready" })
+      .eq("id", versionRow.id)
+      .eq("document_id", documentId);
+    if (trustErr) {
+      console.error("[versions/copy] failed to finalize scan state", trustErr);
       return void res
         .status(500)
-        .json({ detail: "Failed to update document current version." });
+        .json({ detail: "Failed to finalize new version." });
+    }
+
+    try {
+      await promoteDocumentVersion({
+        db,
+        documentId,
+        candidateVersionId: versionRow.id,
+        expectedCurrentVersionId: targetDoc.current_version_id ?? null,
+      });
+    } catch (error) {
+      console.error("[versions/copy] current version update failed", error);
+      return void res
+        .status(isDocumentPromotionConflict(error) ? 409 : 500)
+        .json({
+          detail: isDocumentPromotionConflict(error)
+            ? "Document changed while the new version was being activated."
+            : "Failed to update document current version.",
+        });
     }
 
     if (willDeleteSource) {
@@ -603,6 +695,8 @@ documentsRouter.post(
     const access = await ensureDocAccess(doc, userId, userEmail, db);
     if (!access.ok)
       return void res.status(404).json({ detail: "Document not found" });
+    if (!access.isOwner)
+      return void res.status(403).json({ detail: "Only the document owner can upload versions" });
 
     const suffix = file.originalname.includes(".")
       ? file.originalname.split(".").pop()!.toLowerCase()
@@ -611,6 +705,25 @@ documentsRouter.post(
       return void res.status(400).json({
         detail: `Unsupported file type: ${suffix}. Allowed: ${ALLOWED_DOCUMENT_TYPES_LABEL}`,
       });
+    }
+    try {
+      await validateUploadedFile(file.buffer, suffix, file.mimetype);
+    } catch (error) {
+      return void res.status(400).json({
+        detail: error instanceof Error ? error.message : "Invalid document contents",
+      });
+    }
+
+    const scan = await scanVersionContent(file.buffer, file.originalname);
+    if (!scan.trusted) {
+      await recordVersionScanFailure(db, userId, documentId, scan);
+      return void res
+        .status(scan.scan.status === "quarantined" ? 422 : 503)
+        .json({
+          detail:
+            scan.scan.detail ??
+            "Document version could not pass the required security scan.",
+        });
     }
 
     // Peg the new version into a predictable /versions/:id path under the
@@ -679,7 +792,13 @@ documentsRouter.post(
       .from("document_versions")
       .select("version_number")
       .eq("document_id", documentId)
-      .in("source", ["upload", "user_upload", "assistant_edit"])
+      .in("source", [
+        "upload",
+        "user_upload",
+        "assistant_edit",
+        "user_accept",
+        "user_reject",
+      ])
       .order("version_number", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
@@ -705,6 +824,7 @@ documentsRouter.post(
         size_bytes: file.buffer.byteLength,
         page_count: pageCount,
         content_sha256: contentSha256(file.buffer),
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
       })
       .select("id, version_number, source, created_at, filename")
       .single();
@@ -715,20 +835,37 @@ documentsRouter.post(
         .json({ detail: "Failed to record new version." });
     }
 
-    const { error: updateDocErr } = await db
-      .from("documents")
-      .update({
-        current_version_id: versionRow.id,
-      })
-      .eq("id", documentId);
-    if (updateDocErr) {
-      console.error(
-        "[versions/upload] current version update failed",
-        updateDocErr,
-      );
+    const { error: trustErr } = await db
+      .from("document_versions")
+      .update({ processing_state: "ready" })
+      .eq("id", versionRow.id)
+      .eq("document_id", documentId);
+    if (trustErr) {
+      console.error("[versions/upload] failed to finalize scan state", trustErr);
       return void res
         .status(500)
-        .json({ detail: "Failed to update document current version." });
+        .json({ detail: "Failed to finalize new version." });
+    }
+
+    try {
+      await promoteDocumentVersion({
+        db,
+        documentId,
+        candidateVersionId: versionRow.id,
+        expectedCurrentVersionId: doc.current_version_id ?? null,
+      });
+    } catch (error) {
+      console.error(
+        "[versions/upload] current version update failed",
+        error,
+      );
+      return void res
+        .status(isDocumentPromotionConflict(error) ? 409 : 500)
+        .json({
+          detail: isDocumentPromotionConflict(error)
+            ? "Document changed while the new version was being activated."
+            : "Failed to update document current version.",
+        });
     }
 
     res.status(201).json(versionRow);
@@ -756,6 +893,8 @@ documentsRouter.patch(
     const access = await ensureDocAccess(doc, userId, userEmail, db);
     if (!access.ok)
       return void res.status(404).json({ detail: "Document not found" });
+    if (!access.isOwner)
+      return void res.status(403).json({ detail: "Only the document owner can rename versions" });
 
     const raw = req.body?.filename;
     const filename =
@@ -825,10 +964,29 @@ documentsRouter.put(
         detail: `Unsupported file type: ${suffix}. Allowed: ${ALLOWED_DOCUMENT_TYPES_LABEL}`,
       });
     }
+    try {
+      await validateUploadedFile(file.buffer, suffix, file.mimetype);
+    } catch (error) {
+      return void res.status(400).json({
+        detail: error instanceof Error ? error.message : "Invalid document contents",
+      });
+    }
     if (target.file_type && target.file_type !== suffix) {
       return void res.status(400).json({
         detail: `Uploaded file type (${suffix}) does not match version type (${target.file_type}).`,
       });
+    }
+
+    const scan = await scanVersionContent(file.buffer, file.originalname);
+    if (!scan.trusted) {
+      await recordVersionScanFailure(db, userId, documentId, scan);
+      return void res
+        .status(scan.scan.status === "quarantined" ? 422 : 503)
+        .json({
+          detail:
+            scan.scan.detail ??
+            "Document version could not pass the required security scan.",
+        });
     }
 
     const versionSlug = crypto.randomUUID().replace(/-/g, "");
@@ -902,6 +1060,7 @@ documentsRouter.put(
         page_count: pageCount,
         content_sha256: contentSha256(file.buffer),
         created_at: uploadedAt,
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
       })
       .eq("id", versionId)
       .eq("document_id", documentId)
@@ -919,6 +1078,19 @@ documentsRouter.put(
         detail: updateErr?.message ?? "Failed to replace version.",
       });
     }
+
+    const { error: trustErr } = await db
+      .from("document_versions")
+      .update({ processing_state: "ready" })
+      .eq("id", versionId)
+      .eq("document_id", documentId);
+    if (trustErr) {
+      console.error("[versions/replace] failed to finalize scan state", trustErr);
+      return void res
+        .status(500)
+        .json({ detail: "Failed to finalize replacement version." });
+    }
+    (updated as Record<string, unknown>).processing_state = "ready";
 
     await Promise.all(
       [target.storage_path, target.pdf_storage_path]
@@ -956,7 +1128,7 @@ documentsRouter.delete(
     const { data: versions, error: versionsErr } = await db
       .from("document_versions")
       .select(
-        "id, storage_path, pdf_storage_path, version_number, created_at, deleted_at",
+        "id, storage_path, pdf_storage_path, version_number, processing_state, created_at, deleted_at",
       )
       .eq("document_id", documentId)
       .is("deleted_at", null);
@@ -969,6 +1141,7 @@ documentsRouter.delete(
       storage_path: string | null;
       pdf_storage_path: string | null;
       version_number: number | null;
+      processing_state: string | null;
       created_at: string | null;
       deleted_at?: string | null;
     }[];
@@ -982,7 +1155,10 @@ documentsRouter.delete(
     }
 
     const remaining = rows
-      .filter((row) => row.id !== versionId)
+      .filter(
+        (row) =>
+          row.id !== versionId && isDocumentVersionTrusted(row.processing_state),
+      )
       .sort((a, b) => {
         const versionDelta =
           (b.version_number ?? -1) - (a.version_number ?? -1);
@@ -999,15 +1175,24 @@ documentsRouter.delete(
     const deletedAt = new Date().toISOString();
 
     if (doc.current_version_id === versionId) {
-      const { error: updateErr } = await db
-        .from("documents")
-        .update({
-          current_version_id: nextCurrentVersionId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", documentId);
-      if (updateErr) {
-        return void res.status(500).json({ detail: updateErr.message });
+      try {
+        await promoteDocumentVersion({
+          db,
+          documentId,
+          candidateVersionId: nextCurrentVersionId,
+          expectedCurrentVersionId: versionId,
+          patch: { updated_at: new Date().toISOString() },
+        });
+      } catch (error) {
+        return void res
+          .status(isDocumentPromotionConflict(error) ? 409 : 500)
+          .json({
+            detail: isDocumentPromotionConflict(error)
+              ? "Document changed while the version was being deleted."
+              : error instanceof Error
+                ? error.message
+                : "Failed to update document current version.",
+          });
       }
     }
 
@@ -1129,7 +1314,7 @@ async function handleEditResolution(
       return void res.status(404).json({ detail: "Document not found" });
     }
     const accessResolved = await ensureDocAccess(doc, userId, userEmail, db);
-    if (!accessResolved.ok) {
+    if (!accessResolved.ok || !accessResolved.isOwner) {
       devLog(`[edit-resolution] doc access denied for resolved edit`);
       return void res.status(404).json({ detail: "Document not found" });
     }
@@ -1164,7 +1349,7 @@ async function handleEditResolution(
   if (!doc)
     return void res.status(404).json({ detail: "Document not found" });
   const access = await ensureDocAccess(doc, userId, userEmail, db);
-  if (!access.ok)
+  if (!access.ok || !access.isOwner)
     return void res.status(404).json({ detail: "Document not found" });
 
   const active = await loadActiveVersion(documentId, db);
@@ -1173,7 +1358,7 @@ async function handleEditResolution(
     latestPath,
     current_version_id: doc.current_version_id,
   });
-  if (!latestPath)
+  if (!active || !latestPath)
     return void res.status(404).json({ detail: "No file to edit" });
 
   const raw = await downloadFile(latestPath);
@@ -1226,41 +1411,157 @@ async function handleEditResolution(
     return void res.status(200).json(payload);
   }
 
-  // Overwrite bytes in place at the current version's storage path —
-  // accept/reject mutates the existing version rather than spawning a
-  // new row. This keeps document_versions lean (one row per assistant
-  // edit, not one per accept/reject click) and avoids the N-versions-
-  // per-doc churn as users resolve pending changes.
+  // Resolve into a new immutable version. The prior trusted assistant-edit
+  // version remains unchanged and active until the new exact bytes complete
+  // the scanner lifecycle. This prevents a tracked change from inheriting
+  // the previous version's trust or exposing a half-written object.
   const ab = resolvedBytes.buffer.slice(
     resolvedBytes.byteOffset,
     resolvedBytes.byteOffset + resolvedBytes.byteLength,
   ) as ArrayBuffer;
 
-  // Clear the hash before the bytes change, and set it again after. The stored
-  // object and the hash live in different systems, so they cannot be written
-  // atomically; ordering it this way means a failure in between leaves the
-  // version unhashed, which the manifest reports as unverifiable. The
-  // alternative ordering can leave a hash attesting to content the version no
-  // longer holds, which is the one thing the manifest must never do.
-  await db
-    .from("document_versions")
-    .update({ content_sha256: null })
-    .eq("id", doc.current_version_id);
-
-  devLog(`[edit-resolution] overwriting bytes in place`, {
-    latestPath,
-    byteLength: ab.byteLength,
-  });
-  await uploadFile(
-    latestPath,
-    ab,
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  const scan = await scanVersionContent(
+    Buffer.from(resolvedBytes),
+    active?.filename?.trim() || "resolved-document.docx",
   );
+  if (!scan.trusted) {
+    await recordVersionScanFailure(db, userId, documentId, scan);
+    return void res.status(scan.scan.status === "quarantined" ? 422 : 503).json({
+      detail:
+        scan.scan.detail ??
+        "Resolved document could not pass the required security scan.",
+    });
+  }
 
-  await db
+  const resolvedSource = mode === "accept" ? "user_accept" : "user_reject";
+  const versionSlug = `${resolvedSource}-${randomUUID().replace(/-/g, "")}`;
+  const versionFilename = active?.filename?.trim() || "resolved-document.docx";
+  const resolvedPath = versionStorageKey(
+    userId,
+    documentId,
+    versionSlug,
+    `${versionSlug}.docx`,
+  );
+  let resolvedPdfPath: string | null = null;
+  try {
+    await uploadFile(
+      resolvedPath,
+      ab,
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    try {
+      const pdfBytes = await docxToPdf(Buffer.from(resolvedBytes));
+      const pdfPath = `converted-pdfs/${userId}/${documentId}/${versionSlug}.pdf`;
+      await uploadFile(
+        pdfPath,
+        pdfBytes.buffer.slice(
+          pdfBytes.byteOffset,
+          pdfBytes.byteOffset + pdfBytes.byteLength,
+        ) as ArrayBuffer,
+        "application/pdf",
+      );
+      resolvedPdfPath = pdfPath;
+    } catch (conversionError) {
+      devLog(`[edit-resolution] PDF conversion unavailable`, {
+        documentId,
+        detail:
+          conversionError instanceof Error
+            ? conversionError.message.slice(0, 200)
+            : "conversion failed",
+      });
+    }
+  } catch {
+    await deleteFile(resolvedPath).catch(() => undefined);
+    return void res.status(500).json({ detail: "Failed to store resolved document." });
+  }
+
+  const { data: maxVersion } = await db
     .from("document_versions")
-    .update({ content_sha256: contentSha256(ab) })
-    .eq("id", doc.current_version_id);
+    .select("version_number")
+    .eq("document_id", documentId)
+    .not("version_number", "is", null)
+    .order("version_number", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+  const nextVersionNumber =
+    ((maxVersion?.version_number as number | null) ?? 1) + 1;
+
+  const { data: versionRow, error: versionError } = await db
+    .from("document_versions")
+    .insert({
+      document_id: documentId,
+      storage_path: resolvedPath,
+      pdf_storage_path: resolvedPdfPath,
+      source: resolvedSource,
+      version_number: nextVersionNumber,
+      filename: versionFilename,
+      file_type: "docx",
+      size_bytes: resolvedBytes.byteLength,
+      page_count: null,
+      content_sha256: contentSha256(resolvedBytes),
+      processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
+    })
+    .select("id, version_number, source, filename")
+    .single();
+  if (versionError || !versionRow) {
+    await Promise.all(
+      [resolvedPath, resolvedPdfPath]
+        .filter((path): path is string => !!path)
+        .map((path) => deleteFile(path).catch(() => undefined)),
+    );
+    return void res.status(500).json({ detail: "Failed to record resolved document version." });
+  }
+
+  const { error: trustError } = await db
+    .from("document_versions")
+    .update({ processing_state: "ready" })
+    .eq("id", versionRow.id)
+    .eq("document_id", documentId);
+  if (trustError) {
+    await db
+      .from("document_versions")
+      .update({ processing_state: "failed" })
+      .eq("id", versionRow.id)
+      .eq("document_id", documentId);
+    await Promise.all(
+      [resolvedPath, resolvedPdfPath]
+        .filter((path): path is string => !!path)
+        .map((path) => deleteFile(path).catch(() => undefined)),
+    );
+    return void res.status(500).json({ detail: "Failed to finalize resolved document scan." });
+  }
+
+  // Do not overwrite a newer upload/edit that won the race while this
+  // version was being scanned. The old active version remains usable until
+  // this optimistic pointer update succeeds.
+  try {
+    await promoteDocumentVersion({
+      db,
+      documentId,
+      candidateVersionId: versionRow.id,
+      expectedCurrentVersionId: active.id,
+    });
+  } catch (error) {
+    await db
+      .from("document_versions")
+      .update({ processing_state: "failed" })
+      .eq("id", versionRow.id)
+      .eq("document_id", documentId);
+    await Promise.all(
+      [resolvedPath, resolvedPdfPath]
+        .filter((path): path is string => !!path)
+        .map((path) => deleteFile(path).catch(() => undefined)),
+    );
+    return void res
+      .status(isDocumentPromotionConflict(error) ? 409 : 500)
+      .json({
+        detail: isDocumentPromotionConflict(error)
+          ? "Document changed while resolving this edit."
+          : error instanceof Error
+            ? error.message
+            : "Failed to activate resolved document version.",
+      });
+  }
 
   const { error: statusErr } = await db
     .from("document_edits")
@@ -1283,13 +1584,13 @@ async function handleEditResolution(
 
   const payload = {
     ok: true,
-    version_id: doc.current_version_id,
+    version_id: versionRow.id,
     download_url: buildDownloadUrl(
-      latestPath,
+      resolvedPath,
       downloadFilenameForVersion(
-        active?.filename,
-        active?.version_number ?? null,
-        active?.source === "assistant_edit",
+        versionRow.filename as string | null,
+        versionRow.version_number as number | null,
+        false,
       ),
     ),
     remaining_pending: remainingPending ?? 0,
@@ -1335,6 +1636,14 @@ export async function handleDocumentUpload(
         detail: `Unsupported file type: ${suffix}. Allowed: ${ALLOWED_DOCUMENT_TYPES_LABEL}`,
       });
 
+  try {
+    await validateUploadedFile(file.buffer, suffix, file.mimetype);
+  } catch (error) {
+    return void res.status(400).json({
+      detail: error instanceof Error ? error.message : "Invalid document contents",
+    });
+  }
+
   const content = file.buffer;
   const { data: doc, error: insertErr } = await db
     .from("documents")
@@ -1342,6 +1651,8 @@ export async function handleDocumentUpload(
       project_id: projectId,
       user_id: userId,
       status: "processing",
+      processing_state: "pending_scan",
+      scan_status: "pending",
       library_kind: options.libraryKind ?? "file",
       library_folder_id: options.libraryFolderId ?? null,
     })
@@ -1361,9 +1672,51 @@ export async function handleDocumentUpload(
       .status(500)
       .json({ detail: "Failed to create document record" });
 
+  let createdStorageKey: string | null = null;
+  let createdPdfKey: string | null = null;
   try {
     const docId = doc.id as string;
+    const scan = await scanDocumentBuffer(content, filename);
+    const processingState = scanResultProcessingState(scan);
+    if (!isDocumentProcessable(scan.status, processingState)) {
+      await db
+        .from("documents")
+        .update({
+          status: scan.status === "quarantined" ? "error" : "pending",
+          processing_state: processingState,
+          scan_status: scan.status,
+          scan_provider: scan.provider,
+          scan_completed_at: new Date().toISOString(),
+          last_processing_error: scan.detail ?? null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", docId);
+      await recordAuditEvent(db, {
+        userId,
+        action: "document.quarantine",
+        resourceType: "document",
+        resourceId: docId,
+        success: false,
+        metadata: { scan_status: scan.status, provider: scan.provider },
+      });
+      const responseStatus = scan.status === "quarantined" ? 422 : 503;
+      return void res.status(responseStatus).json({
+        detail: scan.detail ?? "Document could not pass the required security scan.",
+      });
+    }
+    await db
+      .from("documents")
+      .update({
+        processing_state: "processing",
+        scan_status: scan.status,
+        scan_provider: scan.provider,
+        scan_completed_at: new Date().toISOString(),
+        processing_attempts: ((doc.processing_attempts as number | null) ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", docId);
     const key = storageKey(userId, docId, filename);
+    createdStorageKey = key;
     const contentType = contentTypeForDocumentType(suffix);
     await uploadFile(
       key,
@@ -1386,6 +1739,7 @@ export async function handleDocumentUpload(
       try {
         const pdfBuf = await docxToPdf(content);
         const pdfKey = convertedPdfKey(userId, docId);
+        createdPdfKey = pdfKey;
         await uploadFile(
           pdfKey,
           pdfBuf.buffer.slice(
@@ -1421,6 +1775,7 @@ export async function handleDocumentUpload(
         size_bytes: content.byteLength,
         page_count: pageCount,
         content_sha256: contentSha256(content),
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
       })
       .select("id")
       .single();
@@ -1430,14 +1785,27 @@ export async function handleDocumentUpload(
       );
     }
 
-    await db
-      .from("documents")
-      .update({
-        current_version_id: versionRow.id,
+    const { error: trustErr } = await db
+      .from("document_versions")
+      .update({ processing_state: "ready" })
+      .eq("id", versionRow.id)
+      .eq("document_id", docId);
+    if (trustErr) {
+      throw new Error(`Failed to finalize upload version: ${trustErr.message}`);
+    }
+
+    await promoteDocumentVersion({
+      db,
+      documentId: docId,
+      candidateVersionId: versionRow.id,
+      expectedCurrentVersionId: null,
+      patch: {
         status: "ready",
+        processing_state: "ready",
+        last_processing_error: null,
         updated_at: new Date().toISOString(),
-      })
-      .eq("id", docId);
+      },
+    });
 
     const { data: updated } = await db
       .from("documents")
@@ -1461,7 +1829,21 @@ export async function handleDocumentUpload(
       : updated;
     return void res.status(201).json(responseDoc);
   } catch (e) {
-    await db.from("documents").update({ status: "error" }).eq("id", doc.id);
+    await Promise.all(
+      [createdStorageKey, createdPdfKey]
+        .filter((path): path is string => !!path)
+        .map((path) => deleteFile(path).catch(() => {})),
+    );
+    await db
+      .from("documents")
+      .update({
+        status: "error",
+        processing_state: "failed",
+        last_processing_error:
+          e instanceof Error ? e.message.slice(0, 500) : String(e).slice(0, 500),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", doc.id);
     return void res
       .status(500)
       .json({ detail: `Document processing failed: ${String(e)}` });

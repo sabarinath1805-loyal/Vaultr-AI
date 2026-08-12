@@ -116,6 +116,22 @@ import {
     uploadReviewDocument,
     uploadStandaloneDocument,
 } from "./mikeApi";
+import { Blob as NodeBlob } from "node:buffer";
+
+async function readBlobText(blob: Blob): Promise<string> {
+    return (blob as unknown as NodeBlob).text();
+}
+
+const blobResponse = (
+    body: string,
+    headers: Record<string, string> = {},
+) =>
+    ({
+        ok: true,
+        status: 200,
+        headers: new Headers(headers),
+        blob: async () => new NodeBlob([body]),
+    }) as unknown as Response;
 
 const fetchMock = vi.fn();
 
@@ -344,18 +360,15 @@ describe("apiRequest plumbing (via thin wrappers)", () => {
 describe("blob requests (exportAccountData)", () => {
     it("returns the blob and the filename from content-disposition", async () => {
         fetchMock.mockResolvedValue(
-            new Response("zip-bytes", {
-                status: 200,
-                headers: {
-                    "content-disposition": 'attachment; filename="export.zip"',
-                },
+            blobResponse("zip-bytes", {
+                "content-disposition": 'attachment; filename="export.zip"',
             }),
         );
 
         const { blob, filename } = await exportAccountData();
 
         expect(filename).toBe("export.zip");
-        expect(await blob.text()).toBe("zip-bytes");
+        expect(await readBlobText(blob)).toBe("zip-bytes");
     });
 
     it("parses unquoted filenames and returns null when absent", async () => {
@@ -387,11 +400,11 @@ describe("blob requests (exportAccountData)", () => {
 
 describe("downloadDocumentsZip", () => {
     it("POSTs the document ids and returns the blob", async () => {
-        fetchMock.mockResolvedValue(new Response("zip", { status: 200 }));
+        fetchMock.mockResolvedValue(blobResponse("zip"));
 
         const blob = await downloadDocumentsZip(["d1", "d2"]);
 
-        expect(await blob.text()).toBe("zip");
+        expect(await readBlobText(blob)).toBe("zip");
         const { url, init } = lastFetchCall();
         expect(url).toBe("http://localhost:3001/single-documents/download-zip");
         expect(JSON.parse(init.body as string)).toEqual({
@@ -1637,11 +1650,8 @@ describe("unwrapping and blob wrappers", () => {
     it("exportChatData and exportTabularReviewsData hit their export routes", async () => {
         fetchMock.mockImplementation(() =>
             Promise.resolve(
-                new Response("bytes", {
-                    status: 200,
-                    headers: {
-                        "content-disposition": 'attachment; filename="x.zip"',
-                    },
+                blobResponse("bytes", {
+                    "content-disposition": 'attachment; filename="x.zip"',
                 }),
             ),
         );
@@ -1651,7 +1661,7 @@ describe("unwrapping and blob wrappers", () => {
             "http://localhost:3001/user/chats/export",
         );
         expect(chats.filename).toBe("x.zip");
-        expect(await chats.blob.text()).toBe("bytes");
+        expect(await readBlobText(chats.blob)).toBe("bytes");
 
         await exportTabularReviewsData();
         expect(lastFetchCall().url).toBe(

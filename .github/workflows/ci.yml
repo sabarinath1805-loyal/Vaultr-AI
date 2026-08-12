@@ -17,6 +17,34 @@ on:
     branches: [main]
 
 jobs:
+  schema:
+    name: Schema drift gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-schema-drift.mjs
+
+  workflows:
+    name: Workflow provenance and freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Open-Legal-Products/mike-workflows
+          ref: 4b9c7cd0d93b6254780abcc2cc382be6b56cd945
+          path: mike-workflows
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-workflow-freshness.mjs
+        env:
+          MIKE_WORKFLOWS_DIR: mike-workflows
+          MIKE_WORKFLOWS_REF: 4b9c7cd0d93b6254780abcc2cc382be6b56cd945
+
   backend:
     name: Backend build and tests
     runs-on: ubuntu-latest

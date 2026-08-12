@@ -47,10 +47,14 @@ export default defineConfig({
   // Build the production bundle, then static-serve dist/ over HTTP. Build runs
   // here so `npx playwright test` works standalone; reuse a running server
   // locally to avoid rebuilding on every invocation.
-  webServer: {
-    command: "npm run build:e2e && npm run serve:e2e",
-    url: `${BASE_URL}/taskpane.html`,
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-  },
+  ...(process.env.PLAYWRIGHT_SKIP_WEBSERVER
+    ? {}
+    : {
+        webServer: {
+          command: "node scripts/run-e2e-server.mjs",
+          url: `${BASE_URL}/taskpane.html`,
+          reuseExistingServer: !process.env.CI,
+          timeout: 180_000,
+        },
+      }),
 });

@@ -37,6 +37,12 @@ import {
   contentSha256,
   loadActiveVersion,
 } from "../../documentVersions";
+import {
+  scanVersionContent,
+  UNTRUSTED_DOCUMENT_VERSION_STATE,
+} from "../../documentVersionSecurity";
+import { loadTabularCellProvenance } from "../../tabularProvenance";
+import { promoteDocumentVersion } from "../../documentPromotion";
 import { type EditInput } from "../../docxTrackedChanges";
 import {
   citationReminder,
@@ -467,6 +473,8 @@ export async function runToolCalls(
   courtlistenerEvents: CourtlistenerToolEvent[];
   caseCitationEvents: CaseCitationEvent[];
   mcpEvents: McpToolEvent[];
+  tabularContentRead: boolean;
+  tabularSourceDocumentVersionIds: string[];
 }> {
   const toolResults: unknown[] = [];
   const docsRead: { filename: string; document_id?: string }[] = [];
@@ -483,6 +491,8 @@ export async function runToolCalls(
   const courtlistenerEvents: CourtlistenerToolEvent[] = [];
   const caseCitationEvents: CaseCitationEvent[] = [];
   const mcpEvents: McpToolEvent[] = [];
+  const tabularSourceDocumentVersionIds = new Set<string>();
+  let tabularContentRead = false;
   const courtState: CourtlistenerTurnState =
     courtlistenerState ??
     {
@@ -804,6 +814,30 @@ export async function runToolCalls(
         content: nonce && wf ? spotlightWorkflow(wfContent, nonce) : wfContent,
       });
     } else if (tc.function.name === "read_table_cells" && tabularStore) {
+      // This flag is persisted with the assistant turn. Even if no trusted
+      // cell is ultimately available, an attempted Tabular read must not be
+      // replayed as an unlabelled/plain assistant message.
+      tabularContentRead = true;
+      const provenanceRows = tabularStore.documents.map((document) => ({
+        id: document.id,
+        source_document_ids: document.sourceDocumentIds,
+      }));
+      const provenanceCells = [...tabularStore.cells.entries()].map(
+        ([key, cell]) => {
+          const rowId = key.slice(key.indexOf(":") + 1);
+          return {
+            id: key,
+            row_id: rowId,
+            source_document_version_ids:
+              cell?.sourceDocumentVersionIds ?? null,
+          };
+        },
+      );
+      const cellProvenance = await loadTabularCellProvenance(
+        db,
+        provenanceRows,
+        provenanceCells,
+      );
       const colIndices = args.col_indices as number[] | undefined;
       const rowIndices = args.row_indices as number[] | undefined;
 
@@ -828,14 +862,26 @@ export async function runToolCalls(
           const rowPos = tabularStore.documents.findIndex(
             (d) => d.id === doc.id,
           );
-          const cell = tabularStore.cells.get(`${col.index}:${doc.id}`);
+          const cellKey = `${col.index}:${doc.id}`;
+          const cell = tabularStore.cells.get(cellKey);
+          const trustedCell =
+            cell && cellProvenance.get(cellKey)?.state === "trusted"
+              ? cell
+              : null;
+          if (trustedCell) {
+            for (const versionId of
+              cellProvenance.get(cellKey)?.sourceDocumentVersionIds ?? []) {
+              tabularSourceDocumentVersionIds.add(versionId);
+            }
+          }
           lines.push(
             `[COL:${colPos} "${col.name}" | ROW:${rowPos} "${doc.filename}"]`,
           );
-          if (cell?.summary) {
-            lines.push(`Summary: ${cell.summary}`);
-            if (cell.flag) lines.push(`Flag: ${cell.flag}`);
-            if (cell.reasoning) lines.push(`Reasoning: ${cell.reasoning}`);
+          if (trustedCell?.summary) {
+            lines.push(`Summary: ${trustedCell.summary}`);
+            if (trustedCell.flag) lines.push(`Flag: ${trustedCell.flag}`);
+            if (trustedCell.reasoning)
+              lines.push(`Reasoning: ${trustedCell.reasoning}`);
           } else {
             lines.push(`(not yet generated)`);
           }
@@ -1613,15 +1659,23 @@ export async function runToolCalls(
           // same starting bytes (with any accepted tracked
           // changes rolled in), no point re-fetching per copy.
           const active = await loadActiveVersion(sourceIndexed.document_id, db);
-          const sourcePath = active?.storage_path ?? sourceInfo.storage_path;
-          const sourcePdfPath = active?.pdf_storage_path ?? null;
-          const raw = await downloadFile(sourcePath);
-          const pdfBytes = sourcePdfPath
-            ? await downloadFile(sourcePdfPath)
-            : null;
-          if (!raw) {
-            fail("Could not read the source document's bytes from storage.");
+          if (!active) {
+            fail("The source document is not trusted for content processing.");
           } else {
+            const raw = await downloadFile(active.storage_path);
+            const pdfBytes = active.pdf_storage_path
+              ? await downloadFile(active.pdf_storage_path)
+              : null;
+            if (!raw) {
+            fail("Could not read the source document's bytes from storage.");
+            } else {
+              const scan = await scanVersionContent(
+                Buffer.from(raw),
+                sourceInfo.filename,
+              );
+              if (!scan.trusted) {
+                fail("The source document could not pass the required security scan.");
+              } else {
             // Build N filenames. With count=1 keep the
             // pre-existing "(copy)" suffix; with count>1 use
             // numbered "(1)", "(2)" suffixes.
@@ -1647,7 +1701,9 @@ export async function runToolCalls(
             const docRows = filenames.map((fn) => ({
               project_id: projectId,
               user_id: userId,
-              status: "ready",
+              status: "pending",
+              processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
+              scan_status: "pending",
             }));
             const { data: insertedDocs, error: docErr } = await db
               .from("documents")
@@ -1706,8 +1762,9 @@ export async function runToolCalls(
                 // the same bytes. A verifier that stats a file before hashing
                 // it must not see a size that disagrees with content_sha256.
                 size_bytes: raw.byteLength,
-                page_count: active?.page_count ?? null,
+                page_count: active.page_count ?? null,
                 content_sha256: contentSha256(raw),
+                processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
               }));
               const { data: insertedVersions, error: verErr } = await db
                 .from("document_versions")
@@ -1730,19 +1787,38 @@ export async function runToolCalls(
                   versionByDocId.set(v.document_id, v.id);
                 }
 
-                // current_version_id has to be a per-row
-                // value, so a single UPDATE statement
-                // can't cover all N. Fan out in parallel
-                // instead of sequential awaits.
+                const { error: trustErr } = await db
+                  .from("document_versions")
+                  .update({ processing_state: "ready" })
+                  .in("id", Array.from(versionByDocId.values()));
+                if (trustErr) {
+                  throw new Error(
+                    `Failed to finalize replicated document versions: ${trustErr.message}`,
+                  );
+                }
+
                 await Promise.all(
-                  newDocs.map((d) =>
-                    db
-                      .from("documents")
-                      .update({
-                        current_version_id: versionByDocId.get(d.id),
-                      })
-                      .eq("id", d.id),
-                  ),
+                  newDocs.map(async (d) => {
+                    const candidateVersionId = versionByDocId.get(d.id);
+                    if (!candidateVersionId) {
+                      throw new Error(
+                        `Replicated document ${d.id} has no version to promote.`,
+                      );
+                    }
+                    await promoteDocumentVersion({
+                      db,
+                      documentId: d.id,
+                      candidateVersionId,
+                      expectedCurrentVersionId: null,
+                      patch: {
+                        status: "ready",
+                        processing_state: "ready",
+                        scan_status: "clean",
+                        last_processing_error: null,
+                        updated_at: new Date().toISOString(),
+                      },
+                    });
+                  }),
                 );
 
                 // Register every copy under a fresh doc-N
@@ -1818,6 +1894,8 @@ export async function runToolCalls(
                 });
               }
             }
+          }
+          }
           }
         } catch (e) {
           fail(`replicate_document failed: ${String(e)}`);
@@ -1920,5 +1998,7 @@ export async function runToolCalls(
     courtlistenerEvents,
     caseCitationEvents,
     mcpEvents,
+    tabularContentRead,
+    tabularSourceDocumentVersionIds: [...tabularSourceDocumentVersionIds],
   };
 }

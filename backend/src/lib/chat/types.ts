@@ -37,11 +37,21 @@ export type DocIndex = Record<
 
 export type TabularCellStore = {
   columns: { index: number; name: string }[];
-  documents: { id: string; filename: string }[];
+  documents: {
+    id: string;
+    filename: string;
+    sourceDocumentIds: string[];
+  }[];
   /** key: `${colIndex}:${docId}` */
   cells: Map<
     string,
-    { summary: string; flag?: string; reasoning?: string } | null
+    | {
+        summary: string;
+        flag?: string;
+        reasoning?: string;
+        sourceDocumentVersionIds: string[];
+      }
+    | null
   >;
 };
 

@@ -16,15 +16,12 @@ job:
 
 1. installs the root (Playwright), `backend/`, and `frontend/` dependencies;
 2. boots **MinIO** (S3-compatible object storage — several specs upload documents);
-3. boots **local Supabase** (Auth + Postgres) via the Supabase CLI, loads
-   `backend/schema.sql`, then applies every dated migration in `backend/migrations/`
-   on top. `schema.sql` is meant to be the latest shape but in practice lags the
-   migrations (e.g. it is missing `workflow_open_source_submissions`, which
-   `GET /workflows/:id` queries — a 500 without the migrations). After the
-   migrations it re-grants `service_role` the same narrowed data privileges
-   `schema.sql` grants (`SELECT/INSERT/UPDATE/DELETE` on tables, `USAGE/SELECT`
-   on sequences): the schema's own `GRANT ... ON ALL` statements only cover
-   tables that existed when the schema loaded, not ones the migrations create;
+3. boots **local Supabase** (Auth + Postgres) via the Supabase CLI, runs the
+   repository's fail-fast canonical bootstrap (`scripts/bootstrap-schema.mjs`),
+   verifies the baseline ledger/RLS/direct-grant invariants, and runs the schema
+   drift check. The snapshot already represents every migration through the
+   boundary in `backend/schema-baseline.json`; historical migrations are not
+   replayed on top and no migration error is suppressed;
 4. writes `backend/.env` and `frontend/.env.local` from the live Supabase values;
 5. **builds** the web app (`next build`) and serves it with `next start` — a
    production build, not `next dev`, so there is no on-demand compilation (which

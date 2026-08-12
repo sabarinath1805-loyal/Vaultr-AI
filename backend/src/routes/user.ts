@@ -41,6 +41,7 @@ import {
     userExportFilename,
 } from "../lib/userDataExport";
 import { findProfileUserByEmail } from "../lib/userLookup";
+import { recordAuditEvent } from "../lib/auditEvents";
 
 export const userRouter = Router();
 
@@ -599,6 +600,15 @@ userRouter.patch(
         if (updateError)
             return void res.status(500).json({ detail: updateError.message });
 
+        await recordAuditEvent(db, {
+            userId,
+            action: "mfa.change",
+            resourceType: "user_security",
+            resourceId: userId,
+            success: true,
+            metadata: { enabled: parsed.value },
+        });
+
         const apiKeyStatus = await getUserApiKeyStatus(userId, db);
         const { data, error } = await loadProfile(db, userId, { apiKeyStatus });
         if (error) return void res.status(500).json({ detail: error.message });
@@ -637,6 +647,14 @@ userRouter.put(
                 });
             }
             await saveUserApiKey(userId, provider, apiKey, db);
+            await recordAuditEvent(db, {
+                userId,
+                action: "provider.api_key.change",
+                resourceType: "provider_api_key",
+                resourceId: provider,
+                success: true,
+                metadata: { configured: !!apiKey },
+            });
             const status = await getUserApiKeyStatus(userId, db);
             res.json(status);
         } catch (err) {
@@ -718,6 +736,14 @@ userRouter.post(
                 { name, serverUrl, bearerToken, headers },
                 db,
             );
+            await recordAuditEvent(db, {
+                userId,
+                action: "mcp.connector.change",
+                resourceType: "mcp_connector",
+                resourceId: connector.id,
+                success: true,
+                metadata: { operation: "create" },
+            });
             res.status(201).json(connector);
         } catch (err) {
             const detail = errorMessage(err);
@@ -777,6 +803,14 @@ userRouter.patch(
                 },
                 db,
             );
+            await recordAuditEvent(db, {
+                userId,
+                action: "mcp.connector.change",
+                resourceType: "mcp_connector",
+                resourceId: req.params.connectorId,
+                success: true,
+                metadata: { operation: "update" },
+            });
             res.json(connector);
         } catch (err) {
             const detail = errorMessage(err);
@@ -800,6 +834,14 @@ userRouter.delete(
         const db = createServerSupabase();
         try {
             await deleteUserMcpConnector(userId, req.params.connectorId, db);
+            await recordAuditEvent(db, {
+                userId,
+                action: "mcp.connector.change",
+                resourceType: "mcp_connector",
+                resourceId: req.params.connectorId,
+                success: true,
+                metadata: { operation: "delete" },
+            });
             res.status(204).send();
         } catch (err) {
             const detail = errorMessage(err);
@@ -854,8 +896,16 @@ userRouter.get("/mcp-connectors/oauth/callback", async (req, res) => {
         if (error) throw new Error(error);
         if (!state || !code)
             throw new Error("OAuth callback is missing state or code.");
-        const result = await completeUserMcpConnectorOAuth(state, code, db);
-        res.set("Content-Security-Policy", mcpOAuthPopupCsp(nonce))
+            const result = await completeUserMcpConnectorOAuth(state, code, db);
+            await recordAuditEvent(db, {
+                userId: result.userId,
+                action: "mcp.connector.change",
+                resourceType: "mcp_connector",
+                resourceId: result.connectorId,
+                success: true,
+                metadata: { operation: "oauth_callback" },
+            });
+            res.set("Content-Security-Policy", mcpOAuthPopupCsp(nonce))
             .type("html")
             .send(
                 mcpOAuthPopupHtml(
@@ -968,6 +1018,13 @@ userRouter.delete(
             const { error } = await db.auth.admin.deleteUser(userId);
             if (error)
                 return void res.status(500).json({ detail: error.message });
+            await recordAuditEvent(db, {
+                userId,
+                action: "account.delete",
+                resourceType: "account",
+                resourceId: userId,
+                success: true,
+            });
             res.status(204).send();
         } catch (err) {
             const detail = errorMessage(err);
@@ -1057,6 +1114,13 @@ userRouter.get(
         const db = createServerSupabase();
         try {
             const data = await buildUserAccountExport(db, userId, userEmail);
+            await recordAuditEvent(db, {
+                userId,
+                action: "account.export",
+                resourceType: "account_export",
+                resourceId: userId,
+                success: true,
+            });
             res.setHeader("Content-Type", "application/json; charset=utf-8");
             res.setHeader(
                 "Content-Disposition",

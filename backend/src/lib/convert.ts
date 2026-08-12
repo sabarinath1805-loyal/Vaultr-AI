@@ -1,11 +1,31 @@
 import JSZip from "jszip";
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import path from "node:path";
+import os from "node:os";
+import { MAX_ZIP_ENTRIES, MAX_DECLARED_UNCOMPRESSED_BYTES } from "./fileValidation";
 
 let _convert:
-  | ((buf: Buffer, ext: string, filter: undefined) => Promise<Buffer>)
+  | ((buf: Buffer, ext: string, filter: undefined, workspace: string) => Promise<Buffer>)
   | null = null;
 let _sofficeBinaryPaths: string[] | null = null;
+export const MAX_CONVERSION_INPUT_BYTES = 100 * 1024 * 1024;
+export const DEFAULT_CONVERSION_TIMEOUT_MS = 120_000;
+export const DEFAULT_CONVERSION_OUTPUT_BYTES = 250 * 1024 * 1024;
+
+function conversionOutputBytes() {
+  const configured = Number(process.env.DOCUMENT_CONVERSION_MAX_OUTPUT_BYTES);
+  return Number.isFinite(configured) && configured >= 1024 * 1024 && configured <= 500 * 1024 * 1024
+    ? configured
+    : DEFAULT_CONVERSION_OUTPUT_BYTES;
+}
+
+function conversionTimeoutMs() {
+  const configured = Number(process.env.DOCUMENT_CONVERSION_TIMEOUT_MS);
+  return Number.isFinite(configured) && configured >= 5_000 && configured <= 300_000
+    ? configured
+    : DEFAULT_CONVERSION_TIMEOUT_MS;
+}
 
 function executablePath(filePath: string) {
   try {
@@ -60,17 +80,31 @@ async function getConvert() {
       buf: Buffer,
       ext: string,
       filter: undefined,
-      options: { sofficeBinaryPaths?: string[] },
+      options: {
+        sofficeBinaryPaths?: string[];
+        tmpOptions?: { dir?: string; mode?: number; unsafeCleanup?: boolean };
+        execOptions?: { timeout?: number; killSignal?: string; windowsHide?: boolean };
+        asyncOptions?: { times?: number; interval?: number };
+      },
       callback?: (err: Error | null, result: Buffer) => void,
     ) => Promise<Buffer> | void;
-    _convert = (buf, ext, filter) =>
+    _convert = (buf, ext, filter, workspace) =>
       new Promise<Buffer>((resolve, reject) => {
         try {
           const maybePromise = convertWithOptions(
             buf,
             ext,
             filter,
-            { sofficeBinaryPaths: resolveSofficeBinaryPaths() },
+            {
+              sofficeBinaryPaths: resolveSofficeBinaryPaths(),
+              tmpOptions: { dir: workspace, mode: 0o700, unsafeCleanup: true },
+              execOptions: {
+                timeout: conversionTimeoutMs(),
+                killSignal: "SIGTERM",
+                windowsHide: true,
+              },
+              asyncOptions: { times: 2, interval: 250 },
+            },
             (err, result) => {
               if (err) reject(err);
               else resolve(result);
@@ -101,6 +135,18 @@ export async function normalizeDocxZipPaths(buffer: Buffer): Promise<Buffer> {
   } catch {
     return buffer;
   }
+  const entries = Object.keys(zip.files);
+  if (entries.length > MAX_ZIP_ENTRIES) {
+    throw new Error("Office archive has too many entries");
+  }
+  const declaredBytes = entries.reduce((total, name) => {
+    const size = (zip.files[name] as unknown as { _data?: { uncompressedSize?: number } })._data
+      ?.uncompressedSize;
+    return total + (typeof size === "number" && Number.isFinite(size) ? size : 0);
+  }, 0);
+  if (declaredBytes > MAX_DECLARED_UNCOMPRESSED_BYTES) {
+    throw new Error("Office archive expands beyond the resource limit");
+  }
   const renames: [string, string][] = [];
   zip.forEach((relativePath) => {
     if (relativePath.includes("\\")) {
@@ -123,6 +169,9 @@ export async function normalizeDocxZipPaths(buffer: Buffer): Promise<Buffer> {
  * Throws if LibreOffice is not installed or conversion fails.
  */
 export async function docxToPdf(buffer: Buffer): Promise<Buffer> {
+  if (buffer.byteLength > MAX_CONVERSION_INPUT_BYTES) {
+    throw new Error("Document exceeds the conversion input limit");
+  }
   if (resolveSofficeBinaryPaths().length === 0) {
     throw new Error(
       "LibreOffice/soffice binary was not found. Ensure Railway uses backend/nixpacks.toml or set SOFFICE_BINARY_PATH/LIBREOFFICE_BINARY_PATH.",
@@ -130,7 +179,25 @@ export async function docxToPdf(buffer: Buffer): Promise<Buffer> {
   }
   const convert = await getConvert();
   const normalized = await normalizeDocxZipPaths(buffer);
-  return convert(normalized, ".pdf", undefined);
+  const workspace = await fsp.mkdtemp(path.join(os.tmpdir(), "mike-conversion-"));
+  try {
+    await fsp.chmod(workspace, 0o700).catch(() => undefined);
+    const output = await convert(normalized, ".pdf", undefined, workspace);
+    return validateConvertedPdf(output);
+  } finally {
+    await fsp.rm(workspace, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/** Validate converter output before it can be stored or shown to a user. */
+export function validateConvertedPdf(output: Buffer): Buffer {
+  if (!output.subarray(0, 5).equals(Buffer.from("%PDF-"))) {
+    throw new Error("LibreOffice returned an invalid PDF output");
+  }
+  if (output.byteLength > conversionOutputBytes()) {
+    throw new Error("LibreOffice returned an oversized PDF output");
+  }
+  return output;
 }
 
 export function convertedPdfKey(userId: string, docId: string): string {

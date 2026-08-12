@@ -1,13 +1,21 @@
 import crypto from "crypto";
 
 /**
- * HMAC-signed, non-expiring download tokens.
+ * HMAC-signed, time-bounded download tokens.
  *
  * The token encodes the R2 storage path + filename; the backend route
- * `/download/:token` validates the signature and streams the file. This
- * gives persistent links safe to store in chat history without signed-URL
- * expiry or R2 CORS headaches.
+ * `/download/:token` validates the signature and streams the file. The
+ * bounded lifetime limits the blast radius of a leaked chat link.
  */
+
+export const DEFAULT_DOWNLOAD_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+function tokenTtlMs() {
+    const configured = Number(process.env.DOWNLOAD_TOKEN_TTL_MS);
+    return Number.isFinite(configured) && configured >= 5 * 60 * 1000 && configured <= 30 * 24 * 60 * 60 * 1000
+        ? configured
+        : DEFAULT_DOWNLOAD_TOKEN_TTL_MS;
+}
 
 function getSecret(): string {
     const secret = process.env.DOWNLOAD_SIGNING_SECRET;
@@ -40,7 +48,7 @@ function timingSafeEqStr(a: string, b: string): boolean {
 }
 
 export function signDownload(path: string, filename: string): string {
-    const payload = JSON.stringify({ p: path, f: filename });
+    const payload = JSON.stringify({ p: path, f: filename, exp: Date.now() + tokenTtlMs() });
     const enc = b64urlEncode(Buffer.from(payload, "utf8"));
     const sig = crypto
         .createHmac("sha256", getSecret())
@@ -64,8 +72,10 @@ export function verifyDownload(
         const parsed = JSON.parse(b64urlDecode(enc).toString("utf8")) as {
             p: string;
             f: string;
+            exp: number;
         };
-        if (!parsed?.p || !parsed?.f) return null;
+        if (!parsed?.p || !parsed?.f || !Number.isFinite(parsed.exp)) return null;
+        if (parsed.exp <= Date.now()) return null;
         return { path: parsed.p, filename: parsed.f };
     } catch {
         return null;

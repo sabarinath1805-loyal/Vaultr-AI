@@ -97,8 +97,11 @@ anywhere.
 - `backend/` - Express API, Supabase access, document processing, and database
   schema
 - `backend/schema.sql` - Supabase schema for fresh databases
+- `backend/schema-baseline.json` - canonical snapshot boundary and migration
+  inventory
 - `backend/migrations/` - dated, incremental schema migrations for existing
   deployments
+- `scripts/bootstrap-schema.mjs` - fail-fast fresh-database bootstrap
 - `docker-compose.yml` - complete local application and infrastructure stack
 - `docs/` - testing, deployment safety, and feature-specific guides
 
@@ -115,7 +118,7 @@ storage rather than the infrastructure bundled in Docker Compose.
 
 ### Prerequisites
 
-- Node.js 20 or newer
+- Node.js 22.x (the repository's canonical runtime)
 - npm
 - git
 - A Supabase project
@@ -126,20 +129,29 @@ storage rather than the infrastructure bundled in Docker Compose.
 
 ### Database setup
 
-For a new Supabase database, open the Supabase SQL editor and run:
+For a new disposable or managed Supabase database, use the canonical bootstrap
+contract from the repository root. It applies `backend/schema.sql` as the
+complete baseline snapshot, records that boundary in
+`public.mike_schema_migrations`, and applies only migrations newer than the
+recorded baseline:
 
-```sql
--- copy and run the contents of:
--- backend/schema.sql
+```bash
+node scripts/bootstrap-schema.mjs --db-url "$SUPABASE_DATABASE_URL"
+node scripts/check-schema-bootstrap.mjs --db-url "$SUPABASE_DATABASE_URL"
+node scripts/check-schema-drift.mjs
 ```
 
-The schema file is for fresh deployments and already includes the latest
-database shape.
+The SQL source of the baseline is still `backend/schema.sql`; if a deployment
+uses a SQL editor rather than the script, run that snapshot on an empty
+database and preserve the same ledger row and boundary described in
+`backend/schema-baseline.json`. Historical migrations at or before the
+baseline must not be replayed on top of the snapshot.
 
 For an existing database, do not run the full schema over production data.
-Apply the files in `backend/migrations/` dated after the deployed Mike version,
-in filename order. Migration files use the format `YYYYMMDD_<name>.sql` and are
-written to be safe to re-run.
+Identify the deployed ledger/version first, then apply only the dated files in
+`backend/migrations/` that are newer than that deployment's recorded version,
+in filename order. Do not use a warning-only loop that suppresses migration
+errors; a failed migration is a deployment failure that must be investigated.
 
 ### Environment
 

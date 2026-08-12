@@ -170,22 +170,54 @@ export async function discoverOAuthMetadata(serverUrl: string): Promise<OAuthMet
     };
 }
 
-function oauthClientEnvFor(serverUrl: string) {
+export function oauthClientEnvFor(serverUrl: string) {
     const hostname = new URL(serverUrl).hostname.toLowerCase();
     const prefix = hostname.endsWith("googleapis.com")
         ? "GOOGLE_MCP_OAUTH"
         : "MCP_OAUTH";
-    return {
-        clientId:
-            process.env[`${prefix}_CLIENT_ID`] ||
-            process.env.MCP_OAUTH_CLIENT_ID,
-        clientSecret:
-            process.env[`${prefix}_CLIENT_SECRET`] ||
-            process.env.MCP_OAUTH_CLIENT_SECRET,
-        scope:
-            process.env[`${prefix}_SCOPE`] ||
-            process.env.MCP_OAUTH_DEFAULT_SCOPE,
+    const optionalEnv = (...names: string[]) => {
+        for (const name of names) {
+            const value = process.env[name]?.trim();
+            if (value) return value;
+        }
+        return undefined;
     };
+    return {
+        clientId: optionalEnv(`${prefix}_CLIENT_ID`, "MCP_OAUTH_CLIENT_ID"),
+        clientSecret: optionalEnv(`${prefix}_CLIENT_SECRET`, "MCP_OAUTH_CLIENT_SECRET"),
+        scope: optionalEnv(`${prefix}_SCOPE`, "MCP_OAUTH_DEFAULT_SCOPE"),
+    };
+}
+
+export function validateOAuthStateConfig(config: OAuthStateConfig) {
+    if (!config.codeVerifier || !config.redirectUri) {
+        throw new Error("OAuth state configuration is incomplete.");
+    }
+    let redirect: URL;
+    try {
+        redirect = new URL(config.redirectUri);
+    } catch {
+        throw new Error("OAuth state redirect URI is invalid.");
+    }
+    if (!['http:', 'https:'].includes(redirect.protocol) || redirect.username || redirect.password) {
+        throw new Error("OAuth state redirect URI is invalid.");
+    }
+    if (redirect.protocol !== "https:" && redirect.hostname !== "localhost" && redirect.hostname !== "127.0.0.1") {
+        throw new Error("OAuth state redirect URI must use HTTPS outside local development.");
+    }
+    return config;
+}
+
+export function validateOAuthStateRecord(
+    row: { state_hash: string; expires_at: string; user_id?: string },
+    state: string,
+    expectedUserId?: string,
+    now = Date.now(),
+) {
+    if (!state || stateHash(state) !== row.state_hash) return false;
+    if (!Number.isFinite(Date.parse(row.expires_at)) || Date.parse(row.expires_at) <= now) return false;
+    if (expectedUserId && row.user_id !== expectedUserId) return false;
+    return true;
 }
 
 async function registerOAuthClient(
@@ -386,9 +418,10 @@ export class DbMcpOAuthProvider implements OAuthClientProvider {
         private readonly db: Db,
         private readonly connector: ConnectorRow,
         private readonly userId: string,
-        private readonly mode: "initiate" | "use",
-        private readonly redirectUri: string,
-        private readonly stateToken = base64Url(crypto.randomBytes(32)),
+    private readonly mode: "initiate" | "use",
+    private readonly redirectUri: string,
+    private readonly stateToken = base64Url(crypto.randomBytes(32)),
+    private readonly claimedStateConfig?: OAuthStateConfig,
     ) {}
 
     get redirectUrl() {
@@ -563,6 +596,9 @@ export class DbMcpOAuthProvider implements OAuthClientProvider {
     }
 
     async codeVerifier() {
+        if (this.claimedStateConfig?.codeVerifier) {
+            return this.claimedStateConfig.codeVerifier;
+        }
         const { data, error } = await this.db
             .from("user_mcp_oauth_states")
             .select("encrypted_state_config, state_config_iv, state_config_tag")
@@ -613,6 +649,7 @@ export async function startUserMcpConnectorOAuth(
     redirectUri: string,
     db: Db = createServerSupabase(),
 ): Promise<{ authorizationUrl: string | null; alreadyAuthorized: boolean }> {
+    validateOAuthStateConfig({ codeVerifier: "pending", redirectUri });
     const connector = await loadConnector(userId, connectorId, db);
     const provider = new DbMcpOAuthProvider(
         db,
@@ -644,18 +681,21 @@ export async function completeMcpConnectorOAuthAuthorization(
     code: string,
     db: Db = createServerSupabase(),
 ): Promise<{ userId: string; connectorId: string }> {
-    const { data, error } = await db
-        .from("user_mcp_oauth_states")
-        .select("*")
-        .eq("state_hash", stateHash(state))
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
+    // This is intentionally a database-side DELETE ... RETURNING rather than
+    // a read followed by delete. Two concurrent callbacks can therefore not
+    // both obtain the verifier or exchange the same authorization code.
+    const { data, error } = await db.rpc("claim_mcp_oauth_state", {
+        p_state_hash: stateHash(state),
+    });
     if (error) throw error;
-    if (!data) throw new Error("OAuth state is invalid or expired.");
-    const row = data as {
+    const claimed = Array.isArray(data) ? data[0] : data;
+    if (!claimed) throw new Error("OAuth state is invalid, expired, or already consumed.");
+    const row = claimed as {
         id: string;
         user_id: string;
         connector_id: string;
+        state_hash: string;
+        expires_at: string;
         encrypted_state_config: string;
         state_config_iv: string;
         state_config_tag: string;
@@ -666,7 +706,10 @@ export async function completeMcpConnectorOAuthAuthorization(
         row.state_config_tag,
     );
     if (!decrypted) throw new Error("OAuth state could not be decrypted.");
-    const config = JSON.parse(decrypted) as OAuthStateConfig;
+    const config = validateOAuthStateConfig(JSON.parse(decrypted) as OAuthStateConfig);
+    if (!validateOAuthStateRecord(row, state)) {
+        throw new Error("OAuth state is invalid or expired.");
+    }
     const connector = await loadConnector(row.user_id, row.connector_id, db);
     const provider = new DbMcpOAuthProvider(
         db,
@@ -675,6 +718,7 @@ export async function completeMcpConnectorOAuthAuthorization(
         "initiate",
         config.redirectUri,
         state,
+        config,
     );
     const result = await runMcpOAuth(provider, {
         serverUrl: connector.server_url,
@@ -684,6 +728,5 @@ export async function completeMcpConnectorOAuthAuthorization(
     if (result !== "AUTHORIZED") {
         throw new Error("OAuth authorization did not complete.");
     }
-    await db.from("user_mcp_oauth_states").delete().eq("id", row.id);
     return { userId: row.user_id, connectorId: row.connector_id };
 }

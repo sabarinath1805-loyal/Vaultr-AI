@@ -66,6 +66,7 @@ const FULL_VERSION = {
     file_type: "application/pdf",
     size_bytes: 1024,
     page_count: 12,
+    processing_state: "ready",
     deleted_at: null,
 };
 
@@ -86,9 +87,10 @@ describe("loadActiveVersion", () => {
             version_number: 3,
             filename: "contract.pdf",
             source: "upload",
-            file_type: "application/pdf",
-            size_bytes: 1024,
-            page_count: 12,
+        file_type: "application/pdf",
+        size_bytes: 1024,
+        page_count: 12,
+        processing_state: "ready",
         });
     });
 
@@ -137,6 +139,17 @@ describe("loadActiveVersion", () => {
         await expect(loadActiveVersion("doc-1", db)).resolves.toBeNull();
     });
 
+    it.each(["uploaded", "pending_scan", "processing", "quarantined", "failed", "mystery"])(
+        "returns null for untrusted or unknown processing state %s",
+        async (processing_state) => {
+            const db = makeDb({
+                documents: [{ id: "doc-1", current_version_id: "ver-1" }],
+                document_versions: [{ ...FULL_VERSION, processing_state }],
+            });
+            await expect(loadActiveVersion("doc-1", db)).resolves.toBeNull();
+        },
+    );
+
     it("returns null when the version has no storage_path", async () => {
         const db = makeDb({
             documents: [{ id: "doc-1", current_version_id: "ver-1" }],
@@ -153,6 +166,7 @@ describe("loadActiveVersion", () => {
                     id: "ver-1",
                     document_id: "doc-1",
                     storage_path: "documents/u/doc-1/source.docx",
+                    processing_state: "ready",
                     deleted_at: null,
                 },
             ],
@@ -167,6 +181,7 @@ describe("loadActiveVersion", () => {
             file_type: null,
             size_bytes: null,
             page_count: null,
+            processing_state: "ready",
         });
     });
 });
@@ -259,6 +274,22 @@ describe("attachActiveVersionPaths", () => {
         ]);
         expect(doc.storage_path).toBeNull();
         expect(doc.filename).toBe("Untitled document");
+    });
+
+    it("removes storage paths for a pending active version", async () => {
+        const db = makeDb({
+            document_versions: [
+                { ...FULL_VERSION, processing_state: "pending_scan" },
+            ],
+        });
+        const [doc] = await attachActiveVersionPaths<TestDoc>(db, [
+            { id: "doc-1", current_version_id: "ver-1" },
+        ]);
+        expect(doc).toMatchObject({
+            active_version_processing_state: "pending_scan",
+            storage_path: null,
+            pdf_storage_path: null,
+        });
     });
 });
 
