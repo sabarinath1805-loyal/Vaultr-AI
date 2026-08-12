@@ -73,6 +73,9 @@ jobs:
             echo "SUPABASE_TEST_SERVICE_ROLE_KEY=$(read_key SERVICE_ROLE_KEY)"
             echo "SUPABASE_TEST_ANON_KEY=$(read_key ANON_KEY)"
             echo "SUPABASE_TEST_DB_URL=$(read_key DB_URL)"
+            echo "SUPABASE_URL=$(read_key API_URL)"
+            echo "SUPABASE_SECRET_KEY=$(read_key SERVICE_ROLE_KEY)"
+            echo "SUPABASE_TEST_REAL_HTTP=1"
           } >> "$GITHUB_ENV"
 
       # Same bootstrap a fresh local checkout gets from test-stack.sh: load
@@ -81,10 +84,12 @@ jobs:
       # to move OLDER deployments forward and is deliberately not applied
       # here — replaying history on top of the current schema is not a real
       # installation path).
-      - name: Load schema
+      - name: Bootstrap and verify canonical schema
         run: |
           test -n "$SUPABASE_TEST_DB_URL"
-          psql "$SUPABASE_TEST_DB_URL" -X --set ON_ERROR_STOP=1 --file backend/schema.sql
+          node scripts/bootstrap-schema.mjs --db-url "$SUPABASE_TEST_DB_URL"
+          node scripts/check-schema-bootstrap.mjs --db-url "$SUPABASE_TEST_DB_URL"
+          node scripts/check-schema-drift.mjs
 
       - name: Install backend dependencies
         working-directory: backend
@@ -98,4 +103,7 @@ jobs:
           npx vitest run \
             src/__tests__/integration/stack.supabase.test.ts \
             src/__tests__/integration/access.supabase.test.ts \
-            src/__tests__/integration/tabularPagination.supabase.test.ts
+            src/__tests__/integration/tabularPagination.supabase.test.ts \
+            src/__tests__/integration/oauthClaim.supabase.test.ts \
+            src/__tests__/integration/realAuthorization.supabase.test.ts \
+            src/__tests__/integration/hardeningFinal.supabase.test.ts

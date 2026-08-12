@@ -1,5 +1,9 @@
 import { sealManifest } from "./manifestSigning";
 import { createServerSupabase } from "./supabase";
+import {
+    loadTabularCellProvenance,
+    parseSourceDocumentVersionIds,
+} from "./tabularProvenance";
 
 type Db = ReturnType<typeof createServerSupabase>;
 
@@ -137,10 +141,28 @@ export async function buildUserTabularReviewsExport(
     );
     const reviewIds = idsFrom(tabularReviews);
 
-    const [cells, chats] = await Promise.all([
+    const [cells, rows, chats] = await Promise.all([
         selectByIds(db, "tabular_cells", "review_id", reviewIds),
+        selectByIds(db, "tabular_review_rows", "review_id", reviewIds),
         selectByIds(db, "tabular_review_chats", "review_id", reviewIds),
     ]);
+    const provenance = await loadTabularCellProvenance(
+        db,
+        rows as {
+            id: string;
+            document_id?: string | null;
+            source_document_ids?: string[];
+        }[],
+        cells as {
+            id: string;
+            row_id: string;
+            source_document_version_ids?: unknown;
+        }[],
+    );
+    const exportedCells = cells.map((cell) => ({
+        ...cell,
+        provenance_status: provenance.get(String(cell.id))?.state ?? "unverified",
+    }));
     const chatIds = idsFrom(chats);
     const messages = await selectByIds(
         db,
@@ -153,7 +175,7 @@ export async function buildUserTabularReviewsExport(
         exported_at: new Date().toISOString(),
         user: { id: userId, email: userEmail ?? null },
         tabular_reviews: tabularReviews,
-        tabular_cells: cells,
+        tabular_cells: exportedCells,
         tabular_review_chats: {
             chats,
             messages,
@@ -361,12 +383,94 @@ export async function buildUserAccountExport(
     const documentIds = idsFrom(documents);
     const reviewIds = idsFrom(tabularReviews);
 
-    const [folders, versions, edits, tabularCells] = await Promise.all([
+    const [folders, versions, edits, tabularRows, tabularCells] = await Promise.all([
         selectByIds(db, "project_subfolders", "project_id", projectIds),
         selectByIds(db, "document_versions", "document_id", documentIds),
         selectByIds(db, "document_edits", "document_id", documentIds),
+        selectByIds(db, "tabular_review_rows", "review_id", reviewIds),
         selectByIds(db, "tabular_cells", "review_id", reviewIds),
     ]);
+
+    // Account export is a portability boundary, not a trusted-work-product
+    // boundary. Keep the historical cell payload, but attach the same
+    // server-derived provenance classification used by the dedicated Tabular
+    // export so stale, pending, failed, quarantined, deleted, and legacy
+    // records cannot be mistaken for current trusted output.
+    const tabularRowsForProvenance = tabularRows as {
+        id: string;
+        document_id?: string | null;
+        source_document_ids?: string[];
+    }[];
+    const tabularCellsForProvenance = tabularCells as {
+        id: string;
+        row_id: string;
+        source_document_version_ids?: unknown;
+    }[];
+    const tabularCellProvenance = await loadTabularCellProvenance(
+        db,
+        tabularRowsForProvenance,
+        tabularCellsForProvenance,
+    );
+    const ownedDocumentIds = new Set(documentIds);
+    const ownedVersionIds = new Set(
+        versions
+            .map((version) =>
+                typeof version.id === "string" ? version.id : null,
+            )
+            .filter((id): id is string => !!id),
+    );
+    const rowsById = new Map(
+        tabularRowsForProvenance.map((row) => [String(row.id), row]),
+    );
+    const exportedTabularCells = tabularCells.map((cell) => {
+        const provenance = tabularCellProvenance.get(String(cell.id));
+        const row = rowsById.get(String(cell.row_id));
+        const rowDocumentIds = row
+            ? row.source_document_ids?.length
+                ? row.source_document_ids
+                : row.document_id
+                    ? [row.document_id]
+                    : []
+            : [];
+        const rowIsOwned = rowDocumentIds.every((id) =>
+            ownedDocumentIds.has(id),
+        );
+        const sourceIds = parseSourceDocumentVersionIds(
+            cell.source_document_version_ids,
+        );
+        const sourceMetadataIsAccessible =
+            rowIsOwned &&
+            !!sourceIds &&
+            sourceIds.every((id) => ownedVersionIds.has(id));
+        // Provenance is evaluated twice at two different security boundaries:
+        // `loadTabularCellProvenance` determines the source state, while this
+        // builder determines whether the exporting account can resolve the
+        // complete source set. A source can be trusted for its owner and
+        // still be foreign/inaccessible here. Never carry that owner-scoped
+        // trust label across the account-export boundary.
+        const exportProvenanceStatus =
+            sourceIds && sourceMetadataIsAccessible
+                ? provenance?.state ?? "unverified"
+                : "unverified";
+        const exportedCell = {
+            ...cell,
+            provenance_status: exportProvenanceStatus,
+        } as Record<string, unknown>;
+
+        // Account export must not become a cross-tenant side channel when a
+        // historical cell points at a version outside the caller's exported
+        // document set. Keep the ownership-visible cell record and explicit
+        // status, but remove inaccessible source metadata and derived content.
+        if (sourceIds && !sourceMetadataIsAccessible) {
+            exportedCell.content = null;
+            exportedCell.source_document_version_ids = null;
+        } else if (!sourceIds) {
+            // Preserve legacy content as portability data, while avoiding an
+            // opaque/malformed version payload that cannot be interpreted.
+            exportedCell.source_document_version_ids = null;
+        }
+        return exportedCell;
+    });
 
     return {
         exported_at: new Date().toISOString(),
@@ -385,7 +489,7 @@ export async function buildUserAccountExport(
         workflow_shares_with_user: workflowSharesWithUser,
         chats: assistantChats,
         tabular_reviews: tabularReviews,
-        tabular_cells: tabularCells,
+        tabular_cells: exportedTabularCells,
         tabular_review_chats: tabularChats,
         shared_access: {
             projects: sharedProjects,

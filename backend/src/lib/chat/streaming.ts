@@ -175,6 +175,8 @@ export async function runLLMStream(params: {
   fullText: string;
   events: AssistantEvent[];
   citations: unknown[];
+  tabularContentRead: boolean;
+  tabularSourceDocumentVersionIds: string[];
 }> {
   const {
     apiMessages,
@@ -214,16 +216,18 @@ export async function runLLMStream(params: {
     }));
 
   const events: AssistantEvent[] = [];
-  // One assistant turn produces at most one document_versions row per
-  // edited doc. `runToolCalls` fires once per tool-call batch; the model
-  // may emit multiple batches in a single turn, so this map persists
-  // across batches to let subsequent edit_document calls overwrite the
-  // turn's existing version instead of creating a new one.
+  // `runToolCalls` fires once per tool-call batch; the model may emit
+  // multiple batches in a single turn, so this map persists across batches.
+  // Subsequent edit_document calls use the prior version as an optimistic
+  // stale-turn guard, while runEditDocument still creates a new immutable
+  // version row and storage object for every edit.
   const turnEditState: TurnEditState = new Map();
   // Suppress repeated full-document reads for the same document/version in
   // one assistant response. The guard is invalidated when edit_document
   // changes that document so a post-edit verification read can still happen.
   const turnReadState: TurnReadState = new Map();
+  let tabularContentRead = false;
+  const tabularSourceDocumentVersionIds = new Set<string>();
   const courtlistenerTurnState: CourtlistenerTurnState = {
       casesByClusterId: new Map(),
     };
@@ -408,6 +412,8 @@ export async function runLLMStream(params: {
           courtlistenerEvents,
           caseCitationEvents,
           mcpEvents,
+          tabularContentRead: batchTabularContentRead,
+          tabularSourceDocumentVersionIds: batchTabularSourceDocumentVersionIds,
         } = await runToolCalls(
           toolCalls,
           docStore,
@@ -424,6 +430,10 @@ export async function runLLMStream(params: {
           apiKeys,
           nonce,
         );
+        tabularContentRead ||= batchTabularContentRead;
+        for (const versionId of batchTabularSourceDocumentVersionIds) {
+          tabularSourceDocumentVersionIds.add(versionId);
+        }
         throwIfAborted(signal);
         for (const r of docsRead) {
           events.push({
@@ -581,5 +591,11 @@ export async function runLLMStream(params: {
   );
   write("data: [DONE]\n\n");
 
-  return { fullText, events, citations };
+  return {
+    fullText,
+    events,
+    citations,
+    tabularContentRead,
+    tabularSourceDocumentVersionIds: [...tabularSourceDocumentVersionIds],
+  };
 }

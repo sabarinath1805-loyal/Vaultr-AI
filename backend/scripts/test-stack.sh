@@ -11,7 +11,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-SCHEMA_FILE="$BACKEND_DIR/schema.sql"
+REPO_ROOT="$(cd -- "$BACKEND_DIR/.." && pwd)"
 
 if ! command -v supabase >/dev/null 2>&1; then
     echo "supabase CLI not found. Install: brew install supabase/tap/supabase" >&2
@@ -35,6 +35,9 @@ if [[ -z "$SUPABASE_TEST_URL" || -z "$SUPABASE_TEST_SERVICE_ROLE_KEY" || -z "$SU
     exit 1
 fi
 export SUPABASE_TEST_URL SUPABASE_TEST_SERVICE_ROLE_KEY SUPABASE_TEST_ANON_KEY
+export SUPABASE_URL="$SUPABASE_TEST_URL"
+export SUPABASE_SECRET_KEY="$SUPABASE_TEST_SERVICE_ROLE_KEY"
+export SUPABASE_TEST_REAL_HTTP=1
 
 if ! command -v psql >/dev/null 2>&1; then
     echo "psql not found. Install PostgreSQL's client tools before running stack tests." >&2
@@ -44,15 +47,15 @@ fi
 # A newly started local stack contains Supabase's system schemas but none of
 # Mike's application tables. Initialize only an empty stack: silently resetting
 # or modifying an existing application database would be surprising.
-PROJECTS_TABLE="$(
+LEDGER_TABLE="$(
     psql "$SUPABASE_TEST_DB_URL" -XAtq \
-        -c "select to_regclass('public.projects');"
+        -c "select to_regclass('public.mike_schema_migrations');"
 )"
-if [[ "$PROJECTS_TABLE" != "projects" ]]; then
-    echo "Mike schema not found; loading $SCHEMA_FILE"
-    psql "$SUPABASE_TEST_DB_URL" -X \
-        --set ON_ERROR_STOP=1 \
-        --file "$SCHEMA_FILE"
+if [[ -z "$LEDGER_TABLE" ]]; then
+    echo "Mike schema ledger not found; bootstrapping canonical schema"
+    (cd "$REPO_ROOT" && node scripts/bootstrap-schema.mjs --db-url "$SUPABASE_TEST_DB_URL")
+else
+    (cd "$REPO_ROOT" && node scripts/check-schema-bootstrap.mjs --db-url "$SUPABASE_TEST_DB_URL")
 fi
 
 echo "Running stack integration tests against $SUPABASE_TEST_URL"
@@ -61,4 +64,7 @@ exec npx vitest run \
     src/__tests__/integration/stack.supabase.test.ts \
     src/__tests__/integration/access.supabase.test.ts \
     src/__tests__/integration/tabularPagination.supabase.test.ts \
+    src/__tests__/integration/oauthClaim.supabase.test.ts \
+    src/__tests__/integration/realAuthorization.supabase.test.ts \
+    src/__tests__/integration/hardeningFinal.supabase.test.ts \
     "$@"

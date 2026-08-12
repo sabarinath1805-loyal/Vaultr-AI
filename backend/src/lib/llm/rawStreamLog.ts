@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { mkdir, open } from "fs/promises";
+import { mkdir, open, readdir, stat, unlink } from "fs/promises";
 import type { FileHandle } from "fs/promises";
 import path from "path";
 
@@ -11,7 +11,47 @@ type RawStreamEntry = {
 };
 
 function rawStreamLogDir(): string | null {
-  return process.env.RAW_LLM_STREAM_LOG_DIR?.trim() || null;
+  const dir = process.env.RAW_LLM_STREAM_LOG_DIR?.trim() || null;
+  return dir && path.isAbsolute(dir) ? dir : null;
+}
+
+function rawLoggingAllowed() {
+  return process.env.NODE_ENV !== "production" && process.env.LOG_RAW_LLM_STREAM === "true";
+}
+
+function includeContent() {
+  return process.env.LOG_RAW_LLM_STREAM_INCLUDE_CONTENT === "true";
+}
+
+function privacySafePayload(value: unknown, key = "", seen = new WeakSet<object>()): unknown {
+  if (/authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|cookie|secret/i.test(key)) {
+    return "[REDACTED]";
+  }
+  if (typeof value === "string") {
+    if (!includeContent() && /content|prompt|message|input|output|text|body/i.test(key)) {
+      return `[CONTENT REDACTED length=${value.length}]`;
+    }
+    return value.length > 2_000 && !includeContent()
+      ? `${value.slice(0, 2_000)}…[TRUNCATED length=${value.length}]`
+      : value;
+  }
+  if (!value || typeof value !== "object") return value;
+  if (seen.has(value)) return "[Circular]";
+  seen.add(value);
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: privacySafePayload(value.message, "message", seen),
+      stack: privacySafePayload(value.stack, "stack", seen),
+    };
+  }
+  if (Array.isArray(value)) return value.map((item) => privacySafePayload(item, key, seen));
+  return Object.fromEntries(
+    Object.entries(value).map(([childKey, childValue]) => [
+      childKey,
+      privacySafePayload(childValue, childKey, seen),
+    ]),
+  );
 }
 
 function safeFilePart(value: string) {
@@ -19,20 +59,9 @@ function safeFilePart(value: string) {
 }
 
 function stringifyJson(value: unknown) {
-  const seen = new WeakSet<object>();
-  return JSON.stringify(value, (_key, innerValue: unknown) => {
+  const safeValue = privacySafePayload(value);
+  return JSON.stringify(safeValue, (_key, innerValue: unknown) => {
     if (typeof innerValue === "bigint") return innerValue.toString();
-    if (innerValue instanceof Error) {
-      return {
-        name: innerValue.name,
-        message: innerValue.message,
-        stack: innerValue.stack,
-      };
-    }
-    if (innerValue && typeof innerValue === "object") {
-      if (seen.has(innerValue)) return "[Circular]";
-      seen.add(innerValue);
-    }
     return innerValue;
   });
 }
@@ -44,12 +73,12 @@ export function logRawLlmStream(args: {
   label: string;
   payload: unknown;
 }) {
-  if (process.env.LOG_RAW_LLM_STREAM !== "true") return;
+  if (!rawLoggingAllowed()) return;
 
   console.log(
     `[raw-llm-stream:${args.provider}:${args.model}:iter-${args.iteration}] ${args.label}`,
   );
-  console.dir(args.payload, { depth: null, maxArrayLength: null });
+  console.dir(privacySafePayload(args.payload), { depth: null, maxArrayLength: 100 });
 }
 
 export function createRawLlmStreamRecorder(args: {
@@ -57,7 +86,7 @@ export function createRawLlmStreamRecorder(args: {
   model: string;
 }) {
   const dir = rawStreamLogDir();
-  if (!dir) return null;
+  if (!dir || !rawLoggingAllowed()) return null;
   const logDir = dir;
 
   const startedAt = new Date();
@@ -78,7 +107,8 @@ export function createRawLlmStreamRecorder(args: {
   async function ensureOpen() {
     if (fileHandle) return fileHandle;
     await mkdir(logDir, { recursive: true });
-    fileHandle = await open(filePath, "w");
+    await pruneOldLogs(logDir);
+    fileHandle = await open(filePath, "wx", 0o600);
     const header = {
       id,
       provider: args.provider,
@@ -167,4 +197,28 @@ export function createRawLlmStreamRecorder(args: {
       }
     },
   };
+}
+
+async function pruneOldLogs(logDir: string) {
+  const configuredDays = Number(process.env.RAW_LLM_STREAM_LOG_RETENTION_DAYS);
+  const retentionDays = Number.isFinite(configuredDays) && configuredDays >= 1 && configuredDays <= 30
+    ? configuredDays
+    : 7;
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const entries = await readdir(logDir, { withFileTypes: true });
+  const files: { path: string; mtimeMs: number }[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".raw-llm-stream.json")) continue;
+    const filePath = path.join(logDir, entry.name);
+    const details = await stat(filePath).catch(() => null);
+    if (!details) continue;
+    if (details.mtimeMs < cutoff) {
+      await unlink(filePath).catch(() => {});
+      continue;
+    }
+    files.push({ path: filePath, mtimeMs: details.mtimeMs });
+  }
+  for (const file of files.sort((a, b) => a.mtimeMs - b.mtimeMs).slice(0, Math.max(0, files.length - 100))) {
+    await unlink(file.path).catch(() => {});
+  }
 }

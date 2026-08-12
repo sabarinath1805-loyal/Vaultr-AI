@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { MAX_PRESENTATION_SLIDES, enforceTextLimit } from "./documentLimits";
 
 function decodeXml(text: string) {
   return text
@@ -38,6 +39,9 @@ export async function extractPresentationText(buffer: Buffer) {
   const slidePaths = Object.keys(zip.files)
     .filter((name) => /^ppt\/slides\/slide\d+\.xml$/i.test(name))
     .sort(naturalSort);
+  if (slidePaths.length > MAX_PRESENTATION_SLIDES) {
+    throw new Error("Presentation exceeds the slide limit");
+  }
 
   const slides: string[] = [];
   for (let index = 0; index < slidePaths.length; index++) {
@@ -49,5 +53,5 @@ export async function extractPresentationText(buffer: Buffer) {
       .join("\n");
     if (text) slides.push(`## Slide ${index + 1}\n\n${text}`);
   }
-  return slides.join("\n\n").trim();
+  return enforceTextLimit(slides.join("\n\n").trim(), "Presentation text");
 }

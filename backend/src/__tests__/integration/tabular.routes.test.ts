@@ -13,11 +13,13 @@ const {
     checkProjectAccess,
     filterAccessibleDocumentIds,
     getUserModelSettings,
+    runLLMStream,
 } = vi.hoisted(() => ({
     ensureReviewAccess: vi.fn(),
     checkProjectAccess: vi.fn(),
     filterAccessibleDocumentIds: vi.fn(),
     getUserModelSettings: vi.fn(),
+    runLLMStream: vi.fn(),
 }));
 
 // ---------------------------------------------------------------------------
@@ -109,6 +111,16 @@ vi.mock("../../lib/userSettings", () => ({
     getUserApiKeys: vi.fn(async () => ({})),
 }));
 
+vi.mock("../../lib/chat", async () => {
+    const actual = await vi.importActual<typeof import("../../lib/chat")>(
+        "../../lib/chat",
+    );
+    return {
+        ...actual,
+        runLLMStream: (...args: unknown[]) => runLLMStream(...args),
+    };
+});
+
 // Version-path enrichment hits the DB in real life; no-op it so route
 // responses are driven purely by the table stubs.
 vi.mock("../../lib/documentVersions", () => ({
@@ -140,6 +152,13 @@ describe("tabular.routes", () => {
             tabular_model: "claude-sonnet-4-5",
             legal_research_us: false,
             api_keys: { claude: "sk-test" },
+        });
+        runLLMStream.mockResolvedValue({
+            fullText: "model response",
+            events: [{ type: "content", text: "model response" }],
+            citations: [],
+            tabularContentRead: false,
+            tabularSourceDocumentVersionIds: [],
         });
     });
 
@@ -533,6 +552,104 @@ describe("tabular.routes", () => {
                 { id: "d1", current_version_id: null },
             ]);
         });
+
+        it("redacts cells from an older active version instead of relabeling them", async () => {
+            supabaseState.tables.tabular_reviews = {
+                data: { id: "r1", user_id: "u1", project_id: null },
+                error: null,
+            };
+            supabaseState.tables.tabular_review_rows = {
+                data: [
+                    {
+                        id: "row-1",
+                        review_id: "r1",
+                        row_type: "document",
+                        document_id: "d1",
+                        label: "Agreement",
+                    },
+                ],
+                error: null,
+            };
+            supabaseState.tables.tabular_cells = {
+                data: [
+                    {
+                        id: "c1",
+                        row_id: "row-1",
+                        document_id: "d1",
+                        column_index: 0,
+                        content: JSON.stringify({ summary: "old result" }),
+                        status: "done",
+                        source_document_version_ids: ["v1"],
+                    },
+                ],
+                error: null,
+            };
+            supabaseState.tables.documents = {
+                data: [{ id: "d1", current_version_id: "v2" }],
+                error: null,
+            };
+            supabaseState.tables.document_versions = {
+                data: [
+                    { id: "v1", document_id: "d1", processing_state: "ready" },
+                    { id: "v2", document_id: "d1", processing_state: "ready" },
+                ],
+                error: null,
+            };
+
+            const res = await request(app)
+                .get("/tabular-review/r1")
+                .set(...AUTH);
+
+            expect(res.status).toBe(200);
+            expect(res.body.cells[0]).toMatchObject({
+                content: null,
+                status: "stale",
+                provenance_status: "stale",
+            });
+        });
+
+        it("fails closed for legacy cells without source-version provenance", async () => {
+            supabaseState.tables.tabular_reviews = {
+                data: { id: "r1", user_id: "u1", project_id: null },
+                error: null,
+            };
+            supabaseState.tables.tabular_review_rows = {
+                data: [
+                    {
+                        id: "row-1",
+                        review_id: "r1",
+                        row_type: "document",
+                        document_id: "d1",
+                        label: "Agreement",
+                    },
+                ],
+                error: null,
+            };
+            supabaseState.tables.tabular_cells = {
+                data: [
+                    {
+                        id: "c1",
+                        row_id: "row-1",
+                        document_id: "d1",
+                        column_index: 0,
+                        content: JSON.stringify({ summary: "legacy result" }),
+                        status: "done",
+                    },
+                ],
+                error: null,
+            };
+
+            const res = await request(app)
+                .get("/tabular-review/r1")
+                .set(...AUTH);
+
+            expect(res.status).toBe(200);
+            expect(res.body.cells[0]).toMatchObject({
+                content: null,
+                status: "stale",
+                provenance_status: "unverified",
+            });
+        });
     });
 
     // ── PATCH /tabular-review/:reviewId ───────────────────────────────────
@@ -648,6 +765,10 @@ describe("tabular.routes", () => {
         it("returns 204 on success", async () => {
             supabaseState.tables.tabular_reviews = {
                 data: { id: "r1", user_id: "u1", project_id: null },
+                error: null,
+            };
+            supabaseState.tables.tabular_review_rows = {
+                data: [{ id: "row-1", review_id: "r1" }],
                 error: null,
             };
 
@@ -872,7 +993,7 @@ describe("tabular.routes", () => {
         });
     });
 
-    // ── POST /tabular-review/:reviewId/chat (streaming GUARDS only) ───────
+    // ── POST /tabular-review/:reviewId/chat ───────────────────────────────
     describe("POST /tabular-review/:reviewId/chat", () => {
         it("returns 400 when no user message is present", async () => {
             const res = await request(app)
@@ -925,6 +1046,108 @@ describe("tabular.routes", () => {
 
             expect(res.status).toBe(422);
             expect(res.body.code).toBe("missing_api_key");
+        });
+
+        it("builds provider history from server records and replaces stale derived output", async () => {
+            supabaseState.tables.tabular_reviews = {
+                data: {
+                    id: "r1",
+                    user_id: "u1",
+                    project_id: null,
+                    title: "Review",
+                    columns_config: [],
+                },
+                error: null,
+            };
+            supabaseState.tables.tabular_review_rows = {
+                data: [
+                    {
+                        id: "row-1",
+                        review_id: "r1",
+                        row_type: "document",
+                        document_id: "d1",
+                        source_document_ids: ["d1"],
+                        label: "Agreement",
+                    },
+                ],
+                error: null,
+            };
+            supabaseState.tables.tabular_cells = { data: [], error: null };
+            supabaseState.tables.tabular_review_chats = {
+                data: {
+                    id: "chat-1",
+                    title: null,
+                    review_id: "r1",
+                    user_id: "u1",
+                },
+                error: null,
+            };
+            supabaseState.tables.tabular_review_chat_messages = {
+                data: [
+                    { role: "user", content: "server question" },
+                    {
+                        role: "assistant",
+                        content: [
+                            {
+                                type: "content",
+                                text: "stale source output that must not be replayed",
+                            },
+                        ],
+                        provenance: {
+                            version: 1,
+                            kind: "tabular_derived",
+                            source_document_version_ids: ["v1"],
+                        },
+                    },
+                ],
+                error: null,
+            };
+            supabaseState.tables.documents = {
+                data: [{ id: "d1", current_version_id: "v2" }],
+                error: null,
+            };
+            supabaseState.tables.document_versions = {
+                data: [
+                    {
+                        id: "v1",
+                        document_id: "d1",
+                        processing_state: "ready",
+                        deleted_at: null,
+                    },
+                ],
+                error: null,
+            };
+
+            const res = await request(app)
+                .post("/tabular-review/r1/chat")
+                .set(...AUTH)
+                .send({
+                    chat_id: "chat-1",
+                    messages: [
+                        { role: "user", content: "current question" },
+                        {
+                            role: "assistant",
+                            content: "caller-injected assistant text",
+                        },
+                    ],
+                });
+
+            expect(res.status).toBe(200);
+            expect(runLLMStream).toHaveBeenCalledTimes(1);
+            const providerMessages = runLLMStream.mock.calls[0][0].apiMessages as {
+                role: string;
+                content: string;
+            }[];
+            const providerText = providerMessages
+                .map((message) => message.content)
+                .join("\n");
+            expect(providerText).toContain("server question");
+            expect(providerText).toContain(
+                "Previous Tabular output omitted because its source is no longer trusted",
+            );
+            expect(providerText).toContain("current question");
+            expect(providerText).not.toContain("stale source output");
+            expect(providerText).not.toContain("caller-injected assistant text");
         });
     });
 

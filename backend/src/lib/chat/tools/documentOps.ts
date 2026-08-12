@@ -1,5 +1,6 @@
 import {
   downloadFile,
+  deleteFile,
   generatedDocKey,
   uploadFile,
 } from "../../storage";
@@ -16,6 +17,12 @@ import {
   loadActiveVersion,
 } from "../../documentVersions";
 import {
+  scanVersionContent,
+  UNTRUSTED_DOCUMENT_VERSION_STATE,
+} from "../../documentVersionSecurity";
+import { promoteDocumentVersion } from "../../documentPromotion";
+import { recordAuditEvent } from "../../auditEvents";
+import {
   type DocStore,
   type DocIndex,
   type EditAnnotation,
@@ -31,6 +38,29 @@ import {
 } from "../../documentTypes";
 import { extractPresentationText } from "../../officeText";
 import { spreadsheetToLLMText } from "../../spreadsheet";
+
+async function recordVersionScanFailure(
+  db: ReturnType<typeof createServerSupabase>,
+  userId: string,
+  documentId: string | null,
+  scan: Awaited<ReturnType<typeof scanVersionContent>>,
+) {
+  await recordAuditEvent(db, {
+    userId,
+    action:
+      scan.scan.status === "quarantined"
+        ? "document.quarantine"
+        : "document.scan.failure",
+    resourceType: "document_version",
+    resourceId: documentId,
+    success: false,
+    metadata: {
+      scan_status: scan.scan.status,
+      provider: scan.scan.provider,
+      processing_state: scan.processingState,
+    },
+  });
+}
 
 
 export function citationReminder(
@@ -517,6 +547,15 @@ export async function generateDocx(
         .trim()
         .slice(0, 64) || "document";
     const filename = `${safeTitle}.docx`;
+    const scan = await scanVersionContent(Buffer.from(buf), filename);
+    if (!scan.trusted) {
+      await recordVersionScanFailure(db, userId, null, scan);
+      return {
+        error:
+          scan.scan.detail ??
+          "Generated document could not pass the required security scan.",
+      };
+    }
     const key = generatedDocKey(userId, docId, filename);
 
     await uploadFile(
@@ -536,7 +575,9 @@ export async function generateDocx(
       .insert({
         project_id: options?.projectId ?? null,
         user_id: userId,
-        status: "ready",
+        status: "pending",
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
+        scan_status: "pending",
       })
       .select("id")
       .single();
@@ -559,6 +600,7 @@ export async function generateDocx(
         size_bytes: buf.byteLength,
         page_count: null,
         content_sha256: contentSha256(buf),
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
       })
       .select("id")
       .single();
@@ -569,12 +611,29 @@ export async function generateDocx(
     }
     const versionId = versionRow.id as string;
 
-    await db
-      .from("documents")
-      .update({
-        current_version_id: versionId,
-      })
-      .eq("id", documentId);
+    const { error: trustErr } = await db
+      .from("document_versions")
+      .update({ processing_state: "ready" })
+      .eq("id", versionId)
+      .eq("document_id", documentId);
+    if (trustErr) {
+      return {
+        error: `Failed to finalize generated document version: ${trustErr.message}`,
+      };
+    }
+
+    await promoteDocumentVersion({
+      db,
+      documentId,
+      candidateVersionId: versionId,
+      expectedCurrentVersionId: null,
+      patch: {
+        status: "ready",
+        processing_state: "ready",
+        scan_status: "clean",
+        last_processing_error: null,
+      },
+    });
 
     return {
       filename,
@@ -952,6 +1011,15 @@ async function persistGeneratedFile(params: {
   const { title, extension, buffer, userId, db, projectId } = params;
   const docId = crypto.randomUUID().replace(/-/g, "");
   const filename = safeGeneratedFilename(title, extension);
+  const scan = await scanVersionContent(buffer, filename);
+  if (!scan.trusted) {
+    await recordVersionScanFailure(db, userId, null, scan);
+    return {
+      error:
+        scan.scan.detail ??
+        "Generated document could not pass the required security scan.",
+    };
+  }
   const key = generatedDocKey(userId, docId, filename);
   await uploadFile(
     key,
@@ -987,7 +1055,9 @@ async function persistGeneratedFile(params: {
     .insert({
       project_id: projectId ?? null,
       user_id: userId,
-      status: "ready",
+      status: "pending",
+      processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
+      scan_status: "pending",
     })
     .select("id")
     .single();
@@ -1011,6 +1081,7 @@ async function persistGeneratedFile(params: {
       size_bytes: buffer.byteLength,
       page_count: null,
       content_sha256: contentSha256(buffer),
+      processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
     })
     .select("id")
     .single();
@@ -1021,10 +1092,38 @@ async function persistGeneratedFile(params: {
   }
   const versionId = versionRow.id as string;
 
-  await db
-    .from("documents")
-    .update({ current_version_id: versionId })
-    .eq("id", documentId);
+  const { error: trustErr } = await db
+    .from("document_versions")
+    .update({ processing_state: "ready" })
+    .eq("id", versionId)
+    .eq("document_id", documentId);
+  if (trustErr) {
+    return {
+      error: `Failed to finalize generated document version: ${trustErr.message}`,
+    };
+  }
+
+  try {
+    await promoteDocumentVersion({
+      db,
+      documentId,
+      candidateVersionId: versionId,
+      expectedCurrentVersionId: null,
+      patch: {
+        status: "ready",
+        processing_state: "ready",
+        scan_status: "clean",
+        last_processing_error: null,
+      },
+    });
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to activate generated document version.",
+    };
+  }
 
   return {
     filename,
@@ -1108,10 +1207,29 @@ export async function loadCurrentVersionBytes(
   return { bytes: Buffer.from(raw), storage_path: active.storage_path };
 }
 
+async function cleanupEditedVersionCandidate(params: {
+  documentId: string;
+  versionId?: string;
+  storagePath: string;
+  db: ReturnType<typeof createServerSupabase>;
+}) {
+  const { documentId, versionId, storagePath, db } = params;
+  if (versionId) {
+    await db
+      .from("document_versions")
+      .delete()
+      .eq("id", versionId)
+      .eq("document_id", documentId);
+  }
+  await deleteFile(storagePath).catch(() => undefined);
+}
+
 /**
- * Ensure the document has a document_versions row for the current upload.
- * Called before writing the first 'assistant_edit' row so the history is
- * complete. Idempotent.
+ * Create an immutable assistant-edit version for the current document bytes.
+ *
+ * `reuseVersion` is retained as a same-turn optimistic precondition for the
+ * caller. It is never mutated or reused as a storage/row identity: every edit
+ * gets a new row and object so a losing pointer race cannot rewrite history.
  */
 export async function runEditDocument(params: {
   documentId: string;
@@ -1119,11 +1237,9 @@ export async function runEditDocument(params: {
   edits: EditInput[];
   db: ReturnType<typeof createServerSupabase>;
   /**
-   * If provided, append these edits to the existing turn-scoped version
-   * (overwrites the file at storagePath and reuses the document_versions
-   * row) instead of creating a new version. Used to collapse multiple
-   * edit_document tool calls within a single assistant turn into one
-   * version.
+   * If provided, require that this turn still points at the version returned
+   * by the previous edit. The version is not overwritten; this is only an
+   * optimistic stale-turn guard.
    */
   reuseVersion?: {
     versionId: string;
@@ -1152,6 +1268,14 @@ export async function runEditDocument(params: {
   if (!doc) return { ok: false, error: "Document not found." };
 
   const activeVersion = await loadActiveVersion(documentId, db);
+  const expectedCurrentVersionId = activeVersion?.id ?? null;
+  if (reuseVersion && reuseVersion.versionId !== expectedCurrentVersionId) {
+    return {
+      ok: false,
+      error:
+        "Document changed while the edit was being prepared. Retry against the current version.",
+    };
+  }
   let versionFilename =
     activeVersion?.filename?.trim() || "Untitled document";
 
@@ -1178,77 +1302,65 @@ export async function runEditDocument(params: {
     editedBytes.byteOffset + editedBytes.byteLength,
   ) as ArrayBuffer;
 
-  let versionRowId: string;
-  let newPath: string;
-  let nextVersionNumber: number;
+  const scan = await scanVersionContent(editedBytes, versionFilename);
+  if (!scan.trusted) {
+    await recordVersionScanFailure(db, userId, documentId, scan);
+    return {
+      ok: false,
+      error:
+        scan.scan.detail ??
+        "Edited document could not pass the required security scan.",
+    };
+  }
 
-  if (reuseVersion) {
-    // Overwrite the existing turn version's file in place. The version
-    // row, version_number, and current_version_id all already point here.
-    newPath = reuseVersion.storagePath;
-    versionRowId = reuseVersion.versionId;
-    nextVersionNumber = reuseVersion.versionNumber;
+  const candidateStorageId = crypto.randomUUID().replace(/-/g, "");
+  const newPath = `documents/${userId}/${documentId}/edits/${candidateStorageId}.docx`;
+  let versionRowId: string | undefined;
+  let nextVersionNumber = 1;
 
-    // Clear the hash before the bytes change; the update below sets it again.
-    // Storage and Postgres cannot be written atomically, so a failure between
-    // the two leaves the version unhashed and therefore unverifiable, rather
-    // than hashed against content it no longer holds.
-    await db
-      .from("document_versions")
-      .update({ content_sha256: null })
-      .eq("id", versionRowId);
-
+  try {
     await uploadFile(
       newPath,
       ab,
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     );
-    await db
-      .from("document_versions")
-      .update({
-        file_type: "docx",
-        size_bytes: editedBytes.byteLength,
-        page_count: null,
-        content_sha256: contentSha256(editedBytes),
-      })
-      .eq("id", versionRowId);
-  } else {
-    const versionId = crypto.randomUUID().replace(/-/g, "");
-    newPath = `documents/${userId}/${documentId}/edits/${versionId}.docx`;
-    await uploadFile(
-      newPath,
-      ab,
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    );
+  } catch {
+    await cleanupEditedVersionCandidate({ documentId, storagePath: newPath, db });
+    return { ok: false, error: "Failed to store the edited document." };
+  }
 
-    // Per-document sequential number for the new assistant_edit
-    // version. The counter spans upload + user_upload + assistant_edit
-    // so the original upload is V1 and the first assistant edit is V2.
+  // Per-document sequential number for the new assistant_edit version. The
+  // counter spans upload + user_upload + assistant_edit so the original
+  // upload is V1 and the first assistant edit is V2. A concurrent writer may
+  // win the unique (document_id, version_number) slot between the max query
+  // and insert, so retry only that expected uniqueness race with a new number.
+  const { data: prevRow } = await db
+    .from("document_versions")
+    .select("filename, created_at")
+    .eq("document_id", documentId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const inheritedFilename =
+    (prevRow?.filename as string | null)?.trim() || "Untitled document";
+  versionFilename = inheritedFilename;
+
+  for (let attempt = 0; attempt < 5 && !versionRowId; attempt++) {
     const { data: maxRow } = await db
       .from("document_versions")
       .select("version_number")
       .eq("document_id", documentId)
-      .in("source", ["upload", "user_upload", "assistant_edit"])
+      .in("source", [
+        "upload",
+        "user_upload",
+        "assistant_edit",
+        "user_accept",
+        "user_reject",
+      ])
       .order("version_number", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle();
     nextVersionNumber = ((maxRow?.version_number as number | null) ?? 1) + 1;
-
-    // Inherit the filename from the most recent prior version so
-    // user-applied renames carry forward through further edits. Malformed
-    // legacy rows without a filename get a neutral placeholder, not the
-    // parent document filename. We intentionally do NOT append "[Edited Vn]"
-    // — the version number is surfaced separately as a tag in the UI.
-    const { data: prevRow } = await db
-      .from("document_versions")
-      .select("filename, created_at")
-      .eq("document_id", documentId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const inheritedFilename =
-      (prevRow?.filename as string | null)?.trim() || "Untitled document";
-    versionFilename = inheritedFilename;
 
     const { data: versionRow, error: verErr } = await db
       .from("document_versions")
@@ -1262,13 +1374,38 @@ export async function runEditDocument(params: {
         size_bytes: editedBytes.byteLength,
         page_count: null,
         content_sha256: contentSha256(editedBytes),
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
       })
       .select("id")
       .single();
-    if (verErr || !versionRow) {
+    if (!verErr && versionRow) {
+      versionRowId = versionRow.id as string;
+      break;
+    }
+    if ((verErr as { code?: string } | null)?.code !== "23505") {
+      await cleanupEditedVersionCandidate({ documentId, storagePath: newPath, db });
       return { ok: false, error: "Failed to record document version." };
     }
-    versionRowId = versionRow.id as string;
+  }
+
+  if (!versionRowId) {
+    await cleanupEditedVersionCandidate({ documentId, storagePath: newPath, db });
+    return { ok: false, error: "Failed to record document version." };
+  }
+
+  const { error: trustErr } = await db
+    .from("document_versions")
+    .update({ processing_state: "ready" })
+    .eq("id", versionRowId)
+    .eq("document_id", documentId);
+  if (trustErr) {
+    await cleanupEditedVersionCandidate({
+      documentId,
+      versionId: versionRowId,
+      storagePath: newPath,
+      db,
+    });
+    return { ok: false, error: "Failed to finalize document version." };
   }
 
   // Insert one row per change
@@ -1292,15 +1429,37 @@ export async function runEditDocument(params: {
     );
 
   if (editsErr || !insertedEdits) {
+    await cleanupEditedVersionCandidate({
+      documentId,
+      versionId: versionRowId,
+      storagePath: newPath,
+      db,
+    });
     return { ok: false, error: "Failed to record edits." };
   }
 
-  await db
-    .from("documents")
-    .update({
-      current_version_id: versionRowId,
-    })
-    .eq("id", documentId);
+  try {
+    await promoteDocumentVersion({
+      db,
+      documentId,
+      candidateVersionId: versionRowId,
+      expectedCurrentVersionId,
+    });
+  } catch (error) {
+    await cleanupEditedVersionCandidate({
+      documentId,
+      versionId: versionRowId,
+      storagePath: newPath,
+      db,
+    });
+    return {
+      ok: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Document changed while the edit was being finalized.",
+    };
+  }
 
   const annotations: EditAnnotation[] = insertedEdits.map(
     (r: {
@@ -1381,16 +1540,10 @@ export async function getTurnReadIdentity(params: {
         storagePath: active.storage_path,
       };
     }
+    return null;
   }
 
-  return {
-    key: `${documentId ?? docLabel}:${docInfo.storage_path}`,
-    docLabel,
-    filename: docInfo.filename,
-    documentId,
-    versionId: docIndex?.[docLabel]?.version_id ?? null,
-    storagePath: docInfo.storage_path,
-  };
+  return null;
 }
 
 export function duplicateReadDocumentResult(identity: {
@@ -1465,40 +1618,28 @@ export async function readDocumentContent(
   try {
     // Prefer the current tracked-changes version (if any) so read_document
     // reflects accepted/pending edits rather than the original upload.
-    let raw: ArrayBuffer | null = null;
-    let sourcePath = docInfo.storage_path;
-    if (documentId && db) {
-      const current = await loadCurrentVersionBytes(documentId, db);
-      if (current) {
-        raw = current.bytes.buffer.slice(
-          current.bytes.byteOffset,
-          current.bytes.byteOffset + current.bytes.byteLength,
-        ) as ArrayBuffer;
-        sourcePath = current.storage_path;
-        devLog(
-          `[read_document] using current version path="${sourcePath}" (bytes=${raw.byteLength})`,
-        );
-      } else {
-        devLog(
-          `[read_document] loadCurrentVersionBytes returned null for documentId="${documentId}", falling back to original storage_path`,
-        );
-      }
+    if (!documentId || !db) {
+      emitDocRead();
+      return "Document is not available for trusted processing.";
     }
-    if (!raw) {
-      raw = await downloadFile(docInfo.storage_path);
-      if (raw) {
-        devLog(
-          `[read_document] fallback download from storage_path="${docInfo.storage_path}" (bytes=${raw.byteLength})`,
-        );
-      }
-    }
-    if (!raw) {
+    const current = await loadCurrentVersionBytes(documentId, db);
+    if (!current) {
       devLog(
-        `[read_document] FAILED to download any bytes for docLabel="${docLabel}" (tried path="${sourcePath}")`,
+        `[read_document] blocked because documentId="${documentId}" has no trusted active version`,
+      );
+      devLog(
+        `[read_document] no fallback to the stale docStore storage_path is permitted`,
       );
       emitDocRead();
-      return "Document could not be read.";
+      return "Document is not available for trusted processing.";
     }
+    const raw = current.bytes.buffer.slice(
+      current.bytes.byteOffset,
+      current.bytes.byteOffset + current.bytes.byteLength,
+    ) as ArrayBuffer;
+    devLog(
+      `[read_document] using current version path="${current.storage_path}" (bytes=${raw.byteLength})`,
+    );
     // Log the first 8 bytes so we can identify real file format regardless
     // of the declared file_type. Valid .docx starts with "PK\x03\x04"
     // (zip). Legacy .doc starts with "\xD0\xCF\x11\xE0" (OLE/CFB).
@@ -1581,7 +1722,7 @@ export async function readDocumentContent(
       );
     }
     devLog(
-      `[read_document] DONE filename="${docInfo.filename}" finalTextLength=${text.length} firstChars=${JSON.stringify(text.slice(0, 120))}`,
+      `[read_document] DONE filename="${docInfo.filename}" finalTextLength=${text.length}`,
     );
     emitDocRead();
     return text;

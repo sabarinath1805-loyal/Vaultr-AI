@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { MAX_SPREADSHEET_CELLS, enforceTextLimit } from "./documentLimits";
 
 /**
  * Spreadsheet parsing for the LLM read path.
@@ -32,6 +33,10 @@ function renderSheet(sheetName: string, ws: XLSX.WorkSheet): string | null {
   const ref = ws["!ref"];
   if (!ref) return null;
   const range = XLSX.utils.decode_range(ref);
+  const cellCount = (range.e.r - range.s.r + 1) * (range.e.c - range.s.c + 1);
+  if (cellCount > MAX_SPREADSHEET_CELLS) {
+    throw new Error(`Spreadsheet sheet ${sheetName} exceeds the cell limit`);
+  }
 
   // Map each merged range's top-left (anchor) address to its encoded range so we
   // can tag the anchor inline (e.g. `Amount ⟨merged B2:C2⟩`). The covered cells
@@ -105,5 +110,5 @@ export function spreadsheetToLLMText(buffer: Buffer): string {
     const rendered = renderSheet(sheetName, ws);
     if (rendered) sheets.push(rendered);
   }
-  return sheets.join("\n\n").trim();
+  return enforceTextLimit(sheets.join("\n\n").trim(), "Spreadsheet text");
 }

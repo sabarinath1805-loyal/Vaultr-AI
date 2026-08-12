@@ -1,0 +1,9 @@
+{
+  "repository": "https://github.com/Open-Legal-Products/mike-workflows.git",
+  "path": "../mike-workflows",
+  "ref": "4b9c7cd0d93b6254780abcc2cc382be6b56cd945",
+  "collections": [
+    "assistant-workflows",
+    "tabular-review-workflows"
+  ]
+}

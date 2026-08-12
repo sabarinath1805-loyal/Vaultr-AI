@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { signDownload, verifyDownload, buildDownloadUrl } from "../downloadTokens";
 
 const SECRET = "test-secret-32-bytes-long-enough!!";
@@ -87,6 +87,16 @@ describe("verifyDownload", () => {
         const result = verifyDownload(token);
         process.env.DOWNLOAD_SIGNING_SECRET = SECRET;
         expect(result).toBeNull();
+    });
+
+    it("returns null after the token expiry", () => {
+        vi.useFakeTimers();
+        const issuedAt = new Date("2026-08-10T00:00:00.000Z");
+        vi.setSystemTime(issuedAt);
+        const token = signDownload("documents/user/file.pdf", "file.pdf");
+        vi.setSystemTime(new Date(issuedAt.getTime() + 7 * 24 * 60 * 60 * 1000 + 1));
+        expect(verifyDownload(token)).toBeNull();
+        vi.useRealTimers();
     });
 });
 

@@ -3,6 +3,7 @@ import { requireAuth } from "../middleware/auth";
 import { createServerSupabase } from "../lib/supabase";
 import { downloadFile } from "../lib/storage";
 import { attachActiveVersionPaths } from "../lib/documentVersions";
+import { isDocumentVersionTrusted } from "../lib/documentVersionSecurity";
 import { docxToPdf, normalizeDocxZipPaths } from "../lib/convert";
 import {
     isPresentationDocumentType,
@@ -42,11 +43,23 @@ import {
 import { parsePaginationQuery } from "../lib/pagination";
 import { normalizeSearchTerm } from "../lib/search";
 import { parseTabularReviewSort } from "../lib/sort";
+import { MAX_PDF_PAGES, enforceTextLimit } from "../lib/documentLimits";
 import {
     buildTabularReviewIdsOverviewRpcArgs,
     buildTabularReviewsOverviewRpcArgs,
     parseTabularReviewScope,
 } from "../lib/tabularReviewsOverview";
+import {
+    classifyCurrentTabularSourceVersions,
+    loadTabularCellProvenance,
+    sourceDocumentVersionIdsForPersistence,
+    type TabularProvenanceState,
+} from "../lib/tabularProvenance";
+import {
+    derivedTabularChatProvenance,
+    loadTrustedTabularChatHistory,
+    plainTabularChatProvenance,
+} from "../lib/tabularChatHistory";
 
 function formatPromptSuffix(format?: string, tags?: string[]): string {
     switch (format) {
@@ -95,6 +108,8 @@ type SourceDocument = {
     project_id?: string | null;
     folder_id?: string | null;
     library_folder_id?: string | null;
+    storage_path?: string | null;
+    active_version_processing_state?: string | null;
 };
 type SupabaseDb = ReturnType<typeof createServerSupabase>;
 
@@ -434,36 +449,46 @@ async function loadReviewRows(
 async function loadRowDocumentText(
     db: SupabaseDb,
     row: ReviewRow,
-): Promise<string> {
+): Promise<{ markdown: string; sourceDocumentVersionIds: string[] }> {
     const sourceIds =
         row.source_document_ids ?? (row.document_id ? [row.document_id] : []);
     const docs = await fetchSourceDocuments(db, sourceIds);
+    const docsById = new Map(docs.map((doc) => [doc.id, doc]));
     const sections: string[] = [];
-    for (const doc of docs) {
-        const storagePath = (doc as SourceDocument & { storage_path?: string })
-            .storage_path;
-        let markdown = "";
-        if (storagePath) {
-            const buf = await downloadFile(storagePath);
-            if (buf) {
-                try {
-                    markdown = await extractDocumentMarkdown(
-                        buf,
-                        doc.file_type,
-                    );
-                } catch (error) {
-                    console.error(
-                        `[tabular] extraction error doc=${doc.id}`,
-                        safeErrorLog(error),
-                    );
-                }
-            }
+    const sourceDocumentVersionIds: string[] = [];
+    for (const sourceId of sourceIds) {
+        const doc = docsById.get(sourceId);
+        const storagePath = doc?.storage_path ?? null;
+        const versionId = doc?.current_version_id ?? null;
+        if (
+            !doc ||
+            !storagePath ||
+            !versionId ||
+            !isDocumentVersionTrusted(doc.active_version_processing_state)
+        ) {
+            throw new Error("A Tabular Review source document version is not trusted.");
         }
+        const buf = await downloadFile(storagePath);
+        if (!buf) throw new Error("A Tabular Review source document is unavailable.");
+        let markdown = "";
+        try {
+            markdown = await extractDocumentMarkdown(buf, doc.file_type);
+        } catch (error) {
+            console.error(
+                `[tabular] extraction error doc=${doc.id}`,
+                safeErrorLog(error),
+            );
+            throw new Error("A Tabular Review source document could not be extracted.");
+        }
+        sourceDocumentVersionIds.push(versionId);
         sections.push(
             `## Source document: ${doc.filename}\nSource document ID: ${doc.id}\n\n${markdown}`,
         );
     }
-    return sections.join("\n\n---\n\n");
+    return {
+        markdown: sections.join("\n\n---\n\n"),
+        sourceDocumentVersionIds,
+    };
 }
 
 function providerLabel(provider: Provider): string {
@@ -740,6 +765,11 @@ tabularRouter.get("/:reviewId", requireAuth, async (req, res) => {
     if (cellsError)
         return void res.status(500).json({ detail: cellsError.message });
     const rows = await loadReviewRows(db, reviewId);
+    const cellProvenance = await loadTabularCellProvenance(
+        db,
+        rows,
+        (cells ?? []) as { id: string; row_id: string; source_document_version_ids?: unknown }[],
+    );
     const rowDocIds = rows.flatMap((row) => row.source_document_ids ?? []);
     const docIds = Array.isArray(review.document_ids)
         ? (review.document_ids as string[])
@@ -758,7 +788,17 @@ tabularRouter.get("/:reviewId", requireAuth, async (req, res) => {
         review: { ...review, is_owner: access.isOwner },
         cells: (cells ?? []).map((cell) => ({
             ...cell,
-            content: parseCellContent(cell.content),
+            content:
+                cellProvenance.get(cell.id)?.state === "trusted"
+                    ? parseCellContent(cell.content)
+                    : null,
+            status:
+                cellProvenance.get(cell.id)?.state === "trusted" ||
+                cell.status !== "done"
+                    ? cell.status
+                    : "stale",
+            provenance_status:
+                cellProvenance.get(cell.id)?.state ?? "unverified",
         })),
         rows,
         documents: docs,
@@ -1022,10 +1062,21 @@ tabularRouter.post("/:reviewId/clear-cells", requireAuth, async (req, res) => {
     const access = await ensureReviewAccess(review, userId, userEmail, db);
     if (!access.ok)
         return void res.status(404).json({ detail: "Review not found" });
+    if (!access.isOwner)
+        return void res.status(403).json({ detail: "Only the review owner can clear cells" });
+
+    const rows = await loadReviewRows(db, reviewId);
+    const rowIds = new Set(rows.map((row) => row.id));
+    if (row_ids.some((rowId) => !rowIds.has(rowId)))
+        return void res.status(404).json({ detail: "Review row not found" });
 
     const { error } = await db
         .from("tabular_cells")
-        .update({ content: null, status: "pending" })
+        .update({
+            content: null,
+            status: "pending",
+            source_document_version_ids: null,
+        })
         .eq("review_id", reviewId)
         .in("row_id", row_ids);
     if (error) return void res.status(500).json({ detail: error.message });
@@ -1061,6 +1112,8 @@ tabularRouter.post(
         const access = await ensureReviewAccess(review, userId, userEmail, db);
         if (!access.ok)
             return void res.status(404).json({ detail: "Review not found" });
+        if (!access.isOwner)
+            return void res.status(403).json({ detail: "Only the review owner can regenerate cells" });
 
         const column = (
             review.columns_config as {
@@ -1106,12 +1159,17 @@ tabularRouter.post(
 
         await db
             .from("tabular_cells")
-            .update({ status: "generating", content: null })
+            .update({
+                status: "generating",
+                content: null,
+                source_document_version_ids: null,
+            })
             .eq("review_id", reviewId)
             .eq("row_id", row.id)
             .eq("column_index", column_index);
 
-        const markdown = await loadRowDocumentText(db, row);
+        const { markdown, sourceDocumentVersionIds } =
+            await loadRowDocumentText(db, row);
 
         const result = await queryTabularCell(
             tabular_model,
@@ -1133,9 +1191,37 @@ tabularRouter.post(
             return void res.status(500).json({ detail: "Generation failed" });
         }
 
+        const sourceState = await classifyCurrentTabularSourceVersions(
+            db,
+            row.source_document_ids ?? (row.document_id ? [row.document_id] : []),
+            sourceDocumentVersionIds,
+        );
+        if (sourceState !== "trusted") {
+            await db
+                .from("tabular_cells")
+                .update({
+                    status: "stale",
+                    content: null,
+                    source_document_version_ids: sourceDocumentVersionIds,
+                })
+                .eq("review_id", reviewId)
+                .eq("row_id", row.id)
+                .eq("column_index", column_index);
+            return void res.status(409).json({
+                detail: "The source document changed or is no longer trusted. Regenerate the cell.",
+            });
+        }
+
         await db
             .from("tabular_cells")
-            .update({ content: JSON.stringify(result), status: "done" })
+            .update({
+                content: JSON.stringify(result),
+                status: "done",
+                source_document_version_ids:
+                    sourceDocumentVersionIdsForPersistence(
+                        sourceDocumentVersionIds,
+                    ),
+            })
             .eq("review_id", reviewId)
             .eq("row_id", row.id)
             .eq("column_index", column_index);
@@ -1161,6 +1247,8 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
     const access = await ensureReviewAccess(review, userId, userEmail, db);
     if (!access.ok)
         return void res.status(404).json({ detail: "Review not found" });
+    if (!access.isOwner)
+        return void res.status(403).json({ detail: "Only the review owner can generate cells" });
 
     const columns: {
         index: number;
@@ -1183,6 +1271,11 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
     const cellMap = new Map<string, Record<string, unknown>>();
     for (const cell of cells ?? [])
         cellMap.set(`${cell.row_id}:${cell.column_index}`, cell);
+    const cellProvenance = await loadTabularCellProvenance(
+        db,
+        rows,
+        (cells ?? []) as { id: string; row_id: string; source_document_version_ids?: unknown }[],
+    );
 
     const sourceIds = [
         ...new Set(rows.flatMap((row) => row.source_document_ids ?? [])),
@@ -1214,15 +1307,20 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
     try {
         await Promise.all(
             rows.map(async (row) => {
-                const markdown = await loadRowDocumentText(
-                    db,
-                    row,
-                );
+                const {
+                    markdown,
+                    sourceDocumentVersionIds,
+                } = await loadRowDocumentText(db, row);
 
                 // Filter to only columns that need processing
                 const columnsToProcess = columns.filter((col) => {
                     const cell = cellMap.get(`${row.id}:${col.index}`);
-                    return !(cell?.status === "done" && cell?.content);
+                    return !(
+                        cell?.status === "done" &&
+                        cell?.content &&
+                        typeof cell.id === "string" &&
+                        cellProvenance.get(cell.id)?.state === "trusted"
+                    );
                 });
                 if (columnsToProcess.length === 0) return;
 
@@ -1235,7 +1333,11 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
                     if (existingCell) {
                         await db
                             .from("tabular_cells")
-                            .update({ status: "generating", content: null })
+                            .update({
+                                status: "generating",
+                                content: null,
+                                source_document_version_ids: null,
+                            })
                             .eq("id", existingCell.id);
                     } else {
                         await db.from("tabular_cells").insert({
@@ -1244,8 +1346,32 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
                             document_id: row.document_id,
                             column_index: col.index,
                             status: "generating",
+                            source_document_version_ids: null,
                         });
                     }
+                }
+
+                const sourceState = await classifyCurrentTabularSourceVersions(
+                    db,
+                    row.source_document_ids ??
+                        (row.document_id ? [row.document_id] : []),
+                    sourceDocumentVersionIds,
+                );
+                if (sourceState !== "trusted") {
+                    await db
+                        .from("tabular_cells")
+                        .update({
+                            status: "stale",
+                            content: null,
+                            source_document_version_ids:
+                                sourceDocumentVersionIds,
+                        })
+                        .eq("review_id", reviewId)
+                        .eq("row_id", row.id);
+                    write(
+                        `data: ${JSON.stringify({ type: "cell_update", row_id: row.id, status: "stale", content: null })}\n\n`,
+                    );
+                    return;
                 }
 
                 // Single LLM call for all columns, streaming one JSON line per column
@@ -1263,6 +1389,10 @@ tabularRouter.post("/:reviewId/generate", requireAuth, async (req, res) => {
                                 .update({
                                     content: JSON.stringify(result),
                                     status: "done",
+                                    source_document_version_ids:
+                                        sourceDocumentVersionIdsForPersistence(
+                                            sourceDocumentVersionIds,
+                                        ),
                                 })
                                 .eq("review_id", reviewId)
                                 .eq("row_id", row.id)
@@ -1348,14 +1478,26 @@ tabularRouter.delete(
     requireAuth,
     async (req, res) => {
         const userId = res.locals.userId as string;
+        const userEmail = res.locals.userEmail as string | undefined;
         const { chatId } = req.params;
         const db = createServerSupabase();
+        const { data: review } = await db
+            .from("tabular_reviews")
+            .select("id, user_id, project_id")
+            .eq("id", req.params.reviewId)
+            .single();
+        if (!review)
+            return void res.status(404).json({ detail: "Review not found" });
+        const access = await ensureReviewAccess(review, userId, userEmail, db);
+        if (!access.ok)
+            return void res.status(404).json({ detail: "Review not found" });
         // Owner-only delete — sibling collaborators shouldn't be able to wipe
         // each other's threads.
         const { error } = await db
             .from("tabular_review_chats")
             .delete()
             .eq("id", chatId)
+            .eq("review_id", req.params.reviewId)
             .eq("user_id", userId);
         if (error) return void res.status(500).json({ detail: error.message });
         res.status(204).send();
@@ -1368,17 +1510,29 @@ tabularRouter.patch(
     requireAuth,
     async (req, res) => {
         const userId = res.locals.userId as string;
+        const userEmail = res.locals.userEmail as string | undefined;
         const { chatId } = req.params;
         const title =
             typeof req.body?.title === "string" ? req.body.title.trim() : "";
         if (!title)
             return void res.status(400).json({ detail: "Title is required" });
         const db = createServerSupabase();
+        const { data: review } = await db
+            .from("tabular_reviews")
+            .select("id, user_id, project_id")
+            .eq("id", req.params.reviewId)
+            .single();
+        if (!review)
+            return void res.status(404).json({ detail: "Review not found" });
+        const access = await ensureReviewAccess(review, userId, userEmail, db);
+        if (!access.ok)
+            return void res.status(404).json({ detail: "Review not found" });
         // Owner-only rename — mirrors the delete rule above.
         const { error } = await db
             .from("tabular_review_chats")
             .update({ title: title.slice(0, 200) })
             .eq("id", chatId)
+            .eq("review_id", req.params.reviewId)
             .eq("user_id", userId);
         if (error) return void res.status(500).json({ detail: error.message });
         res.status(204).send();
@@ -1416,7 +1570,7 @@ tabularRouter.get(
 
         const { data: messages } = await db
             .from("tabular_review_chat_messages")
-            .select("id, role, content, annotations, created_at")
+            .select("id, role, content, annotations, provenance, created_at")
             .eq("chat_id", chatId)
             .order("created_at", { ascending: true });
 
@@ -1514,7 +1668,11 @@ Rules:
 
     const formatted: unknown[] = [{ role: "system", content: systemContent }];
     for (const msg of messages) {
-        formatted.push({ role: msg.role, content: msg.content ?? "" });
+        if (msg.role !== "user" && msg.role !== "assistant") continue;
+        formatted.push({
+            role: msg.role,
+            content: typeof msg.content === "string" ? msg.content : "",
+        });
     }
     return formatted;
 }
@@ -1529,21 +1687,28 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
     const userEmail = res.locals.userEmail as string | undefined;
     const { reviewId } = req.params;
     const {
-        messages,
+        messages: rawMessages,
         chat_id: existingChatId,
         review_title: clientReviewTitle,
         project_name: clientProjectName,
     } = req.body as {
-        messages: ChatMessage[];
+        messages?: unknown;
         chat_id?: string;
         review_title?: string;
         project_name?: string;
     };
 
-    const lastUser = [...(messages ?? [])]
+    const messages = (Array.isArray(rawMessages) ? rawMessages : []) as ChatMessage[];
+    const lastUser = [...messages]
         .reverse()
-        .find((m) => m.role === "user");
-    if (!lastUser?.content?.trim()) {
+        .find(
+            (m) =>
+                !!m &&
+                m.role === "user" &&
+                typeof m.content === "string" &&
+                m.content.trim().length > 0,
+        );
+    if (!lastUser || typeof lastUser.content !== "string") {
         return void res
             .status(400)
             .json({ detail: "messages must include a user message" });
@@ -1572,6 +1737,11 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
         .select("*")
         .eq("review_id", reviewId);
     const rows = await loadReviewRows(db, reviewId);
+    const cellProvenance = await loadTabularCellProvenance(
+        db,
+        rows,
+        (cells ?? []) as { id: string; row_id: string; source_document_version_ids?: unknown }[],
+    );
 
     const sortedColumns = (
         (review.columns_config ?? []) as { index: number; name: string }[]
@@ -1582,12 +1752,27 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
         documents: rows.map((row) => ({
             id: row.id,
             filename: row.label,
+            sourceDocumentIds:
+                row.source_document_ids ?? (row.document_id ? [row.document_id] : []),
         })),
         cells: new Map(
-            (cells ?? []).map((c: any) => [
-                `${c.column_index}:${c.row_id}`,
-                parseCellContent(c.content),
-            ]),
+            (cells ?? []).map((c: any) => {
+                const provenance = cellProvenance.get(c.id);
+                const content =
+                    provenance?.state === "trusted"
+                        ? parseCellContent(c.content)
+                        : null;
+                return [
+                    `${c.column_index}:${c.row_id}`,
+                    content
+                        ? {
+                              ...content,
+                              sourceDocumentVersionIds:
+                                  provenance?.sourceDocumentVersionIds ?? [],
+                          }
+                        : null,
+                ];
+            }),
         ),
     };
 
@@ -1603,8 +1788,6 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
     // Create or verify chat record
     let chatId = existingChatId ?? null;
     let chatTitle: string | null = null;
-    const isFirstExchange =
-        messages.filter((m) => m.role === "user").length === 1;
 
     if (chatId) {
         // The chat must belong to this exact review and to the requester.
@@ -1633,6 +1816,47 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
         chatTitle = newChat?.title ?? null;
     }
 
+    // The caller's `messages` array is a display convenience, not an
+    // authority over history. Rebuild prior turns from this authorized chat
+    // record and validate every server-persisted derived assistant turn
+    // against the review's current source versions. A caller who replays old
+    // assistant text, changes its role, or invents provenance never gets that
+    // text into model context.
+    let persistedHistory: ChatMessage[] = [];
+    if (chatId) {
+        const { data: storedMessages, error: storedMessagesError } = await db
+            .from("tabular_review_chat_messages")
+            .select("role, content, provenance")
+            .eq("chat_id", chatId)
+            .order("created_at", { ascending: true });
+        if (storedMessagesError) {
+            return void res
+                .status(500)
+                .json({ detail: "Failed to load Tabular chat history." });
+        }
+        try {
+            persistedHistory = await loadTrustedTabularChatHistory(
+                db,
+                (storedMessages ?? []) as {
+                    role: unknown;
+                    content: unknown;
+                    provenance?: unknown;
+                }[],
+                tabularStore.documents.flatMap((document) =>
+                    document.sourceDocumentIds,
+                ),
+            );
+        } catch {
+            // A provenance lookup failure must never fall back to raw history.
+            return void res
+                .status(500)
+                .json({ detail: "Failed to validate Tabular chat history." });
+        }
+    }
+    const isFirstExchange =
+        persistedHistory.filter((message) => message.role === "user").length ===
+        0;
+
     // Persist user message
     if (chatId) {
         await db.from("tabular_review_chat_messages").insert({
@@ -1643,7 +1867,7 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
     }
 
     const apiMessages = buildTabularMessages(
-        messages,
+        [...persistedHistory, { role: "user", content: lastUser.content }],
         tabularStore,
         review.title || "Untitled Review",
     );
@@ -1665,7 +1889,12 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
     }
 
     try {
-        const { fullText, events } = await runLLMStream({
+        const {
+            fullText,
+            events,
+            tabularContentRead = false,
+            tabularSourceDocumentVersionIds = [],
+        } = await runLLMStream({
             apiMessages,
             docStore: new Map(),
             docIndex: {},
@@ -1691,6 +1920,11 @@ tabularRouter.post("/:reviewId/chat", requireAuth, async (req, res) => {
                 role: "assistant",
                 content: persistedEvents.length ? persistedEvents : null,
                 annotations: annotations.length ? annotations : null,
+                provenance: tabularContentRead
+                    ? derivedTabularChatProvenance(
+                          tabularSourceDocumentVersionIds,
+                      )
+                    : plainTabularChatProvenance(),
             });
             await db
                 .from("tabular_review_chats")
@@ -2085,6 +2319,9 @@ async function extractPdfMarkdown(buf: ArrayBuffer): Promise<string> {
                 };
             }
         ).getDocument({ data: new Uint8Array(buf) }).promise;
+        if (pdf.numPages > MAX_PDF_PAGES) {
+            throw new Error("PDF exceeds the page limit");
+        }
         const pages: string[] = [];
         for (let i = 1; i <= pdf.numPages; i++) {
             const page = await pdf.getPage(i);
@@ -2096,7 +2333,7 @@ async function extractPdfMarkdown(buf: ArrayBuffer): Promise<string> {
                 .trim();
             if (text) pages.push(`## Page ${i}\n\n${text}`);
         }
-        return pages.join("\n\n");
+        return enforceTextLimit(pages.join("\n\n"), "PDF text");
     } catch {
         return "";
     }
@@ -2109,7 +2346,7 @@ async function extractDocxMarkdown(buf: ArrayBuffer): Promise<string> {
         const { value: html } = await mammoth.convertToHtml({
             buffer: normalized,
         });
-        return html
+        return enforceTextLimit(html
             .replace(
                 /<h([1-6])[^>]*>(.*?)<\/h\1>/gi,
                 (_, l, t) => "#".repeat(Number(l)) + " " + t + "\n\n",
@@ -2123,7 +2360,7 @@ async function extractDocxMarkdown(buf: ArrayBuffer): Promise<string> {
             .replace(/&lt;/g, "<")
             .replace(/&gt;/g, ">")
             .replace(/\n{3,}/g, "\n\n")
-            .trim();
+            .trim(), "Word document text");
     } catch {
         return "";
     }

@@ -6,6 +6,7 @@ import {
   attachActiveVersionPaths,
   attachLatestVersionNumbers,
   contentSha256,
+  loadActiveVersion,
 } from "../lib/documentVersions";
 import { safeErrorLog } from "../lib/safeError";
 import {
@@ -21,6 +22,18 @@ import {
 import { docxToPdf, convertedPdfKey } from "../lib/convert";
 import { checkProjectAccess } from "../lib/access";
 import { singleFileUpload } from "../lib/upload";
+import { validateUploadedFile } from "../lib/fileValidation";
+import { recordAuditEvent } from "../lib/auditEvents";
+import {
+  isDocumentProcessable,
+  scanDocumentBuffer,
+  scanResultProcessingState,
+} from "../lib/documentScanning";
+import {
+  scanVersionContent,
+  UNTRUSTED_DOCUMENT_VERSION_STATE,
+} from "../lib/documentVersionSecurity";
+import { promoteDocumentVersion } from "../lib/documentPromotion";
 import { deleteUserProjects } from "../lib/userDataCleanup";
 import {
   ALLOWED_DOCUMENT_TYPES,
@@ -34,6 +47,29 @@ import {
 } from "../lib/userLookup";
 
 export const projectsRouter = Router();
+
+async function recordVersionScanFailure(
+  db: ReturnType<typeof createServerSupabase>,
+  userId: string,
+  documentId: string,
+  scan: Awaited<ReturnType<typeof scanVersionContent>>,
+) {
+  await recordAuditEvent(db, {
+    userId,
+    action:
+      scan.scan.status === "quarantined"
+        ? "document.quarantine"
+        : "document.scan.failure",
+    resourceType: "document_version",
+    resourceId: documentId,
+    success: false,
+    metadata: {
+      scan_status: scan.scan.status,
+      provider: scan.scan.provider,
+      processing_state: scan.processingState,
+    },
+  });
+}
 
 function normalizeOptionalString(value: unknown) {
   if (typeof value !== "string") return null;
@@ -303,12 +339,8 @@ projectsRouter.get("/:projectId", requireAuth, async (req, res) => {
   if (error || !project)
     return void res.status(404).json({ detail: "Project not found" });
 
-  const canAccess =
-    project.user_id === userId ||
-    (userEmail &&
-      Array.isArray(project.shared_with) &&
-      project.shared_with.includes(userEmail));
-  if (!canAccess)
+  const access = await checkProjectAccess(projectId, userId, userEmail, db);
+  if (!access.ok)
     return void res.status(404).json({ detail: "Project not found" });
 
   const [{ data: docs }, { data: folderData }] = await Promise.all([
@@ -325,7 +357,7 @@ projectsRouter.get("/:projectId", requireAuth, async (req, res) => {
   await attachDocumentOwnerLabels(db, docsTyped);
   res.json({
     ...project,
-    is_owner: project.user_id === userId,
+    is_owner: access.isOwner,
     documents: docsTyped,
     folders: folderData ?? [],
   });
@@ -442,6 +474,16 @@ projectsRouter.patch("/:projectId", requireAuth, async (req, res) => {
   }[];
   await attachActiveVersionPaths(db, docsTyped);
   await attachDocumentOwnerLabels(db, docsTyped);
+  if (Array.isArray(updates.shared_with)) {
+    await recordAuditEvent(db, {
+      userId,
+      action: "project.share",
+      resourceType: "project",
+      resourceId: projectId,
+      success: true,
+      metadata: { recipient_count: (updates.shared_with as string[]).length },
+    });
+  }
   res.json({ ...data, documents: docsTyped, folders: folderData ?? [] });
 });
 
@@ -504,7 +546,6 @@ projectsRouter.get(
     const access = await checkProjectAccess(projectId, userId, userEmail, db);
     if (!access.ok)
       return void res.status(404).json({ detail: "Project not found" });
-
     try {
       const data = await buildProjectExportManifest(db, projectId);
       res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -512,6 +553,13 @@ projectsRouter.get(
         "Content-Disposition",
         `attachment; filename="${projectManifestFilename(projectId)}"`,
       );
+      await recordAuditEvent(db, {
+        userId,
+        action: "project.export",
+        resourceType: "project",
+        resourceId: projectId,
+        success: true,
+      });
       res.json(data);
     } catch (err) {
       console.error("[projects/export] failed", {
@@ -542,6 +590,9 @@ projectsRouter.post(
     // Adding-by-id pulls a doc into the project — only the doc's owner
     // is allowed to do that, so other people's standalone docs can't be
     // siphoned into a project the requester happens to share.
+    if (!access.isOwner)
+      return void res.status(403).json({ detail: "Only the project owner can add documents" });
+
     const { data: doc } = await db
       .from("documents")
       .select("*")
@@ -582,19 +633,7 @@ projectsRouter.post(
       // underlying storage objects so each project's copy is fully
       // independent (edits/version bumps on one don't leak into the
       // other).
-      if (!doc.current_version_id) {
-        return void res
-          .status(404)
-          .json({ detail: "Source document has no active version" });
-      }
-
-      const { data: srcV } = await db
-        .from("document_versions")
-        .select(
-          "storage_path, pdf_storage_path, version_number, filename, source, file_type, size_bytes, page_count",
-        )
-        .eq("id", doc.current_version_id)
-        .single();
+      const srcV = await loadActiveVersion(documentId, db);
       if (!srcV?.storage_path) {
         return void res
           .status(404)
@@ -610,12 +649,29 @@ projectsRouter.post(
           .json({ detail: "Failed to read source document bytes" });
       }
 
+      const scan = await scanVersionContent(
+        Buffer.from(srcBytes),
+        srcV.filename ?? "Untitled document",
+      );
+      if (!scan.trusted) {
+        await recordVersionScanFailure(db, userId, documentId, scan);
+        return void res
+          .status(scan.scan.status === "quarantined" ? 422 : 503)
+          .json({
+            detail:
+              scan.scan.detail ??
+              "Document version could not pass the required security scan.",
+          });
+      }
+
       const { data: copy, error } = await db
         .from("documents")
         .insert({
           project_id: projectId,
           user_id: userId,
-          status: doc.status,
+          status: "pending",
+          processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
+          scan_status: "pending",
         })
         .select("*")
         .single();
@@ -657,16 +713,17 @@ projectsRouter.post(
             document_id: copy.id,
             storage_path: newKey,
             pdf_storage_path: newPdfPath,
-            source: (srcV.source as string | null) ?? "upload",
-            version_number: srcV.version_number ?? 1,
-            filename: activeVersionFilename,
-            file_type: (srcV.file_type as string | null) ?? doc.file_type,
-            size_bytes:
-              (srcV.size_bytes as number | null) ?? doc.size_bytes ?? null,
-            page_count:
-              (srcV.page_count as number | null) ?? doc.page_count ?? null,
-            content_sha256: contentSha256(srcBytes),
-          })
+              source: srcV.source ?? "upload",
+              version_number: srcV.version_number ?? 1,
+              filename: activeVersionFilename,
+              file_type: srcV.file_type ?? doc.file_type,
+              size_bytes:
+                srcV.size_bytes ?? doc.size_bytes ?? null,
+              page_count:
+                srcV.page_count ?? doc.page_count ?? null,
+              content_sha256: contentSha256(srcBytes),
+              processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
+            })
           .select("id")
           .single();
         const copyVersionRowId = (newV?.id as string | null) ?? null;
@@ -676,13 +733,34 @@ projectsRouter.post(
           );
         }
 
+        const { error: trustErr } = await db
+          .from("document_versions")
+          .update({ processing_state: "ready" })
+          .eq("id", copyVersionRowId)
+          .eq("document_id", copy.id);
+        if (trustErr) {
+          throw new Error(
+            `Failed to finalize copied document version: ${trustErr.message}`,
+          );
+        }
+
+        await promoteDocumentVersion({
+          db,
+          documentId: copy.id,
+          candidateVersionId: copyVersionRowId,
+          expectedCurrentVersionId: null,
+          patch: {
+            status: "ready",
+            processing_state: "ready",
+            scan_status: "clean",
+            last_processing_error: null,
+            updated_at: new Date().toISOString(),
+          },
+        });
         const { data: updatedCopy, error: updateCopyError } = await db
           .from("documents")
-          .update({
-            current_version_id: copyVersionRowId,
-          })
-          .eq("id", copy.id)
           .select("*")
+          .eq("id", copy.id)
           .single();
         if (updateCopyError || !updatedCopy) {
           throw new Error(
@@ -720,6 +798,8 @@ projectsRouter.patch("/:projectId/documents/:documentId", requireAuth, async (re
   const access = await checkProjectAccess(projectId, userId, userEmail, db);
   if (!access.ok)
     return void res.status(404).json({ detail: "Project not found" });
+  if (!access.isOwner)
+    return void res.status(403).json({ detail: "Only the project owner can rename documents" });
 
   const { data: doc } = await db
     .from("documents")
@@ -785,6 +865,8 @@ projectsRouter.post(
     const access = await checkProjectAccess(projectId, userId, userEmail, db);
     if (!access.ok)
       return void res.status(404).json({ detail: "Project not found" });
+    if (!access.isOwner)
+      return void res.status(403).json({ detail: "Only the project owner can upload documents" });
 
     await handleDocumentUpload(req, res, userId, projectId, db);
   },
@@ -829,6 +911,8 @@ projectsRouter.post("/:projectId/folders", requireAuth, async (req, res) => {
   const db = createServerSupabase();
   const access = await checkProjectAccess(projectId, userId, userEmail, db);
   if (!access.ok) return void res.status(404).json({ detail: "Project not found" });
+  if (!access.isOwner)
+    return void res.status(403).json({ detail: "Only the project owner can create folders" });
 
   // Verify parent folder belongs to this project
   if (parent_folder_id) {
@@ -856,6 +940,8 @@ projectsRouter.patch("/:projectId/folders/:folderId", requireAuth, async (req, r
   const db = createServerSupabase();
   const access = await checkProjectAccess(projectId, userId, userEmail, db);
   if (!access.ok) return void res.status(404).json({ detail: "Project not found" });
+  if (!access.isOwner)
+    return void res.status(403).json({ detail: "Only the project owner can edit folders" });
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (body.name != null) updates.name = body.name.trim();
@@ -941,7 +1027,14 @@ projectsRouter.delete("/:projectId/folders/:folderId", requireAuth, async (req, 
   const { error } = await db.from("project_subfolders")
     .delete().eq("id", folderId).eq("project_id", projectId);
   if (error) return void res.status(500).json({ detail: error.message });
-  res.status(204).send();
+     await recordAuditEvent(db, {
+       userId,
+       action: "project.delete",
+       resourceType: "project",
+       resourceId: projectId,
+       success: true,
+     });
+     res.status(204).send();
 });
 
 // PATCH /projects/:projectId/documents/:documentId/folder — move doc to a folder
@@ -954,6 +1047,8 @@ projectsRouter.patch("/:projectId/documents/:documentId/folder", requireAuth, as
   const db = createServerSupabase();
   const access = await checkProjectAccess(projectId, userId, userEmail, db);
   if (!access.ok) return void res.status(404).json({ detail: "Project not found" });
+  if (!access.isOwner)
+    return void res.status(403).json({ detail: "Only the project owner can move documents" });
 
   if (folder_id) {
     const folder = await loadProjectFolder(db, projectId, folder_id);
@@ -1003,6 +1098,14 @@ export async function handleDocumentUpload(
         detail: `Unsupported file type: ${suffix}. Allowed: ${ALLOWED_DOCUMENT_TYPES_LABEL}`,
       });
 
+  try {
+    await validateUploadedFile(file.buffer, suffix, file.mimetype);
+  } catch (error) {
+    return void res.status(400).json({
+      detail: error instanceof Error ? error.message : "Invalid document contents",
+    });
+  }
+
   const content = file.buffer;
   const { data: doc, error: insertErr } = await db
     .from("documents")
@@ -1010,6 +1113,8 @@ export async function handleDocumentUpload(
       project_id: projectId,
       user_id: userId,
       status: "processing",
+      processing_state: "pending_scan",
+      scan_status: "pending",
     })
     .select("*")
     .single();
@@ -1019,9 +1124,44 @@ export async function handleDocumentUpload(
       .status(500)
       .json({ detail: "Failed to create document record" });
 
+  let createdStorageKey: string | null = null;
+  let createdPdfKey: string | null = null;
   try {
     const docId = doc.id as string;
+    const scan = await scanDocumentBuffer(content, filename);
+    const processingState = scanResultProcessingState(scan);
+    if (!isDocumentProcessable(scan.status, processingState)) {
+      await db.from("documents").update({
+        status: scan.status === "quarantined" ? "error" : "pending",
+        processing_state: processingState,
+        scan_status: scan.status,
+        scan_provider: scan.provider,
+        scan_completed_at: new Date().toISOString(),
+        last_processing_error: scan.detail ?? null,
+        updated_at: new Date().toISOString(),
+      }).eq("id", docId);
+      await recordAuditEvent(db, {
+        userId,
+        action: "document.quarantine",
+        resourceType: "document",
+        resourceId: docId,
+        success: false,
+        metadata: { scan_status: scan.status, provider: scan.provider },
+      });
+      return void res.status(scan.status === "quarantined" ? 422 : 503).json({
+        detail: scan.detail ?? "Document could not pass the required security scan.",
+      });
+    }
+    await db.from("documents").update({
+      processing_state: "processing",
+      scan_status: scan.status,
+      scan_provider: scan.provider,
+      scan_completed_at: new Date().toISOString(),
+      processing_attempts: ((doc.processing_attempts as number | null) ?? 0) + 1,
+      updated_at: new Date().toISOString(),
+    }).eq("id", docId);
     const key = storageKey(userId, docId, filename);
+    createdStorageKey = key;
     const contentType = contentTypeForDocumentType(suffix);
     await uploadFile(
       key,
@@ -1044,6 +1184,7 @@ export async function handleDocumentUpload(
       try {
         const pdfBuf = await docxToPdf(content);
         const pdfKey = convertedPdfKey(userId, docId);
+        createdPdfKey = pdfKey;
         await uploadFile(
           pdfKey,
           pdfBuf.buffer.slice(
@@ -1078,6 +1219,7 @@ export async function handleDocumentUpload(
         size_bytes: content.byteLength,
         page_count: pageCount,
         content_sha256: contentSha256(content),
+        processing_state: UNTRUSTED_DOCUMENT_VERSION_STATE,
       })
       .select("id")
       .single();
@@ -1087,14 +1229,27 @@ export async function handleDocumentUpload(
       );
     }
 
-    await db
-      .from("documents")
-      .update({
-        current_version_id: versionRow.id,
+    const { error: trustErr } = await db
+      .from("document_versions")
+      .update({ processing_state: "ready" })
+      .eq("id", versionRow.id)
+      .eq("document_id", docId);
+    if (trustErr) {
+      throw new Error(`Failed to finalize upload version: ${trustErr.message}`);
+    }
+
+    await promoteDocumentVersion({
+      db,
+      documentId: docId,
+      candidateVersionId: versionRow.id,
+      expectedCurrentVersionId: null,
+      patch: {
         status: "ready",
+        processing_state: "ready",
+        last_processing_error: null,
         updated_at: new Date().toISOString(),
-      })
-      .eq("id", docId);
+      },
+    });
 
     const { data: updated } = await db
       .from("documents")
@@ -1115,7 +1270,18 @@ export async function handleDocumentUpload(
       : updated;
     return void res.status(201).json(responseDoc);
   } catch (e) {
-    await db.from("documents").update({ status: "error" }).eq("id", doc.id);
+    await Promise.all(
+      [createdStorageKey, createdPdfKey]
+        .filter((path): path is string => !!path)
+        .map((path) => deleteFile(path).catch(() => {})),
+    );
+    await db.from("documents").update({
+      status: "error",
+      processing_state: "failed",
+      last_processing_error:
+        e instanceof Error ? e.message.slice(0, 500) : String(e).slice(0, 500),
+      updated_at: new Date().toISOString(),
+    }).eq("id", doc.id);
     return void res
       .status(500)
       .json({ detail: `Document processing failed: ${String(e)}` });

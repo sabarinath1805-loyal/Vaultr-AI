@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { createServerSupabase } from "./supabase";
+import { isDocumentVersionTrusted } from "./documentVersionSecurity";
 
 type Supa = ReturnType<typeof createServerSupabase>;
 
@@ -40,6 +41,8 @@ interface VersionPathRow extends DocRow {
     file_type?: string | null;
     size_bytes?: number | null;
     page_count?: number | null;
+    /** Set from document_versions.processing_state of the active version. */
+    active_version_processing_state?: string | null;
 }
 
 export interface ActiveVersion {
@@ -52,6 +55,7 @@ export interface ActiveVersion {
     file_type: string | null;
     size_bytes: number | null;
     page_count: number | null;
+    processing_state: string | null;
 }
 
 /**
@@ -81,12 +85,19 @@ export async function loadActiveVersion(
     const { data: v } = await db
         .from("document_versions")
         .select(
-            "id, document_id, storage_path, pdf_storage_path, version_number, filename, source, file_type, size_bytes, page_count",
+            "id, document_id, storage_path, pdf_storage_path, version_number, filename, source, file_type, size_bytes, page_count, processing_state",
         )
         .eq("id", targetVersionId)
         .is("deleted_at", null)
         .single();
-    if (!v || v.document_id !== documentId || !v.storage_path) return null;
+    if (
+        !v ||
+        v.document_id !== documentId ||
+        !v.storage_path ||
+        !isDocumentVersionTrusted(v.processing_state)
+    ) {
+        return null;
+    }
     return {
         id: v.id as string,
         storage_path: v.storage_path as string,
@@ -97,6 +108,7 @@ export async function loadActiveVersion(
         file_type: (v.file_type as string | null) ?? null,
         size_bytes: (v.size_bytes as number | null) ?? null,
         page_count: (v.page_count as number | null) ?? null,
+        processing_state: v.processing_state as string,
     };
 }
 
@@ -122,13 +134,14 @@ export async function attachActiveVersionPaths<T extends VersionPathRow>(
             d.file_type = null;
             d.size_bytes = null;
             d.page_count = null;
+            d.active_version_processing_state = null;
         }
         return docs;
     }
     const { data: rows } = await db
         .from("document_versions")
         .select(
-            "id, storage_path, pdf_storage_path, version_number, filename, file_type, size_bytes, page_count",
+            "id, storage_path, pdf_storage_path, version_number, filename, file_type, size_bytes, page_count, processing_state",
         )
         .in("id", versionIds)
         .is("deleted_at", null);
@@ -142,6 +155,7 @@ export async function attachActiveVersionPaths<T extends VersionPathRow>(
             file_type: string | null;
             size_bytes: number | null;
             page_count: number | null;
+            processing_state: string | null;
         }
     >();
     for (const r of (rows ?? []) as {
@@ -153,6 +167,7 @@ export async function attachActiveVersionPaths<T extends VersionPathRow>(
         file_type: string | null;
         size_bytes: number | null;
         page_count: number | null;
+        processing_state: string | null;
     }[]) {
         byId.set(r.id, {
             storage_path: r.storage_path ?? null,
@@ -162,6 +177,7 @@ export async function attachActiveVersionPaths<T extends VersionPathRow>(
             file_type: r.file_type ?? null,
             size_bytes: r.size_bytes ?? null,
             page_count: r.page_count ?? null,
+            processing_state: r.processing_state ?? null,
         });
     }
     for (const d of docs) {
@@ -169,10 +185,15 @@ export async function attachActiveVersionPaths<T extends VersionPathRow>(
         d.storage_path = v?.storage_path ?? null;
         d.pdf_storage_path = v?.pdf_storage_path ?? null;
         d.active_version_number = v?.version_number ?? null;
+        d.active_version_processing_state = v?.processing_state ?? null;
         d.filename = v?.filename?.trim() || "Untitled document";
         d.file_type = v?.file_type ?? null;
         d.size_bytes = v?.size_bytes ?? null;
         d.page_count = v?.page_count ?? null;
+        if (!isDocumentVersionTrusted(v?.processing_state)) {
+            d.storage_path = null;
+            d.pdf_storage_path = null;
+        }
     }
     return docs;
 }

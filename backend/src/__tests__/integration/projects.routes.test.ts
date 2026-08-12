@@ -306,6 +306,7 @@ describe("projects.routes", () => {
         });
 
         it("returns 404 when the caller is neither owner nor shared", async () => {
+            checkProjectAccess.mockResolvedValue({ ok: false });
             supabaseState.tables.projects = {
                 data: {
                     id: "p1",
@@ -322,6 +323,15 @@ describe("projects.routes", () => {
         });
 
         it("grants access to a shared member (is_owner false)", async () => {
+            checkProjectAccess.mockResolvedValue({
+                ok: true,
+                isOwner: false,
+                project: {
+                    id: "p1",
+                    user_id: "someone-else",
+                    shared_with: ["u1@test.local"],
+                },
+            });
             supabaseState.tables.projects = {
                 data: {
                     id: "p1",

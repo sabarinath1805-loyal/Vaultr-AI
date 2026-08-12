@@ -1,0 +1,15 @@
+# Optional production boundary for the document converter. The API should
+# invoke this image through the deployment's worker command, with no mounted
+# application directory and a read-only root filesystem. The source-level
+# convert.ts boundary remains usable for local development and tests.
+FROM libreoffice:24.2.7
+
+RUN useradd --create-home --uid 10001 --shell /usr/sbin/nologin converter \
+  && mkdir -p /work/in /work/out \
+  && chown -R converter:converter /work
+
+USER converter
+WORKDIR /work
+ENV HOME=/work/home
+
+ENTRYPOINT ["soffice", "--headless", "--norestore", "--nodefault", "--nofirststartwizard"]

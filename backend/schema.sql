@@ -6,6 +6,25 @@
 create extension if not exists "pgcrypto";
 create extension if not exists "pg_trgm";
 
+-- Canonical bootstrap ledger. The snapshot below already contains every
+-- migration listed in backend/schema-baseline.json through its baseline
+-- marker. Only migrations newer than that marker may be applied after this
+-- file; the historical chain is not a second fresh-database bootstrap path.
+create table if not exists public.mike_schema_migrations (
+  version text primary key,
+  applied_at timestamptz not null default now(),
+  source text not null check (source in ('canonical_snapshot', 'incremental_migration')),
+  checksum text
+);
+
+insert into public.mike_schema_migrations (version, source, checksum)
+values (
+  '20260811_03_tabular_chat_provenance',
+  'canonical_snapshot',
+  '03879276f696da60f55e34dbc0aa97e35ebf8a4ec7792d1f69ed88367867c579'
+)
+on conflict (version) do nothing;
+
 -- ---------------------------------------------------------------------------
 -- User profiles
 -- ---------------------------------------------------------------------------
@@ -61,6 +80,24 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+create table if not exists public.contact_messages (
+  id uuid primary key default gen_random_uuid(),
+  name text,
+  email text not null,
+  subject text,
+  message text not null,
+  source text not null default 'landing',
+  user_agent text,
+  ip_hash text,
+  created_at timestamptz not null default now(),
+  responded_at timestamptz
+);
+
+create index if not exists idx_contact_messages_created_at
+  on public.contact_messages(created_at desc);
+
+alter table public.contact_messages enable row level security;
 
 create table if not exists public.user_api_keys (
   id uuid primary key default gen_random_uuid(),
@@ -144,6 +181,26 @@ create index if not exists idx_user_mcp_oauth_states_expires
   on public.user_mcp_oauth_states(expires_at);
 
 alter table public.user_mcp_oauth_states enable row level security;
+
+-- One-time OAuth state consumption. The DELETE ... RETURNING operation is
+-- atomic, so concurrent callbacks cannot both obtain the verifier.
+create or replace function public.claim_mcp_oauth_state(p_state_hash text)
+returns setof public.user_mcp_oauth_states
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query
+    delete from public.user_mcp_oauth_states
+    where state_hash = p_state_hash
+      and expires_at > now()
+    returning *;
+end;
+$$;
+
+revoke all on function public.claim_mcp_oauth_state(text) from public, anon, authenticated;
+grant execute on function public.claim_mcp_oauth_state(text) to service_role;
 
 create table if not exists public.user_mcp_connector_tools (
   id uuid primary key default gen_random_uuid(),
@@ -246,13 +303,23 @@ create table if not exists public.documents (
   project_id uuid references public.projects(id) on delete cascade,
   user_id text not null,
   status text not null default 'pending',
+  processing_state text not null default 'ready',
+  scan_status text not null default 'clean',
+  scan_provider text,
+  scan_completed_at timestamptz,
+  processing_attempts integer not null default 0,
+  last_processing_error text,
   folder_id uuid references public.project_subfolders(id) on delete set null,
   library_kind text not null default 'file',
   library_folder_id uuid references public.library_folders(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint documents_library_kind_check
-    check (library_kind in ('file', 'template'))
+    check (library_kind in ('file', 'template')),
+  constraint documents_processing_state_check
+    check (processing_state in ('uploaded', 'pending_scan', 'clean', 'quarantined', 'processing', 'ready', 'failed')),
+  constraint documents_scan_status_check
+    check (scan_status in ('pending', 'clean', 'quarantined', 'unavailable', 'error', 'bypassed'))
 );
 
 create index if not exists idx_documents_user_project
@@ -277,6 +344,7 @@ create table if not exists public.document_versions (
   size_bytes integer,
   page_count integer,
   content_sha256 text,
+  processing_state text not null default 'pending_scan',
   deleted_at timestamptz,
   deleted_by uuid,
   created_at timestamptz not null default now(),
@@ -288,8 +356,13 @@ create table if not exists public.document_versions (
       'user_accept'::text,
       'user_reject'::text,
       'generated'::text
-    ]))
+    ])),
+  constraint document_versions_processing_state_check
+    check (processing_state in ('uploaded', 'pending_scan', 'clean', 'quarantined', 'processing', 'ready', 'failed'))
 );
+
+create index if not exists documents_processing_state_idx
+  on public.documents(processing_state, updated_at);
 
 create index if not exists document_versions_document_id_idx
   on public.document_versions(document_id, created_at desc);
@@ -398,6 +471,56 @@ create index if not exists workflow_shares_workflow_id_idx
 
 create index if not exists workflow_shares_email_idx
   on public.workflow_shares(shared_with_email);
+
+create table if not exists public.workflow_open_source_submissions (
+  id uuid primary key default gen_random_uuid(),
+  workflow_id uuid not null references public.workflows(id) on delete cascade,
+  submitted_by_user_id text not null,
+  submitter_email text,
+  submitter_name text,
+  contributor_mode text not null default 'anonymous',
+  status text not null default 'pending',
+  snapshot jsonb not null,
+  submitted_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  review_notes text,
+  constraint workflow_open_source_submissions_status_check
+    check (status in ('pending', 'approved', 'rejected')),
+  constraint workflow_open_source_submissions_contributor_mode_check
+    check (contributor_mode in ('named', 'anonymous'))
+);
+
+create unique index if not exists idx_workflow_open_source_submissions_pending
+  on public.workflow_open_source_submissions(workflow_id, submitted_by_user_id)
+  where status = 'pending';
+
+create index if not exists idx_workflow_open_source_submissions_reviewer_queue
+  on public.workflow_open_source_submissions(status, submitted_at desc);
+
+create index if not exists idx_workflow_open_source_submissions_submitter
+  on public.workflow_open_source_submissions(submitted_by_user_id, submitted_at desc);
+
+alter table public.workflow_open_source_submissions enable row level security;
+
+create table if not exists public.audit_events (
+  id uuid primary key default gen_random_uuid(),
+  user_id text,
+  action text not null,
+  resource_type text not null,
+  resource_id text,
+  success boolean not null,
+  request_id text,
+  metadata jsonb not null default '{}'::jsonb,
+  occurred_at timestamptz not null default now()
+);
+
+create index if not exists audit_events_user_occurred_idx
+  on public.audit_events(user_id, occurred_at desc);
+create index if not exists audit_events_action_occurred_idx
+  on public.audit_events(action, occurred_at desc);
+
+alter table public.audit_events enable row level security;
 
 create or replace function public.get_workflows_overview(
   p_user_id text,
@@ -721,6 +844,7 @@ create table if not exists public.tabular_cells (
   review_id uuid not null references public.tabular_reviews(id) on delete cascade,
   row_id uuid not null references public.tabular_review_rows(id) on delete cascade,
   document_id uuid references public.documents(id) on delete cascade,
+  source_document_version_ids uuid[],
   column_index integer not null,
   content text,
   citations jsonb,
@@ -733,6 +857,9 @@ create index if not exists idx_tabular_cells_review
 
 create index if not exists idx_tabular_cells_review_row
   on public.tabular_cells(review_id, row_id, column_index);
+
+create index if not exists idx_tabular_cells_source_versions
+  on public.tabular_cells using gin (source_document_version_ids);
 
 create or replace function public.get_tabular_reviews_overview(
   p_user_id text,
@@ -1036,6 +1163,7 @@ create table if not exists public.tabular_review_chat_messages (
   role text not null,
   content jsonb,
   annotations jsonb,
+  provenance jsonb,
   created_at timestamptz not null default now()
 );
 
@@ -1090,7 +1218,51 @@ alter table public.courtlistener_opinion_cluster_index enable row level security
 -- backend verifies the user's JWT. Do not grant the browser anon/authenticated
 -- roles direct table privileges for backend-owned data.
 
+-- Defense in depth: every backend-owned public table is RLS-enabled even
+-- though direct anon/authenticated table grants are revoked. The API uses the
+-- service role only after route-level authorization.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'audit_events',
+    'chat_messages',
+    'chats',
+    'contact_messages',
+    'courtlistener_citation_index',
+    'courtlistener_opinion_cluster_index',
+    'document_edits',
+    'document_versions',
+    'documents',
+    'hidden_workflows',
+    'library_folders',
+    'project_subfolders',
+    'projects',
+    'tabular_cells',
+    'tabular_review_chat_messages',
+    'tabular_review_chats',
+    'tabular_review_row_sources',
+    'tabular_review_rows',
+    'tabular_reviews',
+    'user_api_keys',
+    'user_mcp_connector_tools',
+    'user_mcp_connectors',
+    'user_mcp_oauth_states',
+    'user_mcp_oauth_tokens',
+    'user_mcp_tool_audit_logs',
+    'user_profiles',
+    'workflow_open_source_submissions',
+    'workflow_shares',
+    'workflows'
+  ] loop
+    execute format('alter table public.%I enable row level security', table_name);
+  end loop;
+end;
+$$;
+
 revoke all on public.user_profiles from anon, authenticated;
+revoke all on public.contact_messages from anon, authenticated;
 revoke all on public.projects from anon, authenticated;
 revoke all on public.project_subfolders from anon, authenticated;
 revoke all on public.library_folders from anon, authenticated;
@@ -1100,6 +1272,8 @@ revoke all on public.document_edits from anon, authenticated;
 revoke all on public.workflows from anon, authenticated;
 revoke all on public.hidden_workflows from anon, authenticated;
 revoke all on public.workflow_shares from anon, authenticated;
+revoke all on public.workflow_open_source_submissions from anon, authenticated;
+revoke all on public.audit_events from anon, authenticated;
 revoke all on public.chats from anon, authenticated;
 revoke all on public.chat_messages from anon, authenticated;
 revoke all on public.tabular_reviews from anon, authenticated;
