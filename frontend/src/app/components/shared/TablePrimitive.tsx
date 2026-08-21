@@ -235,6 +235,7 @@ export function TableRow({
     className,
     interactive = true,
     selected = false,
+    onClick,
     onContextMenu,
     rightClickDropdown,
     ...props
@@ -292,6 +293,9 @@ export function TableRow({
     return (
         <>
             <div
+                {...props}
+                role="row"
+                tabIndex={interactive ? 0 : undefined}
                 className={cn(
                     "group flex h-10 min-w-max items-center pr-3 transition-colors",
                     interactive && "cursor-pointer",
@@ -299,8 +303,30 @@ export function TableRow({
                     selected && APP_SURFACE_ACTIVE_CLASS,
                     className,
                 )}
+                onClick={(event) => {
+                    if (
+                        event.target !== event.currentTarget &&
+                        event.target instanceof Element &&
+                        event.target.closest(
+                            "button, input, select, textarea, a, [role=button]",
+                        )
+                    )
+                        return;
+                    onClick?.(event);
+                }}
                 onContextMenu={handleContextMenu}
-                {...props}
+                onKeyDown={(event) => {
+                    props.onKeyDown?.(event);
+                    if (
+                        event.defaultPrevented ||
+                        event.currentTarget !== event.target
+                    )
+                        return;
+                    if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        event.currentTarget.click();
+                    }
+                }}
             >
                 {children}
             </div>

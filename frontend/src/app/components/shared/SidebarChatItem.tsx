@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MoreHorizontal, Pencil, Trash2, Check, X } from "lucide-react";
+import {
+    MoreHorizontal,
+    Pencil,
+    Trash2,
+    Check,
+    X,
+} from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -14,7 +20,6 @@ import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { OwnerOnlyPopup } from "@/app/components/popups/OwnerOnlyPopup";
 import type { Chat } from "@/app/components/shared/types";
-import { ChatSkeuoIcon } from "@/app/components/shared/AppSidebarSkeuoIcons";
 import { cn } from "@/app/lib/utils";
 import {
     APP_SURFACE_ACTIVE_CLASS,
@@ -57,11 +62,12 @@ export function SidebarChatItem({ chat, isActive, onSelect, projectName }: Props
     return (
         <div
             className={cn(
-                "group relative flex h-8 w-full items-center rounded-md transition-colors",
+                "vaultr-history-item group relative flex h-9 w-full items-center rounded-lg transition-colors",
                 isActive
                     ? `${APP_SURFACE_ACTIVE_CLASS} pr-1`
                     : `pr-3 ${APP_SURFACE_HOVER_CLASS} hover:pr-1`,
             )}
+            data-active={isActive}
         >
             {isRenaming ? (
                 <div className="flex items-center w-full px-2 py-1">
@@ -91,35 +97,32 @@ export function SidebarChatItem({ chat, isActive, onSelect, projectName }: Props
                 </div>
             ) : (
                 <>
-                    <ChatSkeuoIcon className="ml-2.5 h-3.5 w-3.5 shrink-0" />
                     <button
                         onClick={onSelect}
-                        onMouseEnter={(e) => {
-                            const el = e.currentTarget;
-                            const overflow = el.scrollWidth - el.clientWidth;
-                            if (overflow > 0) el.scrollTo({ left: overflow, behavior: "smooth" });
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.scrollTo({ left: 0, behavior: "smooth" });
-                        }}
                         className={cn(
-                            "min-w-0 flex-1 overflow-x-hidden whitespace-nowrap scrollbar-none py-1 pl-2 text-left text-xs",
+                            "vaultr-history-title min-w-0 flex-1 overflow-hidden whitespace-nowrap py-1 pl-2.5 text-left text-xs",
                             isActive
                                 ? "pr-3 text-gray-900"
                                 : "pr-0 text-gray-700 group-hover:pr-3",
                         )}
                         title={projectName ? `${projectName}: ${chat.title ?? "Untitled chat"}` : (chat.title ?? "Untitled chat")}
                     >
-                        {projectName && (
-                            <span className="text-gray-400 font-normal">{projectName}: </span>
-                        )}
-                        {chat.title ?? "Untitled chat"}
+                        <span className="vaultr-history-title-text">
+                            {projectName && (
+                                <span className="text-gray-400 font-normal">
+                                    {projectName}: {" "}
+                                </span>
+                            )}
+                            {chat.title ?? "Untitled chat"}
+                        </span>
                     </button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button
-                                className={`flex h-6 w-0 shrink-0 items-center justify-center overflow-hidden rounded-md bg-transparent text-gray-500 opacity-0 transition-opacity hover:text-gray-900 ${
+                                type="button"
+                                aria-label="Chat actions"
+                                className={`vaultr-history-actions flex h-6 w-0 shrink-0 items-center justify-center overflow-hidden rounded-md bg-transparent text-gray-500 opacity-0 transition-opacity hover:text-gray-900 ${
                                     isActive
                                         ? "w-6 opacity-100"
                                         : "pointer-events-none group-hover:w-6 group-hover:pointer-events-auto group-hover:opacity-100"
@@ -167,3 +170,5 @@ export function SidebarChatItem({ chat, isActive, onSelect, projectName }: Props
         </div>
     );
 }
+
+

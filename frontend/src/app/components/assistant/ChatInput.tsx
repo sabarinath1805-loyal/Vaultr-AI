@@ -9,15 +9,17 @@ import {
     useImperativeHandle,
 } from "react";
 import {
-    ArrowRight,
+    ArrowUp,
+    AudioLines,
     Check,
     Library,
     Loader2,
+    Paperclip,
+    Plus,
     Square,
     Waypoints,
     X,
 } from "lucide-react";
-import { AddDocButton } from "./AddDocButton";
 import { UploadOverlay } from "./UploadOverlay";
 import { FileTypeIcon } from "../shared/FileTypeIcon";
 import { AddDocumentsModal } from "../modals/AddDocumentsModal";
@@ -33,7 +35,7 @@ import {
     workflowSlashCommand,
 } from "./workflowSlashCommands";
 import { ApiKeyMissingPopup } from "../popups/ApiKeyMissingPopup";
-import { ModelToggle } from "./ModelToggle";
+import { ModelToggle, type ModelToggleHandle } from "./ModelToggle";
 import { useSelectedModel } from "@/app/hooks/useSelectedModel";
 import { useUserProfile } from "@/app/contexts/UserProfileContext";
 import {
@@ -45,6 +47,14 @@ import type { Document, Message, Workflow } from "../shared/types";
 import type { DirectoryTab } from "../shared/useDirectoryData";
 import { cn } from "@/app/lib/utils";
 import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
+import {
+    LiquidDropdownContent,
+    LiquidDropdownItem,
+} from "@/app/components/ui/liquid-dropdown";
+import {
     listWorkflows,
     uploadProjectDocument,
     uploadStandaloneDocument,
@@ -55,6 +65,8 @@ import {
 } from "@/app/lib/documentUploadValidation";
 
 export interface ChatInputHandle {
+    focus: () => void;
+    openModelSelector: () => void;
     addDoc: (doc: Document) => void;
     startWorkflowDocumentSelection: (
         workflow: { id: string; title: string },
@@ -73,6 +85,8 @@ interface Props {
     projectCmNumber?: string | null;
     projectId?: string;
     onDocumentsUploaded?: (documents: Document[]) => void;
+    placeholder?: string;
+    voiceWhenEmpty?: boolean;
 }
 
 export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
@@ -86,6 +100,8 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
         projectCmNumber,
         projectId,
         onDocumentsUploaded,
+        placeholder = "How can I help you today?",
+        voiceWhenEmpty = true,
     }: Props,
     ref,
 ) {
@@ -99,8 +115,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
     const { profile } = useUserProfile();
     const apiKeys = profile?.apiKeys;
     const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const controlsRef = useRef<HTMLDivElement>(null);
-    const [compactControls, setCompactControls] = useState(false);
+    const modelToggleRef = useRef<ModelToggleHandle | null>(null);
     const [docSelectorOpen, setDocSelectorOpen] = useState(false);
     const [docSelectorInitialTab, setDocSelectorInitialTab] =
         useState<DirectoryTab>("files");
@@ -129,12 +144,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
         !selectedWorkflow &&
         slashQuery !== null &&
         matchingWorkflows.length > 0;
+    const canSubmit = !!value.trim() && !slashCommandsLoading;
     const resolvedSlashIndex = Math.min(
         activeSlashIndex,
         Math.max(0, matchingWorkflows.length - 1),
     );
 
     useImperativeHandle(ref, () => ({
+        focus: () => textareaRef.current?.focus(),
+        openModelSelector: () => modelToggleRef.current?.open(),
         addDoc: (doc: Document) => {
             setAttachedDocs((prev) => {
                 if (prev.some((d) => d.id === doc.id)) return prev;
@@ -155,16 +173,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
             setDocSelectorOpen(true);
         },
     }));
-
-    useEffect(() => {
-        const el = controlsRef.current;
-        if (!el) return;
-        const update = () => setCompactControls(el.offsetWidth < 430);
-        update();
-        const observer = new ResizeObserver(update);
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, []);
 
     useEffect(() => {
         if (!slashCommandsLoading) return;
@@ -403,7 +411,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
 
     return (
         <>
-            <div className="relative w-full">
+            <div className="vaultr-composer relative w-full">
                 {slashMenuOpen && (
                     <WorkflowSlashMenu
                         workflows={matchingWorkflows}
@@ -411,12 +419,22 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                         onSelect={selectSlashWorkflow}
                     />
                 )}
-                <div className="rounded-[18px] border border-white/65 bg-white/60 shadow-[0_4px_10px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.85),inset_0_-6px_14px_rgba(255,255,255,0.18)] backdrop-blur-2xl md:rounded-[22px]">
+                <div
+                    className="vaultr-composer-surface"
+                    data-dragging={isDraggingFiles}
+                    data-has-content={
+                        canSubmit || attachedDocs.length > 0 || selectedWorkflow
+                            ? "true"
+                            : "false"
+                    }
+                    data-loading={isLoading}
+                    aria-busy={isLoading}
+                >
                     {/* Attached chips */}
                     {(selectedWorkflow || attachedDocs.length > 0) && (
-                        <div className="flex flex-wrap gap-1.5 px-2 pt-2">
+                        <div className="vaultr-composer-attachments flex flex-wrap gap-1.5">
                             {selectedWorkflow && (
-                                <div className="inline-flex items-center gap-1 pl-2.5 pr-1 py-0.5 rounded-full text-xs bg-blue-600 text-white border border-white/20 shadow backdrop-blur-sm">
+                                <div className="vaultr-composer-chip vaultr-composer-chip-workflow inline-flex items-center gap-1">
                                     <Library className="h-2.5 w-2.5 shrink-0" />
                                     <span className="max-w-[140px] truncate">
                                         {selectedWorkflow.title}
@@ -427,6 +445,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                             setSelectedWorkflow(null)
                                         }
                                         className="rounded-full p-0.5 ml-0.5 text-white/60 hover:text-white hover:bg-white/20 transition-colors"
+                                        aria-label={`Remove ${selectedWorkflow.title}`}
                                     >
                                         <X className="h-2.5 w-2.5" />
                                     </button>
@@ -436,7 +455,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                 return (
                                     <div
                                         key={doc.id}
-                                        className="inline-flex items-center gap-1 rounded-[10px] border border-white/70 bg-white py-0.5 pl-2 pr-1 text-xs text-gray-800 shadow-[0_2px_6px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-xl"
+                                        className="vaultr-composer-chip inline-flex items-center gap-1"
                                     >
                                         <FileTypeIcon
                                             fileType={doc.file_type}
@@ -455,6 +474,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                                 )
                                             }
                                             className="ml-0.5 rounded-full p-0.5 text-gray-400 transition-colors hover:bg-gray-900/5 hover:text-gray-700"
+                                            aria-label={`Remove ${doc.filename}`}
                                         >
                                             <X className="h-2.5 w-2.5" />
                                         </button>
@@ -465,11 +485,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                     )}
 
                     {uploadingFilenames.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 px-2 pt-2">
+                        <div className="vaultr-composer-attachments flex flex-wrap items-center gap-1.5">
                             {uploadingFilenames.map((filename, index) => (
                                 <div
                                     key={`${filename}-${index}`}
-                                    className="inline-flex items-center gap-1 rounded-[10px] bg-white/75 px-2 py-1 text-xs text-gray-600 shadow-[0_2px_6px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+                                    className="vaultr-composer-chip vaultr-composer-chip-loading inline-flex items-center gap-1"
                                 >
                                     <Loader2 className="h-2.5 w-2.5 animate-spin" />
                                     <span className="max-w-[140px] truncate">
@@ -481,14 +501,15 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                     )}
 
                     {/* Input */}
-                    <div className="px-4 pt-4">
+                    <div className="vaultr-composer-input-row">
                         <textarea
                             ref={textareaRef}
                             rows={1}
-                            placeholder="How can I help?"
+                            placeholder={placeholder}
                             value={value}
                             onChange={handleChange}
                             onKeyDown={handleKeyDown}
+                            aria-label="Message"
                             role="combobox"
                             aria-autocomplete="list"
                             aria-controls={
@@ -502,90 +523,118 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                     ? `${WORKFLOW_SLASH_MENU_ID}-${resolvedSlashIndex}`
                                     : undefined
                             }
-                            className="w-full resize-none text-sm overflow-hidden border-0 text-base p-0 bg-transparent outline-none placeholder:text-gray-400 leading-6 max-h-48"
+                            className="vaultr-composer-textarea w-full resize-none overflow-hidden border-0 p-0 bg-transparent outline-none max-h-48"
                         />
                     </div>
 
                     {/* Controls */}
-                    <div
-                        ref={controlsRef}
-                        className="flex items-center justify-between md:p-2.5 p-2"
-                    >
+                    <div className="vaultr-composer-controls flex items-center justify-between">
                         <div className="flex items-center gap-1">
-                            {!hideAddDocButton && (
-                                <AddDocButton
-                                    onBrowseAll={() => {
-                                        setDocSelectorInitialTab("files");
-                                        setDocSelectorOpen(true);
-                                    }}
-                                    selectedDocIds={attachedDocs.map(
-                                        (d) => d.id,
-                                    )}
-                                    hideLabel={compactControls}
-                                />
-                            )}
-                            {!hideWorkflowButton && (
-                                <button
-                                    type="button"
-                                    onClick={() => setWorkflowModalOpen(true)}
-                                    aria-label="Open workflows"
-                                    className={cn(
-                                        "flex items-center gap-1.5 rounded-lg px-2 h-8 text-sm transition-colors",
-                                        selectedWorkflow
-                                            ? "text-blue-600 hover:text-blue-700"
-                                            : "text-gray-400 hover:text-gray-700",
-                                    )}
-                                >
-                                    {selectedWorkflow ? (
-                                        <Check className="h-3.5 w-3.5" />
-                                    ) : (
-                                        <Waypoints className="h-3.5 w-3.5" />
-                                    )}
-                                    <span
-                                        className={
-                                            compactControls
-                                                ? "hidden"
-                                                : "hidden sm:inline"
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        aria-label="Add content"
+                                        className={cn(
+                                            "vaultr-composer-plus flex h-9 w-9 items-center justify-center rounded-lg",
+                                            (attachedDocs.length > 0 || selectedWorkflow) &&
+                                                "vaultr-composer-tool-selected",
+                                        )}
+                                        data-state={
+                                            attachedDocs.length > 0 || selectedWorkflow
+                                                ? "selected"
+                                                : "idle"
                                         }
                                     >
-                                        Workflows
-                                    </span>
-                                </button>
+                                        {attachedDocs.length > 0 ? (
+                                            <span className="text-sm font-medium tabular-nums">
+                                                {attachedDocs.length}
+                                            </span>
+                                        ) : (
+                                            <Plus className="h-5 w-5" strokeWidth={1.5} />
+                                        )}
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <LiquidDropdownContent
+                                    side="bottom"
+                                    align="start"
+                                    className="vaultr-composer-menu z-50 w-52 p-1.5"
+                                >
+                                    {!hideAddDocButton && (
+                                        <LiquidDropdownItem
+                                            className="vaultr-composer-menu-item"
+                                            onSelect={() => {
+                                                setDocSelectorInitialTab("files");
+                                                setDocSelectorOpen(true);
+                                            }}
+                                        >
+                                            <Paperclip className="h-4 w-4" strokeWidth={1.5} />
+                                            <span>Add documents</span>
+                                        </LiquidDropdownItem>
+                                    )}
+                                    {!hideWorkflowButton && (
+                                        <LiquidDropdownItem
+                                            className="vaultr-composer-menu-item"
+                                            onSelect={() => setWorkflowModalOpen(true)}
+                                        >
+                                            {selectedWorkflow ? (
+                                                <Check className="h-4 w-4" strokeWidth={1.5} />
+                                            ) : (
+                                                <Waypoints className="h-4 w-4" strokeWidth={1.5} />
+                                            )}
+                                            <span>
+                                                {selectedWorkflow
+                                                    ? selectedWorkflow.title
+                                                    : "Use a workflow"}
+                                            </span>
+                                        </LiquidDropdownItem>
+                                    )}
+                                </LiquidDropdownContent>
+                            </DropdownMenu>
+                            <div className="vaultr-composer-model flex items-center">
+                                <ModelToggle
+                                    ref={modelToggleRef}
+                                    value={model}
+                                    onChange={setModel}
+                                    apiKeys={apiKeys}
+                                />
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            aria-label={
+                                isLoading ? "Stop response" : "Send message"
+                            }
+                            className={cn(
+                                "vaultr-send-button relative h-9 w-9 flex items-center justify-center rounded-[10px]",
+                                voiceWhenEmpty && !isLoading && !canSubmit &&
+                                    "vaultr-send-button-idle",
                             )}
-                        </div>
-
-                        <div className="flex items-center gap-1">
-                            <ModelToggle
-                                value={model}
-                                onChange={setModel}
-                                apiKeys={apiKeys}
-                            />
-                            <button
-                                type="button"
-                                aria-label={
-                                    isLoading ? "Stop response" : "Send message"
-                                }
-                                className={cn(
-                                    "relative bg-gradient-to-b from-neutral-700 to-black text-white rounded-[10px] h-8 w-8 flex items-center justify-center cursor-pointer disabled:cursor-default disabled:from-neutral-600 disabled:to-black backdrop-blur-xl border border-white/30 active:enabled:scale-95 transition-all duration-150",
-                                    "shadow-[0_5px_14px_rgba(15,23,42,0.18),inset_0_1px_0_rgba(255,255,255,0.24)]",
-                                )}
-                                onClick={handleActionClick}
-                                disabled={
-                                    !isLoading &&
-                                    (!value.trim() || slashCommandsLoading)
-                                }
-                            >
-                                {isLoading ? (
-                                    <Square
-                                        className="h-4 w-4"
-                                        fill="currentColor"
-                                        strokeWidth={0}
-                                    />
-                                ) : (
-                                    <ArrowRight className="h-4 w-4" />
-                                )}
-                            </button>
-                        </div>
+                            data-state={
+                                isLoading
+                                    ? "loading"
+                                    : canSubmit
+                                      ? "ready"
+                                      : "idle"
+                            }
+                            onClick={handleActionClick}
+                            disabled={!isLoading && !canSubmit}
+                        >
+                            {isLoading ? (
+                                <Square
+                                    className="h-4 w-4"
+                                    fill="currentColor"
+                                    strokeWidth={0}
+                                />
+                            ) : canSubmit || !voiceWhenEmpty ? (
+                                <ArrowUp className="h-4 w-4" strokeWidth={2} />
+                            ) : (
+                                <AudioLines
+                                    className="h-[18px] w-[18px]"
+                                    strokeWidth={1.5}
+                                />
+                            )}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -631,3 +680,5 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
         </>
     );
 });
+
+

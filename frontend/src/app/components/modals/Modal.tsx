@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { X } from "lucide-react";
@@ -61,6 +61,8 @@ export function Modal({
     // Portals can't render during SSR, so a keep-mounted modal only renders
     // (hidden) after the first client mount.
     const [hasMounted, setHasMounted] = useState(false);
+    const dialogRef = useRef<HTMLDivElement>(null);
+    const restoreFocusRef = useRef<HTMLElement | null>(null);
     // eslint-disable-next-line react-hooks/set-state-in-effect -- SSR portal gate: must flip after first client mount
     useEffect(() => setHasMounted(true), []);
     const hasHeader = breadcrumbs?.length;
@@ -70,21 +72,59 @@ export function Modal({
         secondaryAction ||
         cancelAction;
     const resolvedCancelAction = cancelAction;
+    const dialogLabel =
+        typeof breadcrumbs?.[breadcrumbs.length - 1] === "string"
+            ? (breadcrumbs[breadcrumbs.length - 1] as string)
+            : "Dialog";
+
+    useEffect(() => {
+        if (!open) return;
+        restoreFocusRef.current =
+            document.activeElement instanceof HTMLElement
+                ? document.activeElement
+                : null;
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        const frame = window.requestAnimationFrame(() => {
+            const focusTarget =
+                dialogRef.current?.querySelector<HTMLElement>(
+                    "input, textarea, select",
+                ) ??
+                dialogRef.current?.querySelector<HTMLElement>(
+                    'button, [href], [tabindex]:not([tabindex="-1"])',
+                );
+            focusTarget?.focus();
+        });
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") onClose();
+        };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => {
+            window.cancelAnimationFrame(frame);
+            document.removeEventListener("keydown", handleKeyDown);
+            document.body.style.overflow = previousOverflow;
+            restoreFocusRef.current?.focus();
+        };
+    }, [open, onClose]);
 
     if (!open && (!keepMounted || !hasMounted)) return null;
 
     return createPortal(
         <div
             className={cn(
-                "fixed inset-0 z-[200] flex items-center justify-center px-4",
+                "vaultr-modal-backdrop fixed inset-0 z-[200] flex items-center justify-center px-4",
                 "bg-white/10 backdrop-blur-[2px]",
                 !open && "hidden",
             )}
             onClick={onClose}
         >
             <div
+                ref={dialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label={dialogLabel}
                 className={cn(
-                    "w-full rounded-3xl flex h-[600px] flex-col",
+                    "vaultr-modal-surface w-full rounded-3xl flex h-[600px] flex-col",
                     sizeClassName[size],
                     "border border-white/70 bg-gray-50/95 shadow-[0_14px_40px_rgba(15,23,42,0.101),0_5px_14px_rgba(15,23,42,0.067)] backdrop-blur-3xl",
                     className,

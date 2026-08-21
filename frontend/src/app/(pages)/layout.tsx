@@ -20,26 +20,31 @@ export default function MikeLayout({
     const [mobileActionsContainer, setMobileActionsContainer] =
         useState<HTMLDivElement | null>(null);
 
-    const [isSidebarOpenDesktop, setIsSidebarOpenDesktop] = useState(() => {
-        if (typeof window !== "undefined") {
-            const saved = localStorage.getItem("sidebarOpen");
-            return saved !== null ? saved === "true" : true;
-        }
-        return true;
-    });
-
-    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-        if (typeof window !== "undefined" && window.innerWidth < 768) {
-            return false;
-        }
-        return true;
-    });
+    const [isSidebarOpenDesktop, setIsSidebarOpenDesktop] = useState(true);
+    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+    const [sidebarPreferenceReady, setSidebarPreferenceReady] = useState(false);
 
     useEffect(() => {
-        if (typeof window !== "undefined" && window.innerWidth >= 768) {
-            localStorage.setItem("sidebarOpen", isSidebarOpen.toString());
+        const frame = window.requestAnimationFrame(() => {
+            const saved = window.localStorage.getItem("sidebarOpen");
+            const desktopOpen = saved !== null ? saved === "true" : true;
+
+            setIsSidebarOpenDesktop(desktopOpen);
+            setIsSidebarOpen(window.innerWidth < 768 ? false : desktopOpen);
+            setSidebarPreferenceReady(true);
+        });
+
+        return () => window.cancelAnimationFrame(frame);
+    }, []);
+
+    useEffect(() => {
+        if (sidebarPreferenceReady && window.innerWidth >= 768) {
+            window.localStorage.setItem(
+                "sidebarOpen",
+                isSidebarOpenDesktop.toString(),
+            );
         }
-    }, [isSidebarOpenDesktop]);
+    }, [isSidebarOpenDesktop, sidebarPreferenceReady]);
 
     useEffect(() => {
         if (typeof window === "undefined") return;
@@ -99,8 +104,8 @@ export default function MikeLayout({
                         },
                     }}
                 >
-                    <div className="h-dvh flex flex-col bg-app-background">
-                        <div className="flex-1 flex min-w-0 overflow-visible">
+                    <div className="vaultr-app-shell h-dvh flex flex-col bg-app-background">
+                        <div className="flex-1 flex min-w-0 overflow-hidden">
                             <AppSidebar
                                 isOpen={isSidebarOpen}
                                 onToggle={handleSidebarToggle}
@@ -110,7 +115,7 @@ export default function MikeLayout({
                                 <div className="relative z-20 flex md:hidden items-center gap-3 overflow-visible px-4 pt-3 pb-2 shrink-0">
                                     <button
                                         onClick={handleSidebarToggle}
-                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-app-surface text-gray-700 shadow-[0_8px_24px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-md transition-all hover:bg-app-floating active:scale-95"
+                                        className="flex h-9 w-9 items-center justify-center rounded-full bg-app-surface text-gray-700 shadow-[0_8px_24px_rgba(15,23,42,0.12)] ring-1 ring-white/70 backdrop-blur-md transition-[background-color,color,box-shadow,transform] duration-150 hover:bg-app-floating active:scale-95"
                                         title="Open sidebar"
                                         aria-label="Open sidebar"
                                     >
@@ -132,3 +137,5 @@ export default function MikeLayout({
         </ChatHistoryProvider>
     );
 }
+
+

@@ -2,7 +2,7 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { flushSync } from "react-dom";
-import { ArrowDown } from "lucide-react";
+import { ArrowDown, ChevronDown } from "lucide-react";
 import { UserMessage } from "./UserMessage";
 import { AssistantMessage } from "./AssistantMessage";
 import { ChatInput } from "./ChatInput";
@@ -20,6 +20,7 @@ import type {
     Message,
 } from "../shared/types";
 import { useSidebar } from "@/app/contexts/SidebarContext";
+import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
 import { invalidateDocxBytes } from "@/app/hooks/useFetchDocxBytes";
 
 interface Props {
@@ -37,13 +38,14 @@ interface Props {
         },
     ) => Promise<string | null>;
     cancel: () => void;
+    onRetry?: () => void;
 }
 
 const ASSISTANT_PANEL_TRANSITION_MS = 500;
 const MOBILE_BREAKPOINT_PX = 768;
-const DEFAULT_ASSISTANT_BOTTOM_PADDING = 116;
+const DEFAULT_ASSISTANT_BOTTOM_PADDING = 120;
 const SCROLL_BUTTON_INPUT_GAP = 16;
-const CHAT_INPUT_BOTTOM_OFFSET = 12;
+const CHAT_INPUT_BOTTOM_OFFSET = 16;
 
 function isSmallScreen() {
     return (
@@ -58,12 +60,14 @@ export function ChatView({
     isResponseLoading,
     handleChat,
     cancel,
+    onRetry,
 }: Props) {
     const [tabs, setTabs] = useState<AssistantSidePanelTab[]>([]);
     const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const [panelMounted, setPanelMounted] = useState(false);
     const [panelVisible, setPanelVisible] = useState(false);
     const [workflowModalOpen, setWorkflowModalOpen] = useState(false);
+    const [shareCopied, setShareCopied] = useState(false);
     const [workflowModalInitialId, setWorkflowModalInitialId] = useState<
         string | undefined
     >();
@@ -80,7 +84,20 @@ export function ChatView({
         () => new Set(),
     );
     const { setSidebarOpen } = useSidebar();
+    const { chats } = useChatHistoryContext();
     const panelCloseTimerRef = useRef<number | null>(null);
+    const chatTitle =
+        chats?.find((chat) => chat.id === chatId)?.title?.trim() || "New chat";
+
+    const handleShare = useCallback(async () => {
+        try {
+            await navigator.clipboard.writeText(window.location.href);
+            setShareCopied(true);
+            window.setTimeout(() => setShareCopied(false), 1600);
+        } catch {
+            setShareCopied(false);
+        }
+    }, []);
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect -- reset per-chat UI state when switching chats
@@ -632,17 +649,35 @@ export function ChatView({
     const messagesBottomPadding = DEFAULT_ASSISTANT_BOTTOM_PADDING;
 
     return (
-        <div className="h-full w-full flex relative">
+        <div className="vaultr-chat-shell h-full w-full flex relative">
             {/* Chat column */}
-            <div className="flex min-w-0 flex-col h-full flex-1 relative">
+            <div className="vaultr-chat-canvas flex min-w-0 flex-col h-full flex-1 relative">
+                <header className="vaultr-chat-header flex h-14 shrink-0 items-center justify-between pl-5 pr-3">
+                    <button
+                        type="button"
+                        className="vaultr-chat-title flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5"
+                        title={chatTitle}
+                    >
+                        <span className="truncate">{chatTitle}</span>
+                        <ChevronDown className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleShare}
+                        className="vaultr-share-button flex h-9 items-center rounded-lg px-4"
+                        aria-label={shareCopied ? "Link copied" : "Copy chat link"}
+                    >
+                        <span>{shareCopied ? "Copied" : "Share"}</span>
+                    </button>
+                </header>
                 {/* Scrollable messages */}
                 <div
                     ref={messagesContainerRef}
-                    className="flex-1 w-full overflow-y-auto"
+                    className="vaultr-message-scroll flex-1 w-full overflow-y-auto"
                     style={{ scrollbarGutter: "stable both-edges" }}
                 >
                     <div
-                        className="w-full max-w-4xl mx-auto px-6 pt-6 md:px-8 md:pt-8 min-h-full flex flex-col relative"
+                        className="vaultr-message-column w-full mx-auto min-h-full flex flex-col relative"
                         style={{ paddingBottom: messagesBottomPadding }}
                     >
                         {!messagesVisible && (
@@ -663,7 +698,7 @@ export function ChatView({
                             </div>
                         )}
                         <div
-                            className="space-y-6 md:space-y-8 transition-opacity duration-150"
+                            className="vaultr-message-list space-y-6 md:space-y-8 transition-opacity duration-150"
                             style={{ opacity: messagesVisible ? 1 : 0 }}
                         >
                             {(() => {
@@ -676,6 +711,8 @@ export function ChatView({
                                 return messages.map((msg, i) => (
                                     <div
                                         key={i}
+                                        className="vaultr-message-entry"
+                                        style={{ animationDelay: `${i * 50}ms` }}
                                         ref={
                                             i === lastUserIndex
                                                 ? latestUserMessageRef
@@ -708,6 +745,10 @@ export function ChatView({
                                                 }
                                                 onCitationClick={(citation) =>
                                                     openCitation(citation)
+                                                }
+                                                onRetry={onRetry}
+                                                onSwitchModel={() =>
+                                                    chatInputRef.current?.openModelSelector()
                                                 }
                                                 onOpenCitationSource={(
                                                     citation,
@@ -771,25 +812,28 @@ export function ChatView({
                     >
                         <button
                             onClick={scrollToBottom}
-                            className="rounded-full p-2 cursor-pointer transition-all bg-white/30 shadow-[0_5px_16px_rgba(15,23,42,0.13),inset_0_1px_0_rgba(255,255,255,0.75),inset_0_-8px_18px_rgba(255,255,255,0.26)] backdrop-blur-xl hover:bg-white/45 hover:shadow-[0_7px_20px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.85),inset_0_-8px_18px_rgba(255,255,255,0.32)]"
+                            className="vaultr-scroll-to-bottom rounded-full p-2 cursor-pointer"
                         >
-                            <ArrowDown className="h-6 w-6 text-gray-500" />
+                            <ArrowDown
+                                className="h-5 w-5"
+                                strokeWidth={1.5}
+                            />
                         </button>
                     </div>
                 )}
 
                 {/* Chat input */}
-                <div className="absolute bottom-3 left-0 right-0 w-full z-30">
+                <div className="vaultr-composer-anchor absolute bottom-3 left-0 right-0 w-full z-30">
                     <div className="pointer-events-none absolute -bottom-3 left-0 right-0 z-0">
-                        <div className="mx-auto h-7 w-full max-w-4xl px-4 md:px-6">
-                            <div className="h-full rounded-t-[20px] bg-white/50 backdrop-blur-[1px]" />
+                        <div className="vaultr-composer-column mx-auto h-7 w-full">
+                            <div className="vaultr-composer-backdrop h-full rounded-t-[20px]" />
                         </div>
                     </div>
                     <div
                         ref={measuredInputRef}
-                        className="relative z-20 w-full max-w-4xl mx-auto px-4 md:px-6"
+                        className="vaultr-composer-column vaultr-thread-composer relative z-20 w-full mx-auto"
                     >
-                        <div className="w-full rounded-t-[20px] bg-transparent">
+                        <div className="w-full">
                             {activeInput ? (
                                 <AskInputPopup
                                     key={activeInput.key}
@@ -822,8 +866,13 @@ export function ChatView({
                                     onSubmit={handleChat}
                                     onCancel={cancel}
                                     isLoading={isResponseLoading}
+                                    placeholder="Reply..."
+                                    voiceWhenEmpty={false}
                                 />
                             )}
+                            <p className="vaultr-chat-disclaimer">
+                                Vaultr is AI and can make mistakes. Please double-check responses.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -863,3 +912,5 @@ export function ChatView({
         </div>
     );
 }
+
+

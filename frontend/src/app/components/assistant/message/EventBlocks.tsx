@@ -35,14 +35,14 @@ export function EventBlock({
 }: {
     showConnector?: boolean;
     isStreaming?: boolean;
-    dotColor?: "green" | "gray" | "red";
+    dotColor?: "green" | "gray" | "amber";
     children: ReactNode;
 }) {
     const dotColorClass =
         dotColor === "green"
             ? "bg-green-400 shadow-[0_1px_3px_rgba(15,23,42,0.15),inset_0_1px_0_rgba(255,255,255,0.5)]"
-            : dotColor === "red"
-              ? "bg-red-400 shadow-[0_1px_3px_rgba(15,23,42,0.15),inset_0_1px_0_rgba(255,255,255,0.5)]"
+            : dotColor === "amber"
+              ? "bg-[var(--vaultr-error)] shadow-[0_1px_3px_rgba(180,83,9,0.16),inset_0_1px_0_rgba(255,255,255,0.5)]"
               : "bg-gray-500 shadow-[0_1px_3px_rgba(15,23,42,0.15)]";
     return (
         <div className="flex items-start text-sm font-serif text-gray-500 relative">
@@ -336,7 +336,7 @@ export function DocReplicatedBlock({
         <EventBlock
             showConnector={showConnector}
             isStreaming={isStreaming}
-            dotColor={hasError ? "red" : "green"}
+            dotColor={hasError ? "amber" : "green"}
         >
             <span className="font-medium">{label}</span>{" "}
             <span>
@@ -612,7 +612,7 @@ export function CourtListenerBlock({
         <EventBlock
             showConnector={showConnector}
             isStreaming={isStreaming}
-            dotColor={hasError ? "red" : "green"}
+            dotColor={hasError ? "amber" : "green"}
         >
             {hasItems ? (
                 <button
@@ -656,7 +656,9 @@ export function CourtListenerBlock({
                             <li key={idx}>
                                 <div
                                     className={
-                                        item.hasError ? "text-red-500" : ""
+                                        item.hasError
+                                            ? "text-[var(--vaultr-error)]"
+                                            : ""
                                     }
                                 >
                                     {item.url ? (
@@ -698,7 +700,7 @@ export function DocEditedBlock({
         <EventBlock
             showConnector={showConnector}
             isStreaming={isStreaming}
-            dotColor={hasError ? "red" : "green"}
+            dotColor={hasError ? "amber" : "green"}
         >
             <span className="font-medium">
                 {isStreaming ? "Editing" : hasError ? "Edit failed" : "Edited"}
@@ -707,3 +709,5 @@ export function DocEditedBlock({
         </EventBlock>
     );
 }
+
+

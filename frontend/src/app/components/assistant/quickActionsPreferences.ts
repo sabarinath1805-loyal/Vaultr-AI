@@ -16,9 +16,9 @@ export const QUICK_ACTIONS: { id: QuickActionId; label: string }[] = [
     { id: "compareDocuments", label: "Compare documents" },
     { id: "extractKeyTerms", label: "Extract key terms" },
     { id: "draftFromTemplate", label: "Draft from template" },
+    { id: "projectChat", label: "Start chat in project" },
     { id: "newProject", label: "New project" },
     { id: "newTabularReview", label: "New tabular review" },
-    { id: "projectChat", label: "Start chat in project" },
 ];
 
 export const DEFAULT_QUICK_ACTIONS: Record<QuickActionId, boolean> = {
@@ -146,3 +146,5 @@ export function useQuickActionsPreference() {
         hideAllQuickActions,
     };
 }
+
+

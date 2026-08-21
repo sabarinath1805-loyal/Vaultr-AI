@@ -124,7 +124,7 @@ function AssistantGreeting({ username }: { username: string }) {
     }, [iconOffset]);
 
     return (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="vaultr-empty-greeting flex-1 flex items-center justify-center">
             <div className="relative flex items-center justify-center h-[28px]">
                 <div
                     className="absolute h-[30px]"
@@ -134,7 +134,7 @@ function AssistantGreeting({ username }: { username: string }) {
                             ? `translateX(calc(-50% - ${iconOffset}px))`
                             : "translateX(-50%)",
                         transition:
-                            "transform 900ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+                            "transform 300ms var(--vaultr-ease-drawer)",
                     }}
                 >
                     <MikeIcon size={ICON_SIZE} />
@@ -149,7 +149,7 @@ function AssistantGreeting({ username }: { username: string }) {
                             : "translateX(-50%)",
                         opacity: loaded ? 1 : 0,
                         transition:
-                            "transform 900ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 800ms ease-in-out 300ms",
+                            "transform 300ms var(--vaultr-ease-drawer), opacity 200ms ease-out 80ms",
                     }}
                 >
                     Hi, {username}
@@ -529,6 +529,25 @@ export default function ProjectAssistantChatPage({ params }: Props) {
         },
         [activeTab, handleChat],
     );
+
+    const retryFailedTurn = useCallback(() => {
+        const failedAssistantIndex = [...messages]
+            .map((message, index) => ({ message, index }))
+            .reverse()
+            .find(
+                ({ message }) =>
+                    message.role === "assistant" && !!message.error,
+            )?.index;
+        if (failedAssistantIndex === undefined) return;
+
+        const retryMessage = [...messages.slice(0, failedAssistantIndex)]
+            .reverse()
+            .find((message) => message.role === "user");
+        if (!retryMessage) return;
+
+        setMessages(messages.slice(0, failedAssistantIndex));
+        window.requestAnimationFrame(() => void handleSubmit(retryMessage));
+    }, [handleSubmit, messages, setMessages]);
 
     const handleDocClick = (doc: Document) => {
         openTab(doc.id, doc.filename);
@@ -1286,11 +1305,11 @@ export default function ProjectAssistantChatPage({ params }: Props) {
                 {/* RIGHT: Assistant Panel */}
                 <div
                     style={{ width: chatWidth }}
-                    className="relative shrink-0 flex flex-col"
+                    className="vaultr-project-assistant-panel vaultr-chat-shell relative shrink-0 flex flex-col"
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={handleChatDrop}
                 >
-                    <div className="h-10 flex items-center px-4 border-b border-gray-200 shrink-0">
+                    <div className="vaultr-project-assistant-header h-10 flex items-center px-4 shrink-0">
                         <span className="text-xs text-gray-700">
                             Project Assistant
                         </span>
@@ -1320,7 +1339,7 @@ export default function ProjectAssistantChatPage({ params }: Props) {
                     ) : (
                         <div
                             ref={messagesContainerRef}
-                            className="flex-1 overflow-y-auto px-4 pt-6 md:pt-8 space-y-6 md:space-y-8 min-h-0"
+                            className="vaultr-message-column flex-1 overflow-y-auto space-y-6 md:space-y-8 min-h-0"
                             style={{
                                 paddingBottom: DEFAULT_ASSISTANT_BOTTOM_PADDING,
                                 scrollbarGutter: "stable",
@@ -1333,64 +1352,78 @@ export default function ProjectAssistantChatPage({ params }: Props) {
                                 const lastAssistantIdx = messages
                                     .map((m) => m.role)
                                     .lastIndexOf("assistant");
-                                return messages.map((msg, i) =>
-                                    msg.role === "user" ? (
-                                        <div
-                                            key={i}
-                                            ref={
-                                                i === lastUserIdx
-                                                    ? latestUserMessageRef
-                                                    : null
-                                            }
-                                        >
+                                return messages.map((msg, i) => (
+                                    <div
+                                        key={i}
+                                        className="vaultr-message-entry"
+                                        style={{ animationDelay: `${i * 50}ms` }}
+                                        ref={
+                                            i === lastUserIdx
+                                                ? latestUserMessageRef
+                                                : null
+                                        }
+                                    >
+                                        {msg.role === "user" ? (
                                             <UserMessage
                                                 content={msg.content ?? ""}
                                                 files={msg.files}
                                                 workflow={msg.workflow}
                                             />
-                                        </div>
-                                    ) : (
-                                        <AssistantMessage
-                                            key={i}
-                                            events={msg.events}
-                                            isStreaming={
-                                                i === messages.length - 1 &&
-                                                isResponseLoading
-                                            }
-                                            isError={!!msg.error}
-                                            citations={msg.citations}
-                                            citationStatus={
-                                                msg.citationStatus
-                                            }
-                                            onCitationClick={
-                                                handleCitationClick
-                                            }
-                                            minHeight={
-                                                i === lastAssistantIdx
-                                                    ? minHeight
-                                                    : "0px"
-                                            }
-                                            onEditViewClick={
-                                                handleEditViewClick
-                                            }
-                                            onOpenDocument={handleOpenDocument}
-                                            onEditResolved={handleEditResolved}
-                                            onEditError={handleEditError}
-                                            isDocReloading={(docId) =>
-                                                reloadingDocIds.has(docId)
-                                            }
-                                        />
-                                    ),
-                                );
+                                        ) : (
+                                            <AssistantMessage
+                                                events={msg.events}
+                                                isStreaming={
+                                                    i === messages.length - 1 &&
+                                                    isResponseLoading
+                                                }
+                                                isError={!!msg.error}
+                                                errorMessage={
+                                                    typeof msg.error === "string"
+                                                        ? msg.error
+                                                        : undefined
+                                                }
+                                                onRetry={retryFailedTurn}
+                                                onSwitchModel={() =>
+                                                    chatInputRef.current?.openModelSelector()
+                                                }
+                                                citations={msg.citations}
+                                                citationStatus={
+                                                    msg.citationStatus
+                                                }
+                                                onCitationClick={
+                                                    handleCitationClick
+                                                }
+                                                minHeight={
+                                                    i === lastAssistantIdx
+                                                        ? minHeight
+                                                        : "0px"
+                                                }
+                                                onEditViewClick={
+                                                    handleEditViewClick
+                                                }
+                                                onOpenDocument={
+                                                    handleOpenDocument
+                                                }
+                                                onEditResolved={
+                                                    handleEditResolved
+                                                }
+                                                onEditError={handleEditError}
+                                                isDocReloading={(docId) =>
+                                                    reloadingDocIds.has(docId)
+                                                }
+                                            />
+                                        )}
+                                    </div>
+                                ));
                             })()}
                             <div ref={messagesEndRef} />
                         </div>
                     )}
 
                     {/* ChatInput */}
-                    <div className="absolute bottom-2 left-0 right-0 z-30 w-full md:bottom-3">
-                        <div className="pointer-events-none absolute -bottom-2 left-4 right-4 z-0 h-7 bg-white/50 backdrop-blur-[1px] md:-bottom-3" />
-                        <div className="relative z-20 w-full px-4">
+                    <div className="vaultr-composer-anchor absolute bottom-2 left-0 right-0 z-30 w-full md:bottom-3">
+                        <div className="vaultr-composer-backdrop pointer-events-none absolute -bottom-2 left-4 right-4 z-0 h-7 md:-bottom-3" />
+                        <div className="vaultr-composer-column relative z-20 w-full mx-auto">
                             <ChatInput
                                 ref={chatInputRef}
                                 onSubmit={handleSubmit}
@@ -1481,3 +1514,5 @@ export default function ProjectAssistantChatPage({ params }: Props) {
         </div>
     );
 }
+
+

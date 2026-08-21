@@ -30,6 +30,18 @@ const DEFAULT_PALETTE: IconPalette = {
     innerOpacities: [0, 0.08, 0.05, 0],
 };
 
+const BRAND_PALETTE: IconPalette = {
+    shadowColor: "#b74f32",
+    shadowOpacity: 0.16,
+    fillStops: ["#d97757", "#e38a69", "#c96042", "#ef9a78"],
+    fillOpacities: [0.98, 0.94, 0.96, 0.98],
+    specularStops: [0.42, 0.18, 0, 0],
+    borderStops: ["#fbd2c2", "#b74f32", "#f5b49b"],
+    borderOpacities: [0.34, 0.14, 0.22],
+    innerStops: ["#ffffff", "#fbd2c2", "#b74f32", "#ffffff"],
+    innerOpacities: [0, 0.1, 0.05, 0],
+};
+
 const DONE_PALETTE: IconPalette = {
     shadowColor: "#166534",
     shadowOpacity: 0.18,
@@ -103,13 +115,14 @@ export function MikeIcon({
     size?: number;
     style?: React.CSSProperties;
 }) {
-    void mike;
     const id = useId().replace(/:/g, "");
     const palette = error
         ? ERROR_PALETTE
         : done
           ? DONE_PALETTE
-          : DEFAULT_PALETTE;
+          : mike
+            ? BRAND_PALETTE
+            : DEFAULT_PALETTE;
     const m = {
         shadow: `${id}-m-shadow`,
         glassFill: `${id}-m-glassFill`,
@@ -318,3 +331,5 @@ export function MikeIcon({
         </span>
     );
 }
+
+

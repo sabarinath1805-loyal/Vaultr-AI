@@ -483,7 +483,7 @@ function BreadcrumbItem({
     return (
         <span className={wrapperClassName}>
             {current ? (
-                <span className={className}>{content}</span>
+                <h1 className={className}>{content}</h1>
             ) : item.onClick ? (
                 <button onClick={item.onClick} className={className}>
                     {content}
