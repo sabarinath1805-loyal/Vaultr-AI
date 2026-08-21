@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AlertTriangle } from "lucide-react";
 import { MikeIcon } from "@/app/components/chat/mike-icon";
 
 export type StatusState = "active" | "error" | null;
@@ -41,13 +42,22 @@ export function ResponseStatus({ status }: { status: StatusState }) {
 
     return (
         <div className="w-full h-9 flex items-center mb-2">
-            <MikeIcon
-                spin={isActive}
-                done={showDone && doneVisible}
-                error={isError}
-                mike={!isError && !(showDone && doneVisible)}
-                size={22}
-            />
+            {isError ? (
+                <AlertTriangle
+                    className="vaultr-response-warning h-5 w-5"
+                    strokeWidth={1.7}
+                    aria-hidden="true"
+                />
+            ) : (
+                <MikeIcon
+                    spin={isActive}
+                    done={showDone && doneVisible}
+                    mike={!isError && !(showDone && doneVisible)}
+                    size={22}
+                />
+            )}
         </div>
     );
 }
+
+

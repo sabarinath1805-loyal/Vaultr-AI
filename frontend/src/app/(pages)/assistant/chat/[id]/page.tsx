@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAssistantChat } from "@/app/hooks/useAssistantChat";
 import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
@@ -18,6 +18,25 @@ export default function AssistantChatPage() {
     const initialMessages = newChatMessages ?? [];
     const { messages, isResponseLoading, handleChat, setMessages, cancel } =
         useAssistantChat({ initialMessages, chatId: id });
+
+    const retryFailedTurn = useCallback(() => {
+        const failedAssistantIndex = [...messages]
+            .map((message, index) => ({ message, index }))
+            .reverse()
+            .find(
+                ({ message }) =>
+                    message.role === "assistant" && !!message.error,
+            )?.index;
+        if (failedAssistantIndex === undefined) return;
+
+        const retryMessage = [...messages.slice(0, failedAssistantIndex)]
+            .reverse()
+            .find((message) => message.role === "user");
+        if (!retryMessage) return;
+
+        setMessages(messages.slice(0, failedAssistantIndex));
+        window.requestAnimationFrame(() => void handleChat(retryMessage));
+    }, [handleChat, messages, setMessages]);
 
     const hasAutoSent = useRef(false);
     const hasLoaded = useRef(false);
@@ -66,6 +85,9 @@ export default function AssistantChatPage() {
             isResponseLoading={isResponseLoading}
             handleChat={handleChat}
             cancel={cancel}
+            onRetry={retryFailedTurn}
         />
     );
 }
+
+

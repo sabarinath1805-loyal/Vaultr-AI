@@ -1,49 +1,38 @@
-import Image, { type ImageProps } from "next/image";
+import type { SVGProps } from "react";
+import {
+    Folder,
+    Library,
+    MessageSquare,
+    TableProperties,
+    Waypoints,
+} from "lucide-react";
 
-type IconProps = Omit<
-    ImageProps,
-    "alt" | "src" | "width" | "height" | "unoptimized"
->;
+type IconProps = SVGProps<SVGSVGElement>;
 
-const ICON_BASE_PATH = "/icons/app-sidebar";
-const ICON_VERSION = "27";
-
-function AppSidebarIcon({
-    name,
-    className,
-    ...props
-}: IconProps & { name: string }) {
-    return (
-        <Image
-            src={`${ICON_BASE_PATH}/${name}.svg?v=${ICON_VERSION}`}
-            alt=""
-            width={64}
-            height={64}
-            unoptimized
-            aria-hidden="true"
-            draggable={false}
-            className={`${className ?? ""} object-contain`}
-            {...props}
-        />
-    );
-}
+const sharedIconProps = {
+    "aria-hidden": true,
+    fill: "none",
+    strokeWidth: 1.5,
+} as const;
 
 export function ChatSkeuoIcon(props: IconProps) {
-    return <AppSidebarIcon name="chat" {...props} />;
+    return <MessageSquare {...sharedIconProps} {...props} />;
 }
 
 export function FolderSkeuoIcon(props: IconProps) {
-    return <AppSidebarIcon name="project-closed" {...props} />;
+    return <Folder {...sharedIconProps} {...props} />;
 }
 
 export function LibrarySkeuoIcon(props: IconProps) {
-    return <AppSidebarIcon name="library" {...props} />;
+    return <Library {...sharedIconProps} {...props} />;
 }
 
 export function TabularReviewSkeuoIcon(props: IconProps) {
-    return <AppSidebarIcon name="tabular-review" {...props} />;
+    return <TableProperties {...sharedIconProps} {...props} />;
 }
 
 export function WorkflowSkeuoIcon(props: IconProps) {
-    return <AppSidebarIcon name="workflow" {...props} />;
+    return <Waypoints {...sharedIconProps} {...props} />;
 }
+
+

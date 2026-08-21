@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import Image from "next/image";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MoreHorizontal } from "lucide-react";
+import {
+    FileCheck2,
+    FilePenLine,
+    Files,
+    FolderPlus,
+    MoreHorizontal,
+    ScanText,
+    Sparkles,
+    TableProperties,
+} from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUserProfile } from "@/app/contexts/UserProfileContext";
 import { MikeIcon } from "@/app/components/chat/mike-icon";
@@ -25,8 +33,6 @@ interface InitialViewProps {
     onSubmit: (message: Message) => void;
 }
 
-const ICON_SIZE = 30;
-const GAP = 12; // gap-4 = 1rem = 16px
 const DOCUMENT_WORKFLOW_ACTIONS: Partial<
     Record<
         QuickActionId,
@@ -65,36 +71,64 @@ export function InitialView({ onSubmit }: InitialViewProps) {
     const { user } = useAuth();
     const { profile } = useUserProfile();
     const router = useRouter();
-    const [loaded, setLoaded] = useState(false);
     const [projectModalOpen, setProjectModalOpen] = useState(false);
     const [newProjectOpen, setNewProjectOpen] = useState(false);
     const [newTROpen, setNewTROpen] = useState(false);
     const [quickActionsModalOpen, setQuickActionsModalOpen] = useState(false);
     const { visibleActions, setVisibleActions } = useQuickActionsPreference();
-    const [iconOffset, setIconOffset] = useState(0);
-    const [textOffset, setTextOffset] = useState(0);
-    const textRef = useRef<HTMLHeadingElement>(null);
     const chatInputRef = useRef<ChatInputHandle>(null);
     const { projects } = useDirectoryData(newTROpen, "projects");
 
-    const username =
+    const displayName =
         profile?.displayName?.trim() || user?.email?.split("@")[0] || "there";
+    const username = displayName.split(/\s+/)[0] || "there";
     const visibleQuickActions = QUICK_ACTIONS.filter(
         (action) => visibleActions[action.id],
-    );
+    ).slice(0, 5);
+    const greeting = useMemo(() => {
+        const hour = new Date().getHours();
+        if (hour < 12) return "Good morning";
+        if (hour < 18) return "Good afternoon";
+        return "Good evening";
+    }, []);
 
-    useLayoutEffect(() => {
-        if (!profile || !textRef.current) return;
-        const h1Width = textRef.current.offsetWidth;
-        setIconOffset((h1Width + GAP) / 2);
-        setTextOffset((ICON_SIZE + GAP) / 2);
-    }, [profile]);
+    function quickActionIcon(id: QuickActionId) {
+        const iconClass = "h-4 w-4 shrink-0";
+        switch (id) {
+            case "proofread":
+                return <FileCheck2 className={iconClass} strokeWidth={1.5} />;
+            case "compareDocuments":
+                return <Files className={iconClass} strokeWidth={1.5} />;
+            case "extractKeyTerms":
+                return <ScanText className={iconClass} strokeWidth={1.5} />;
+            case "draftFromTemplate":
+                return <FilePenLine className={iconClass} strokeWidth={1.5} />;
+            case "newProject":
+            case "projectChat":
+                return <FolderPlus className={iconClass} strokeWidth={1.5} />;
+            case "newTabularReview":
+                return <TableProperties className={iconClass} strokeWidth={1.5} />;
+            default:
+                return <Sparkles className={iconClass} strokeWidth={1.5} />;
+        }
+    }
 
-    useEffect(() => {
-        if (!iconOffset) return;
-        const t = setTimeout(() => setLoaded(true), 100);
-        return () => clearTimeout(t);
-    }, [iconOffset]);
+    function quickActionLabel(id: QuickActionId, fallback: string) {
+        switch (id) {
+            case "compareDocuments":
+                return "Compare";
+            case "extractKeyTerms":
+                return "Key terms";
+            case "draftFromTemplate":
+                return "Draft";
+            case "projectChat":
+                return "Project";
+            case "newTabularReview":
+                return "Review";
+            default:
+                return fallback;
+        }
+    }
 
     function handleDocumentWorkflowClick(id: QuickActionId) {
         const config = DOCUMENT_WORKFLOW_ACTIONS[id];
@@ -145,93 +179,50 @@ export function InitialView({ onSubmit }: InitialViewProps) {
     }
 
     return (
-        <div className="grid h-full w-full grid-rows-[minmax(0,1fr)_auto_minmax(0,1fr)] px-6">
-            <div className="flex min-h-0 items-end justify-center pb-6">
-                <div className="relative h-10 w-full max-w-4xl px-0 xl:px-8">
-                    <div
-                        className="absolute h-[30px] w-[30px]"
-                        style={{
-                            left: "50%",
-                            top: "50%",
-                            transform: loaded
-                                ? `translate(calc(-50% - ${iconOffset}px), -50%)`
-                                : "translate(-50%, -50%)",
-                            transition:
-                                "transform 900ms cubic-bezier(0.25, 0.46, 0.45, 0.94)",
-                        }}
-                    >
-                        <MikeIcon size={ICON_SIZE} />
-                    </div>
-                    <h1
-                        ref={textRef}
-                        className="absolute text-4xl font-serif font-light text-gray-900 whitespace-nowrap"
-                        style={{
-                            left: "50%",
-                            top: "50%",
-                            transform: loaded
-                                ? `translate(calc(-50% + ${textOffset}px), -50%)`
-                                : "translate(-50%, -50%)",
-                            opacity: loaded ? 1 : 0,
-                            transition:
-                                "transform 900ms cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 800ms ease-in-out 300ms",
-                        }}
-                    >
-                        Hi, {username}
+        <div className="vaultr-empty-shell flex h-full w-full flex-col items-center px-5">
+            <div className="vaultr-empty-stage flex w-full flex-1 flex-col items-center justify-center">
+                <div className="vaultr-empty-greeting flex w-full items-center justify-center gap-3">
+                    <MikeIcon mike size={30} />
+                    <h1 className="whitespace-nowrap font-serif font-normal">
+                        {greeting}, {username}
                     </h1>
                 </div>
-            </div>
 
-            <div className="w-full max-w-4xl justify-self-center px-0 xl:px-8">
-                <ChatInput
-                    ref={chatInputRef}
-                    onSubmit={onSubmit}
-                    onCancel={() => {}}
-                    isLoading={false}
-                />
-            </div>
-
-            <div className="min-h-0 w-full max-w-4xl justify-self-center px-0 pt-1 xl:px-8">
-                <div className="text-center">
-                    <p className="text-xs py-2 mb-12 text-gray-500">
-                        AI can make mistakes. Answers are not legal advice.
-                    </p>
+                <div className="vaultr-empty-composer-column mt-[34px] w-full">
+                    <ChatInput
+                        ref={chatInputRef}
+                        onSubmit={onSubmit}
+                        onCancel={() => {}}
+                        isLoading={false}
+                    />
                 </div>
-
                 {visibleQuickActions.length > 0 && (
-                    <div className="flex flex-col items-center">
-                        <div className="group relative flex h-5 items-center justify-center">
-                            <span className="flex items-center gap-1.5 text-xs font-medium text-gray-800">
-                                <Image
-                                    src="/icons/app-sidebar/quick-actions.svg"
-                                    alt=""
-                                    width={14}
-                                    height={14}
-                                    unoptimized
-                                    aria-hidden="true"
-                                    className="h-3.5 w-3.5 shrink-0"
-                                />
-                                Quick actions
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => setQuickActionsModalOpen(true)}
-                                aria-label="Configure quick actions"
-                                className="absolute left-full ml-1.5 flex h-5 w-5 items-center justify-center text-gray-400 opacity-0 transition-all hover:text-gray-700 group-hover:opacity-100 focus:opacity-100"
-                            >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                            </button>
-                        </div>
-                        <div className="mt-3 flex flex-wrap justify-center gap-2 text-xs">
+                    <div className="vaultr-quick-actions-wrap relative mt-[15px] flex items-start justify-center">
+                        <div className="vaultr-quick-actions-grid">
                             {visibleQuickActions.map((action) => (
                                 <button
                                     key={action.id}
                                     type="button"
                                     onClick={() => handleQuickAction(action.id)}
-                                    className="inline-flex h-8 items-center justify-center rounded-full border border-white/70 bg-white/55 px-3 font-medium text-gray-600 shadow-[0_3px_9px_rgba(15,23,42,0.06),inset_0_1px_0_rgba(255,255,255,0.86),inset_0_-1px_0_rgba(255,255,255,0.58)] backdrop-blur-xl transition-all hover:bg-white hover:text-gray-900 active:scale-[0.98] disabled:cursor-default disabled:opacity-45 disabled:active:scale-100"
+                                    className="vaultr-quick-action-chip"
+                                    title={action.label}
                                 >
-                                    {action.label}
+                                    {quickActionIcon(action.id)}
+                                    <span>
+                                        {quickActionLabel(action.id, action.label)}
+                                    </span>
                                 </button>
                             ))}
+                        </div>
+                        <div className="group absolute left-full ml-2 pt-1">
+                            <button
+                                type="button"
+                                onClick={() => setQuickActionsModalOpen(true)}
+                                aria-label="Configure quick actions"
+                                className="vaultr-quick-actions-config flex h-9 w-9 items-center justify-center rounded-lg"
+                            >
+                                <MoreHorizontal className="h-4 w-4" />
+                            </button>
                         </div>
                     </div>
                 )}
@@ -265,3 +256,5 @@ export function InitialView({ onSubmit }: InitialViewProps) {
         </div>
     );
 }
+
+

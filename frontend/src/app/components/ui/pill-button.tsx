@@ -21,8 +21,8 @@ const toneClasses: Record<PillButtonTone, string> = {
 };
 
 const sizeClasses: Record<PillButtonSize, string> = {
-    sm: "px-2 py-1 text-xs",
-    normal: "px-4 py-1.5 text-sm",
+    sm: "min-h-9 px-3 py-1 text-xs",
+    normal: "min-h-9 px-4 py-1.5 text-sm",
 };
 
 export function PillButton({
@@ -39,7 +39,7 @@ export function PillButton({
         <Comp
             type={asChild ? undefined : type}
             className={cn(
-                "inline-flex items-center justify-center gap-1.5 rounded-full border font-medium transition-all active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
+                "inline-flex items-center justify-center gap-1.5 rounded-full border font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
                 toneClasses[tone],
                 sizeClasses[size],
                 className,
@@ -48,3 +48,5 @@ export function PillButton({
         />
     );
 }
+
+

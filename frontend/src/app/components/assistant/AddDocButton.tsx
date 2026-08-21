@@ -17,10 +17,12 @@ export function AddDocButton({
         <button
             type="button"
             onClick={onBrowseAll}
-            className={`flex items-center gap-1 px-2 h-8 rounded-lg text-sm transition-colors cursor-pointer ${
+            className={`vaultr-composer-tool flex items-center gap-1 px-2 h-8 rounded-lg text-sm transition-colors cursor-pointer ${
+                selectedDocIds.length > 0 ? "vaultr-composer-tool-selected" : ""
+            } ${
                 selectedDocIds.length > 0
-                    ? "text-gray-700 hover:text-gray-900"
-                    : "text-gray-400 hover:text-gray-700"
+                    ? "text-gray-700"
+                    : "text-gray-400"
             }`}
             title="Add documents"
             aria-label="Add documents"
@@ -38,3 +40,5 @@ export function AddDocButton({
         </button>
     );
 }
+
+

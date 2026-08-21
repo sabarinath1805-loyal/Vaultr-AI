@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { AlertTriangle, Check, Copy } from "lucide-react";
 import type { AssistantEvent, Citation, EditAnnotation } from "../shared/types";
 import { EditCard } from "./EditCard";
 import { PreResponseWrapper } from "./PreResponseWrapper";
@@ -31,8 +31,10 @@ interface Props {
     events?: AssistantEvent[];
     isStreaming?: boolean;
     isError?: boolean;
-    /** Human-readable error text rendered alongside the red Mike icon. */
+    /** Technical error text kept inside the collapsed details disclosure. */
     errorMessage?: string;
+    onRetry?: () => void;
+    onSwitchModel?: () => void;
     citations?: Citation[];
     citationStatus?: "started" | "partial" | "final";
     onCitationClick?: (citation: Citation) => void;
@@ -103,6 +105,8 @@ export function AssistantMessage({
     isStreaming = false,
     isError = false,
     errorMessage,
+    onRetry,
+    onSwitchModel,
     citations = [],
     citationStatus,
     onCitationClick,
@@ -399,14 +403,14 @@ export function AssistantMessage({
                     key={globalIdx}
                     showConnector={showConnector}
                     isStreaming={event.isStreaming}
-                    dotColor={isError ? "red" : "gray"}
+                    dotColor={isError ? "amber" : "gray"}
                 >
                     <span className="font-medium">
                         {event.isStreaming ? "Using connector..." : label}
                     </span>
                     {isError && event.error && (
-                        <p className="mt-0.5 text-xs text-red-600">
-                            {event.error}
+                        <p className="mt-0.5 text-xs text-amber-800">
+                            The connector could not complete this step.
                         </p>
                     )}
                 </EventBlock>
@@ -510,7 +514,7 @@ export function AssistantMessage({
                     ? `for "${event.query}"`
                     : undefined
                 : event.error
-                  ? event.error
+                  ? "The case-law search could not complete."
                   : `${count} ${count === 1 ? "result" : "results"}${event.query ? ` for "${event.query}"` : ""}`;
             return (
                 <CourtListenerBlock
@@ -534,7 +538,9 @@ export function AssistantMessage({
             const displayLabel = `${caseCount} ${
                 caseCount === 1 ? "case" : "cases"
             }`;
-            const detail = event.error ? event.error : undefined;
+            const detail = event.error
+                ? "The case fetch could not complete."
+                : undefined;
             const items: CourtListenerBlockItem[] =
                 event.cases?.map((caseItem) => ({
                     caseName: caseItem.case_name,
@@ -590,7 +596,7 @@ export function AssistantMessage({
                 const detail = event.isStreaming
                     ? undefined
                     : event.error
-                      ? event.error
+                      ? "The case searches could not complete."
                       : `(${matches} ${matches === 1 ? "match" : "matches"})`;
                 const items: CourtListenerBlockItem[] = searches.map(
                     (search) => ({
@@ -633,7 +639,7 @@ export function AssistantMessage({
                     ? `for "${event.query}" in ${caseLabel}`
                     : caseLabel
                 : event.error
-                  ? event.error
+                  ? "The case search could not complete."
                   : `${matches} ${matches === 1 ? "match" : "matches"}${event.query ? ` for "${event.query}"` : ""} in ${caseLabel}`;
             return (
                 <CourtListenerBlock
@@ -660,7 +666,7 @@ export function AssistantMessage({
             const detail = event.isStreaming
                 ? undefined
                 : event.error
-                  ? event.error
+                  ? "The case could not be read."
                   : count > 0
                     ? `(${count} ${count === 1 ? "opinion" : "opinions"})`
                     : undefined;
@@ -688,7 +694,7 @@ export function AssistantMessage({
             const detail = event.isStreaming
                 ? undefined
                 : event.error
-                  ? event.error
+                  ? "Citation verification could not complete."
                   : `(${matches} ${matches === 1 ? "match" : "matches"})`;
             // Adjacent `case_citation` events are emitted between the start
             // and final verify_citations events (one per matched citation) —
@@ -727,7 +733,7 @@ export function AssistantMessage({
     };
 
     return (
-        <div style={{ minHeight }}>
+        <div className="vaultr-assistant-message" style={{ minHeight }}>
             <ResponseStatus status={status} />
             <div className="w-full font-inter relative mt-2">
                 {events && events.length > 0 ? (
@@ -892,10 +898,48 @@ export function AssistantMessage({
                     </div>
                 ) : null}
 
-                {topLevelErrorMessage && (
-                    <p className="mt-2 text-base font-serif leading-7 text-red-700">
-                        {topLevelErrorMessage}
-                    </p>
+                {hasError && (
+                    <aside
+                        className="vaultr-error-card mt-4"
+                        role="alert"
+                    >
+                        <div className="vaultr-error-card-heading">
+                            <AlertTriangle
+                                className="vaultr-error-icon h-5 w-5 shrink-0"
+                                strokeWidth={1.7}
+                                aria-hidden="true"
+                            />
+                            <div className="min-w-0">
+                                <h2>Unable to get a response</h2>
+                                <p>
+                                    The AI model encountered an issue. This is not related to your query.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="vaultr-error-card-actions">
+                            <button
+                                type="button"
+                                className="vaultr-error-primary-action"
+                                onClick={onRetry}
+                            >
+                                Try again
+                            </button>
+                            <button
+                                type="button"
+                                className="vaultr-error-secondary-action"
+                                onClick={onSwitchModel}
+                            >
+                                Switch model
+                            </button>
+                        </div>
+                        <details className="vaultr-error-details">
+                            <summary>Technical details</summary>
+                            <code>
+                                {topLevelErrorMessage ??
+                                    "No technical details were provided."}
+                            </code>
+                        </details>
+                    </aside>
                 )}
 
                 {/* Download card for each edited doc — only after streaming
@@ -1027,8 +1071,12 @@ export function AssistantMessage({
                 <div className="flex items-center gap-2 py-2 font-sans justify-start">
                     {!isStreaming && (
                         <button
-                            className="p-1.5 rounded text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+                            className="vaultr-copy-button"
                             onClick={handleCopy}
+                            title="Copy to clipboard"
+                            aria-label={
+                                isCopied ? "Copied to clipboard" : "Copy to clipboard"
+                            }
                         >
                             {isCopied ? (
                                 <Check className="h-3.5 w-3.5 text-green-600" />
@@ -1042,3 +1090,5 @@ export function AssistantMessage({
         </div>
     );
 }
+
+

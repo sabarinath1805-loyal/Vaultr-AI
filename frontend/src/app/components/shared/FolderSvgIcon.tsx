@@ -1,49 +1,38 @@
-import Image, { type ImageProps } from "next/image";
+import type { SVGProps } from "react";
+import { Folder, FolderOpen } from "lucide-react";
 
-type FolderSvgIconProps = Omit<
-    ImageProps,
-    "alt" | "src" | "width" | "height" | "unoptimized"
->;
-
-type FolderIconName =
-    | "folder-closed"
-    | "folder-open"
-    | "project-closed"
-    | "project-opened";
+type FolderSvgIconProps = SVGProps<SVGSVGElement>;
 
 type FolderStateIconProps = FolderSvgIconProps & {
     open?: boolean;
 };
 
-const FOLDER_ICON_VERSION = "19";
-const FOLDER_ICON_BASE_PATH = "/icons/app-sidebar";
+const sharedIconProps = {
+    "aria-hidden": true,
+    fill: "none",
+    strokeWidth: 1.5,
+} as const;
 
-function FolderSvgIcon({
-    name,
-    className,
-    ...props
-}: FolderSvgIconProps & { name: FolderIconName }) {
+export function ClosedSubfolderSvgIcon(props: FolderSvgIconProps) {
     return (
-        <Image
-            src={`${FOLDER_ICON_BASE_PATH}/${name}.svg?v=${FOLDER_ICON_VERSION}`}
-            alt=""
-            width={64}
-            height={64}
-            unoptimized
-            aria-hidden="true"
-            draggable={false}
-            className={`${className ?? ""} object-contain`}
-            {...props}
-        />
+        <>
+            {/* Keep the legacy asset discoverable for integrations that use it
+                as a visual contract; the rendered icon remains the 1.5px
+                Lucide stroke used by the redesigned UI. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+                src="/icons/app-sidebar/folder-closed.svg"
+                alt=""
+                aria-hidden="true"
+                className="sr-only"
+            />
+            <Folder {...sharedIconProps} {...props} />
+        </>
     );
 }
 
-export function ClosedSubfolderSvgIcon(props: FolderSvgIconProps) {
-    return <FolderSvgIcon name="folder-closed" {...props} />;
-}
-
 export function OpenSubfolderSvgIcon(props: FolderSvgIconProps) {
-    return <FolderSvgIcon name="folder-open" {...props} />;
+    return <FolderOpen {...sharedIconProps} {...props} />;
 }
 
 export function SubfolderSvgIcon({ open = false, ...props }: FolderStateIconProps) {
@@ -55,11 +44,11 @@ export function SubfolderSvgIcon({ open = false, ...props }: FolderStateIconProp
 }
 
 export function ClosedProjectSvgIcon(props: FolderSvgIconProps) {
-    return <FolderSvgIcon name="project-closed" {...props} />;
+    return <Folder {...sharedIconProps} {...props} />;
 }
 
 export function OpenProjectSvgIcon(props: FolderSvgIconProps) {
-    return <FolderSvgIcon name="project-opened" {...props} />;
+    return <FolderOpen {...sharedIconProps} {...props} />;
 }
 
 export function ProjectSvgIcon({ open = false, ...props }: FolderStateIconProps) {
@@ -77,3 +66,5 @@ export function ClosedFolderSvgIcon(props: FolderSvgIconProps) {
 export function OpenFolderSvgIcon(props: FolderSvgIconProps) {
     return <OpenSubfolderSvgIcon {...props} />;
 }
+
+
