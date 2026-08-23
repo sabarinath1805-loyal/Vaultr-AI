@@ -208,3 +208,103 @@ Stage C is limited to freezing this hardened foundation: review and stage the
 accumulated changes, create the requested commit and annotated tag, and push
 only the commit and tag to `origin`. Vaultr product conversion, branding,
 hosting cutover, UI redesign, and domain work remain out of scope.
+
+## Final Post-UI Gate Remediation + Checkpoint Freeze — 2026-08-23
+
+This append is the authoritative post-UI checkpoint record. Earlier audit
+decisions remain preserved as history. The original hardened foundation is
+`vaultr-hardened-base-v1` at
+`ae84bde30b9b861a8fc57abcc490d6d3f054de3c`; the foundation UI commit is
+`2a1eafb` (`feat: Vaultr rebrand and UI improvements`). The final audited
+post-UI commit is the checkpoint commit created from this reviewed tree and
+is reported in the release handoff because a commit cannot contain its own
+SHA before it is created.
+
+### Source-freeze boundary and Stage A remediation
+
+`STAGE A COMPLETE — SOURCE FROZEN FOR FINAL POST-UI AUDIT`
+
+Stage A made only the narrow fixes required by the known blockers:
+
+- populated table scans now wait for the final table state;
+- every production table-row checkbox has a useful accessible name;
+- table action controls are represented as cells, preserving valid row
+  ownership semantics and existing behavior;
+- the workflow detail heading locator is scoped to the editor, while the
+  canonical generated name remains `CP Checklist Draft`;
+- the shared table primitive has a regression test for checkbox naming.
+
+No product source or test source was changed after the declaration above.
+
+### Independent frozen Stage B evidence
+
+Runtime and dependency evidence:
+
+- Node **v22.15.0** and npm **10.9.2**; NVM selected Node 22.15.0 and all
+  validation commands used that runtime explicitly.
+- Root, frontend, backend, and Word add-in `npm audit --json` each reported
+  **0 informational, 0 low, 0 moderate, 0 high, and 0 critical** findings.
+- The local Compose/Supabase stack was refreshed and the final repository
+  browser run was headless, with no popup or interactive browser window.
+
+Application gates:
+
+- Frontend typecheck passed; lint passed with **0 errors / 36 existing
+  warnings**; the full suite passed **28 files / 240 tests**; the production
+  build passed and generated **23 routes**.
+- Backend build passed; the hermetic full test run passed **51 files / 574
+  tests**, with **9 files / 31 tests** skipped under the repository's existing
+  opt-in gates. `MANIFEST_SIGNING_KEY` was explicitly empty in the test
+  process so the developer-local `backend/.env` secret could not contaminate
+  deterministic assertions; the secret was not printed, changed, or
+  committed.
+- Word add-in typecheck and production build passed, the HTTPS-shaped
+  manifest was generated, and the hermetic headless suite passed **64/64**.
+- The final repository Playwright run passed **27 tests** with **4 existing
+  skips**, **0 failures**, **0 flaky tests**, and no retries. A prior reused
+  backend process hit its known in-memory rate limiter and produced HTTP 429
+  cascades; after restarting that local service and confirming health, the
+  complete no-retry run was green. This was an environmental validation
+  precondition, not a product failure, and no rate-limit change was made.
+
+Foundation integrity:
+
+- The real local Supabase/storage matrix passed **9 files / 31 tests**.
+  B-01, B-02, B-03, B-04, B-05/DOC-01-C, and DOC-01 assertions all passed.
+- A fresh disposable database passed canonical bootstrap and verification:
+  **29/29** application tables had RLS enabled, **0** direct browser-role
+  grants existed, and the migration ledger was present. A second bootstrap
+  against the populated target failed closed with exit 1, as required. The
+  disposable database was removed afterward.
+- Workflow freshness reproduced **31 generated workflows byte-for-byte** at
+  source SHA `4b9c7cd0d93b6254780abcc2cc382be6b56cd945`.
+- Source hygiene found no tracked secrets, no tracked environment files, no
+  generated `AGENTS.md`/`CLAUDE.md`, no disposable database, and no temporary
+  workflow checkout. `git diff --check` found no whitespace errors; Git's
+  line-ending normalization notices are non-errors.
+
+### Accessibility and expected-404 disposition
+
+The shared table ARIA remediation remained correct in the populated browser
+scans: no critical axe violations remained, and row ownership/checkbox names
+were valid. The exact remaining serious findings are known UI debt: the login
+Sign up link is **3.9:1** against a **4.5:1** target, and two muted tab
+controls on both Projects and Tabular Review are **2.53:1**. They remain
+non-blocking for this freeze because they are a visual-polish issue and this
+mission forbids a redesign; they must be addressed in a later accessibility
+pass.
+
+An expected missing-project response still renders the user-facing
+`Project not found` state. `ProjectWorkspace` suppresses only the matching
+typed 404 diagnostics and continues to log unexpected failures. No uncaught
+exception, sensitive output, or production UI failure was observed.
+
+The user-owned untracked `Claude web May 2026.zip` was explicitly left
+untouched and excluded from the checkpoint.
+
+### Final post-UI verdict
+
+**POST-UI FOUNDATION READY FOR LEX PORT: YES**
+
+Lex model/streaming work is not part of this checkpoint. The next action is
+only the checkpoint commit, annotated tag, and origin ref verification.
