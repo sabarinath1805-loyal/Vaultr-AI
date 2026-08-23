@@ -185,6 +185,7 @@ export function TableScrollArea({
             )}
         >
             <div
+                role="table"
                 className={cn(
                     "flex h-full min-h-0 min-w-0 flex-col overflow-hidden",
                     LIQUID_TABLE_SURFACE_CLASS,
@@ -193,6 +194,7 @@ export function TableScrollArea({
                 {header && (
                     <div
                         ref={headerViewportRef}
+                        role="presentation"
                         className="min-w-0 shrink-0 overflow-hidden"
                     >
                         {header}
@@ -200,6 +202,7 @@ export function TableScrollArea({
                 )}
                 <div
                     ref={scrollRef}
+                    role="presentation"
                     className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto overscroll-x-none"
                     onScroll={(event) => {
                         if (headerViewportRef.current) {
@@ -219,6 +222,7 @@ export function TableScrollArea({
 export function TableHeaderRow({ children, className, ...props }: DivProps) {
     return (
         <div
+            role="row"
             className={cn(
                 "z-[70] flex h-10 min-w-max items-center bg-app-surface pr-3 text-xs font-medium text-gray-500 select-none backdrop-blur-xl",
                 className,
@@ -367,6 +371,7 @@ export function TableStickyCell({
 }) {
     return (
         <div
+            role={header ? "columnheader" : "cell"}
             className={cn(
                 "sticky left-0 z-[60] flex pl-4 pr-2 text-left",
                 widthClassName,
@@ -451,6 +456,7 @@ export function TablePrimaryCell({
                         onChange={onSelectionChange}
                         onClick={(e) => e.stopPropagation()}
                         className={TABLE_CHECKBOX_CLASS}
+                        aria-label={checkboxTitle}
                         title={checkboxTitle}
                     />
                 )}
@@ -463,6 +469,7 @@ export function TablePrimaryCell({
 export function TableHeaderCell({ children, className, ...props }: DivProps) {
     return (
         <div
+            role="columnheader"
             className={cn("flex shrink-0 items-center text-left", className)}
             {...props}
         >
@@ -474,6 +481,7 @@ export function TableHeaderCell({ children, className, ...props }: DivProps) {
 export function TableCell({ children, className, ...props }: DivProps) {
     return (
         <div
+            role="cell"
             className={cn("shrink-0 truncate text-sm text-gray-500", className)}
             {...props}
         >
@@ -484,7 +492,7 @@ export function TableCell({ children, className, ...props }: DivProps) {
 
 export function TableBody({ children, className, ...props }: DivProps) {
     return (
-        <div className={cn("flex-1", className)} {...props}>
+        <div role="rowgroup" className={cn("flex-1", className)} {...props}>
             {children}
         </div>
     );

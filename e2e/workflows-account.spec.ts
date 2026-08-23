@@ -6,7 +6,7 @@
  * Key source facts used by these selectors:
  *  - WorkflowList.tsx: h1 "Workflows"; Plus icon button (no aria-label) opens NewWorkflowModal
  *  - NewWorkflowModal.tsx: placeholder "Workflow name"; submit button text "Create workflow"
- *  - systemWorkflows.ts (generated): built-in id "builtin-draft-cp-checklist", title "Draft CP Checklist"
+ *  - systemWorkflows.ts (generated): built-in id "builtin-cp-checklist-draft", title "CP Checklist Draft"
  *  - WorkflowDetailPage ([id]/page.tsx): readOnly badge renders <span>Read-only</span>;
  *    WorkflowPromptEditor passes editable:!readOnly to Tiptap → contenteditable="false" when readOnly
  *  - WorkflowPromptEditor.tsx: editorProps class = "workflow-editor-content" on the ProseMirror div
@@ -57,10 +57,10 @@ test.describe("Workflows", () => {
         ).toBeVisible({ timeout: 10_000 });
 
         // System workflows are generated into backend/src/lib/systemWorkflows.ts —
-        // "Draft CP Checklist" (id: builtin-draft-cp-checklist) is always present
+        // "CP Checklist Draft" (id: builtin-cp-checklist-draft) is always present
         // is always present; its title appears as a row in the table.
         // REGRESSION: fails if the workflow list page or built-in workflow rendering is broken
-        await expect(page.getByText("Draft CP Checklist")).toBeVisible({
+        await expect(page.getByText("CP Checklist Draft")).toBeVisible({
             timeout: 10_000,
         });
     });
@@ -109,14 +109,18 @@ test.describe("Workflows", () => {
         page,
     }) => {
         // Navigate directly to the known built-in ID; this avoids having to click
-        // through the DisplayWorkflowModal "View Page" button. builtin-draft-cp-checklist
+        // through the DisplayWorkflowModal "View Page" button. builtin-cp-checklist-draft
         // is an assistant-type workflow, so use the typed detail route
         // (/workflows/assistant/[id]) that the app itself links to via
         // workflowDetailPath — the flat /workflows/[id] path does not exist here.
-        await page.goto("/workflows/assistant/builtin-draft-cp-checklist");
+        await page.goto("/workflows/assistant/builtin-cp-checklist-draft");
 
         // The page loads and shows the built-in workflow title
-        await expect(page.getByText("Draft CP Checklist")).toBeVisible({
+        await expect(
+            page
+                .locator(".workflow-editor-content")
+                .getByRole("heading", { name: "CP Checklist Draft" }),
+        ).toBeVisible({
             timeout: 15_000,
         });
 

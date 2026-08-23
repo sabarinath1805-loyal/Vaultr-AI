@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { TableRow } from "./TablePrimitive";
+import { TablePrimaryCell, TableRow } from "./TablePrimitive";
 
 describe("TableRow", () => {
     it("supports keyboard activation without stealing child control keys", async () => {
@@ -34,5 +34,20 @@ describe("TableRow", () => {
         await user.keyboard(" ");
         expect(onCheckboxChange).toHaveBeenCalledTimes(1);
         expect(onClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("gives row-selection checkboxes an explicit accessible name", () => {
+        render(
+            <TablePrimaryCell
+                selected={false}
+                checkboxTitle="Select Matter Alpha"
+                onSelectionChange={() => undefined}
+                label="Matter Alpha"
+            />,
+        );
+
+        expect(
+            screen.getByRole("checkbox", { name: "Select Matter Alpha" }),
+        ).toBeVisible();
     });
 });

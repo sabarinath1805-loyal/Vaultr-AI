@@ -277,6 +277,7 @@ export function ProjectAssistantTable({
                         >
                             <TablePrimaryCell
                                 selected={selectedChatIds.includes(chat.id)}
+                                checkboxTitle={`Select ${chat.title ?? "Untitled Chat"}`}
                                 onSelectionChange={() =>
                                     setSelectedChatIds((prev) =>
                                         prev.includes(chat.id)
@@ -299,8 +300,8 @@ export function ProjectAssistantTable({
                             <TableCell className="w-32">
                                 {formatDate(chat.created_at)}
                             </TableCell>
-                            <div
-                                className="w-8 shrink-0 flex justify-end"
+                            <TableCell
+                                className="w-8 flex justify-end"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <RowActions
@@ -319,7 +320,7 @@ export function ProjectAssistantTable({
                                     }}
                                     onDelete={() => onDeleteChat(chat)}
                                 />
-                            </div>
+                            </TableCell>
                         </TableRow>
                     ))}
                 </TableBody>

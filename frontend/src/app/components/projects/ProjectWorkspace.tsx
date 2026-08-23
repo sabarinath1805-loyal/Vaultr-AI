@@ -18,6 +18,7 @@ import {
     getProject,
     getProjectPeople,
     listProjectChats,
+    MikeApiError,
     updateProject,
 } from "@/app/lib/mikeApi";
 import type {
@@ -159,7 +160,12 @@ export function ProjectWorkspaceProvider({
                 setFolders(loaded.folders ?? []);
             })
             .catch((error) => {
-                console.error("[project workspace] failed to load project", error);
+                if (!(error instanceof MikeApiError && error.status === 404)) {
+                    console.error(
+                        "[project workspace] failed to load project",
+                        error,
+                    );
+                }
                 if (!cancelled) {
                     setProject(null);
                     setFolders([]);
@@ -194,7 +200,9 @@ export function ProjectWorkspaceProvider({
                 return loaded;
             })
             .catch((error) => {
-                console.error("[project assistant] failed to load", error);
+                if (!(error instanceof MikeApiError && error.status === 404)) {
+                    console.error("[project assistant] failed to load", error);
+                }
                 setProjectChats([]);
                 return [];
             })
