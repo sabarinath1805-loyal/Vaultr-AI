@@ -193,6 +193,7 @@ export function ProjectReviewsTable({
                                 }}
                                 onChange={onToggleAll}
                                 className={TABLE_CHECKBOX_CLASS}
+                                aria-label="Select all reviews"
                             />
                         )}
                         <span className="mr-1">Name</span>
@@ -352,6 +353,7 @@ export function ProjectReviewsTable({
                                     )}
                                 </TableCell>
                                 <div
+                                    role="cell"
                                     className="w-8 shrink-0 flex justify-end"
                                     onClick={(e) => e.stopPropagation()}
                                 >

@@ -315,6 +315,7 @@ export function DocVersionHistory({
                             —
                         </div>
                         <div
+                            role="cell"
                             className="w-8 shrink-0 flex justify-end"
                             onClick={(e) => e.stopPropagation()}
                         >

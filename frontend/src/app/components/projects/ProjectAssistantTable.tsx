@@ -200,6 +200,7 @@ export function ProjectAssistantTable({
                                         );
                                 }}
                                 className={TABLE_CHECKBOX_CLASS}
+                                aria-label="Select all chats"
                             />
                         )}
                         <span className="mr-1">Chats</span>
@@ -300,6 +301,7 @@ export function ProjectAssistantTable({
                                 {formatDate(chat.created_at)}
                             </TableCell>
                             <div
+                                role="cell"
                                 className="w-8 shrink-0 flex justify-end"
                                 onClick={(e) => e.stopPropagation()}
                             >

@@ -1,21 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import {
-    User,
-    ChevronsUpDown,
-    ChevronDown,
-    Folder,
-    Library,
-    Table2,
-    Workflow,
-    X,
-    MessageSquare,
-    PanelLeft,
-    Plus,
-    Search,
-    Settings,
-} from "lucide-react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUserProfile } from "@/app/contexts/UserProfileContext";
 import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
@@ -29,14 +14,15 @@ import {
     APP_SURFACE_ACTIVE_CLASS,
     APP_SURFACE_HOVER_CLASS,
 } from "@/app/components/ui/liquid-surface";
+import { MovingIcon, type MovingIconName } from "@/app/components/ui/moving-icon";
 
 const NAV_ITEMS = [
-    { href: "/assistant", label: "Chats", icon: MessageSquare },
-    { href: "/projects", label: "Projects", icon: Folder },
-    { href: "/library", label: "Library", icon: Library },
-    { href: "/tabular-reviews", label: "Tabular Review", icon: Table2 },
-    { href: "/workflows", label: "Workflows", icon: Workflow },
-];
+    { href: "/assistant", label: "Chats", icon: "message-square" },
+    { href: "/projects", label: "Projects", icon: "folder" },
+    { href: "/library", label: "Library", icon: "library" },
+    { href: "/tabular-reviews", label: "Tabular Review", icon: "table" },
+    { href: "/workflows", label: "Workflows", icon: "workflow" },
+] satisfies { href: string; label: string; icon: MovingIconName }[];
 
 type HistoryGroupKey = "today" | "yesterday" | "last-seven-days" | "older";
 
@@ -104,6 +90,19 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
     const [recentProjects, setRecentProjects] = useState<Project[] | null>(
         null,
     );
+    const [allProjects, setAllProjects] = useState<Project[]>([]);
+    const searchTriggerRef = useRef<HTMLButtonElement>(null);
+    const searchDialogRef = useRef<HTMLDivElement>(null);
+
+    const openSearch = useCallback(() => {
+        setHistoryQuery("");
+        setIsSearchOpen(true);
+    }, []);
+
+    const closeSearch = useCallback(() => {
+        setIsSearchOpen(false);
+        requestAnimationFrame(() => searchTriggerRef.current?.focus());
+    }, []);
 
     const groupedHistory = useMemo(() => {
         const query = historyQuery.trim().toLowerCase();
@@ -130,6 +129,14 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
         (group) => group.chats.length > 0,
     );
 
+    const matchingProjects = useMemo(() => {
+        const query = historyQuery.trim().toLowerCase();
+        if (!query) return allProjects.slice(0, 5);
+        return allProjects.filter((project) =>
+            project.name.toLowerCase().includes(query),
+        );
+    }, [allProjects, historyQuery]);
+
     useEffect(() => {
         if (!user) return;
         listProjects()
@@ -137,6 +144,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                 const map: Record<string, string> = {};
                 for (const p of projects) map[p.id] = p.name;
                 setProjectNames(map);
+                setAllProjects(projects);
                 setRecentProjects(
                     [...projects]
                         .sort(
@@ -149,6 +157,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
             })
             .catch(() => {
                 setProjectNames({});
+                setAllProjects([]);
                 setRecentProjects([]);
             });
     }, [user]);
@@ -171,14 +180,46 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
         const handleSearchShortcut = (event: KeyboardEvent) => {
             if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
                 event.preventDefault();
-                setHistoryQuery("");
-                setIsSearchOpen(true);
+                openSearch();
             }
         };
 
         window.addEventListener("keydown", handleSearchShortcut);
         return () => window.removeEventListener("keydown", handleSearchShortcut);
-    }, []);
+    }, [openSearch]);
+
+    useEffect(() => {
+        if (!isSearchOpen) return;
+
+        const handleDialogKeyDown = (event: KeyboardEvent) => {
+            if (event.key === "Escape") {
+                event.preventDefault();
+                closeSearch();
+                return;
+            }
+
+            if (event.key !== "Tab") return;
+            const focusable = Array.from(
+                searchDialogRef.current?.querySelectorAll<HTMLElement>(
+                    'button:not(:disabled), input:not(:disabled), [href], [tabindex]:not([tabindex="-1"])',
+                ) ?? [],
+            ).filter((element) => !element.hasAttribute("hidden"));
+            if (focusable.length === 0) return;
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        };
+
+        document.addEventListener("keydown", handleDialogKeyDown);
+        return () => document.removeEventListener("keydown", handleDialogKeyDown);
+    }, [closeSearch, isSearchOpen]);
 
     useEffect(() => {
         setCurrentChatId(routeChatId);
@@ -255,7 +296,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                         )}
                         title={isOpen ? "Close sidebar" : "Open sidebar"}
                     >
-                        <PanelLeft className="h-4 w-4" />
+                        <MovingIcon name="panel-left" size={16} />
                     </button>
                 </div>
 
@@ -267,22 +308,20 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                             className="vaultr-sidebar-action vaultr-sidebar-action-primary"
                         >
                             <span className="vaultr-sidebar-action-icon">
-                                <Plus className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                                <MovingIcon name="plus" size={18} />
                             </span>
                             <span>New chat</span>
                         </button>
                         <button
+                            ref={searchTriggerRef}
                             type="button"
-                            onClick={() => {
-                                setHistoryQuery("");
-                                setIsSearchOpen(true);
-                            }}
+                            onClick={openSearch}
                             className={cn(
                                 "vaultr-sidebar-action",
                                 isSearchOpen && "vaultr-sidebar-action-active",
                             )}
                         >
-                            <Search className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                            <MovingIcon name="search" size={18} />
                             <span>Search</span>
                             <kbd>Ctrl K</kbd>
                         </button>
@@ -291,7 +330,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                             onClick={() => router.push("/account")}
                             className="vaultr-sidebar-action"
                         >
-                            <Settings className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                            <MovingIcon name="settings" size={18} />
                             <span>Customize</span>
                         </button>
                     </div>
@@ -299,7 +338,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
 
                 {/* Nav items */}
                 <nav className="vaultr-sidebar-nav">
-                    {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+                    {NAV_ITEMS.map(({ href, label, icon }) => {
                     const isActive =
                         href === "/assistant"
                             ? pathname === href
@@ -321,9 +360,9 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                 )}
                                 aria-current={isActive ? "page" : undefined}
                             >
-                                <Icon
+                                <MovingIcon
+                                    name={icon}
                                     className="vaultr-sidebar-icon h-4 w-4 flex-shrink-0"
-                                    strokeWidth={1.5}
                                 />
                                 {isOpen && (
                                     <span
@@ -359,7 +398,8 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                 aria-expanded={!projectsCollapsed}
                             >
                                 <span>Projects</span>
-                                <ChevronDown
+                                <MovingIcon
+                                    name="chevron-down"
                                     className={`h-3.5 w-3.5 transition-transform ${
                                         projectsCollapsed ? "-rotate-90" : ""
                                     }`}
@@ -424,9 +464,9 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                                                 : "text-gray-700",
                                                         )}
                                                     >
-                                                        <Folder
+                                                        <MovingIcon
+                                                            name="folder"
                                                             className="vaultr-sidebar-icon h-3.5 w-3.5 shrink-0"
-                                                            strokeWidth={1.5}
                                                         />
                                                         <span className="vaultr-history-title min-w-0 flex-1">
                                                             {project.name}
@@ -450,7 +490,8 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                 aria-expanded={!historyCollapsed}
                             >
                                 <span>Chats</span>
-                                <ChevronDown
+                                <MovingIcon
+                                    name="chevron-down"
                                     className={`h-3.5 w-3.5 transition-transform ${
                                         historyCollapsed ? "-rotate-90" : ""
                                     }`}
@@ -630,15 +671,18 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                                 : ""
                                         }`}
                                     >
-                                        <div className="flex flex-col gap-0.5 min-w-0">
-                                            <div className="text-sm font-medium text-gray-900 leading-none">
+                                        <div className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
+                                            <div className="truncate text-sm font-medium leading-none text-gray-900">
                                                 {getDisplayName()}
                                             </div>
-                                            <div className="text-[12px] text-gray-500 leading-none">
+                                            <div className="truncate text-[12px] leading-none text-gray-500">
                                                 {getUserTier()}
                                             </div>
                                         </div>
-                                        <ChevronsUpDown className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                                        <MovingIcon
+                                            name="chevron-down"
+                                            className="h-4 w-4 flex-shrink-0 text-gray-400"
+                                        />
                                     </div>
                                 )}
                             </button>
@@ -661,7 +705,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                             "hover:bg-white",
                                         )}
                                     >
-                                        <User className="h-4 w-4" />
+                                        <MovingIcon name="user" size={16} />
                                         Account Settings
                                     </button>
                                 </div>
@@ -675,18 +719,19 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                         className="vaultr-search-scrim fixed inset-0 z-[120] flex items-start justify-center px-4 pt-[25vh]"
                         onMouseDown={(event) => {
                             if (event.target === event.currentTarget) {
-                                setIsSearchOpen(false);
+                                closeSearch();
                             }
                         }}
                     >
                         <div
+                            ref={searchDialogRef}
                             className="vaultr-search-dialog w-full max-w-[640px] overflow-hidden rounded-2xl"
                             role="dialog"
                             aria-modal="true"
                             aria-label="Search chats and projects"
                         >
                             <div className="vaultr-search-dialog-input flex items-center gap-3 px-5">
-                                <Search className="h-5 w-5 shrink-0" strokeWidth={1.5} />
+                                <MovingIcon name="search" size={20} />
                                 <input
                                     autoFocus
                                     value={historyQuery}
@@ -696,40 +741,77 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                 />
                                         <button
                                             type="button"
-                                            onClick={() => setIsSearchOpen(false)}
+                                            onClick={closeSearch}
                                             className="flex h-8 w-8 items-center justify-center rounded-lg"
                                             aria-label="Close search"
                                 >
-                                    <X className="h-5 w-5" strokeWidth={1.5} />
+                                    <MovingIcon name="x" size={20} />
                                 </button>
                             </div>
                             <div className="max-h-[360px] overflow-y-auto p-2">
-                                {groupedHistory.flatMap((group) => group.chats).length === 0 ? (
+                                {matchingProjects.length === 0 &&
+                                groupedHistory.flatMap((group) => group.chats).length === 0 ? (
                                     <p className="px-3 py-8 text-center text-sm text-[var(--vaultr-secondary)]">
-                                        No matching chats
+                                        No matching chats or projects
                                     </p>
                                 ) : (
-                                    groupedHistory.flatMap((group) => group.chats).map((chat) => (
-                                        <button
-                                            key={chat.id}
-                                            type="button"
-                                            className="vaultr-search-result flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left"
-                                            onClick={() => {
-                                                setIsSearchOpen(false);
-                                                setCurrentChatId(chat.id);
-                                                router.push(
-                                                    chat.project_id
-                                                        ? `/projects/${chat.project_id}/assistant/chat/${chat.id}`
-                                                        : `/assistant/chat/${chat.id}`,
-                                                );
-                                            }}
-                                        >
-                                            <MessageSquare className="h-4 w-4 shrink-0" strokeWidth={1.5} />
-                                            <span className="truncate text-sm">
-                                                {chat.title || "Untitled chat"}
-                                            </span>
-                                        </button>
-                                    ))
+                                    <>
+                                        {matchingProjects.length > 0 && (
+                                            <section aria-labelledby="search-projects-heading">
+                                                <h2
+                                                    id="search-projects-heading"
+                                                    className="px-3 pb-1 pt-2 text-xs font-medium text-[var(--vaultr-secondary)]"
+                                                >
+                                                    Projects
+                                                </h2>
+                                                {matchingProjects.map((project) => (
+                                                    <button
+                                                        key={project.id}
+                                                        type="button"
+                                                        className="vaultr-search-result flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left"
+                                                        onClick={() => {
+                                                            setIsSearchOpen(false);
+                                                            router.push(`/projects/${project.id}`);
+                                                        }}
+                                                    >
+                                                        <MovingIcon name="folder" size={16} />
+                                                        <span className="truncate text-sm">{project.name}</span>
+                                                    </button>
+                                                ))}
+                                            </section>
+                                        )}
+                                        {groupedHistory.flatMap((group) => group.chats).length > 0 && (
+                                            <section aria-labelledby="search-chats-heading">
+                                                <h2
+                                                    id="search-chats-heading"
+                                                    className="px-3 pb-1 pt-3 text-xs font-medium text-[var(--vaultr-secondary)]"
+                                                >
+                                                    Chats
+                                                </h2>
+                                                {groupedHistory.flatMap((group) => group.chats).map((chat) => (
+                                                    <button
+                                                        key={chat.id}
+                                                        type="button"
+                                                        className="vaultr-search-result flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left"
+                                                        onClick={() => {
+                                                            setIsSearchOpen(false);
+                                                            setCurrentChatId(chat.id);
+                                                            router.push(
+                                                                chat.project_id
+                                                                    ? `/projects/${chat.project_id}/assistant/chat/${chat.id}`
+                                                                    : `/assistant/chat/${chat.id}`,
+                                                            );
+                                                        }}
+                                                    >
+                                                        <MovingIcon name="message-square" size={16} />
+                                                        <span className="truncate text-sm">
+                                                            {chat.title || "Untitled chat"}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </section>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>

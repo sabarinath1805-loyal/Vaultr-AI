@@ -1671,7 +1671,7 @@ export function DocTable({
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="w-8 shrink-0 flex justify-end">
+                                            <div role="cell" className="w-8 shrink-0 flex justify-end">
                                                 {!isProcessing && (
                                                     <RowActions
                                                         onRename={() => {
@@ -1893,6 +1893,7 @@ export function DocTable({
                                     —
                                 </div>
                                 <div
+                                    role="cell"
                                     className="w-8 shrink-0 flex justify-end"
                                     onClick={(e) => e.stopPropagation()}
                                 >
@@ -2367,6 +2368,7 @@ export function DocTable({
             />
             {/* Table content */}
             <TableScrollArea
+                aria-busy={loading}
                 header={
                     loading ? (
                         <ProjectTableLoadingHeader
@@ -2398,6 +2400,7 @@ export function DocTable({
                                             );
                                     }}
                                     className={TABLE_CHECKBOX_CLASS}
+                                    aria-label="Select all documents"
                                 />
                                 <span className="mr-1">Name</span>
                                 {nameFilterButton}
@@ -2856,7 +2859,7 @@ export function DocTable({
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                <div className="w-8 shrink-0 flex justify-end">
+                                                                <div role="cell" className="w-8 shrink-0 flex justify-end">
                                                                     {!isProcessing && (
                                                                         <RowActions
                                                                             onRename={() => {

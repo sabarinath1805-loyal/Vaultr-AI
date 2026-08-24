@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MessageSquare, Table2, Upload } from "lucide-react";
+import { MessageSquare, Table2 } from "lucide-react";
 import { createWorkflow, updateWorkflow } from "@/app/lib/mikeApi";
 import type { Workflow } from "../shared/types";
 import { PRACTICE_OPTIONS } from "./practices";
@@ -10,6 +10,7 @@ import { ModalFieldLabel } from "../modals/ModalFieldLabel";
 import { ModalSegmentedToggle } from "../modals/ModalSegmentedToggle";
 import { ModalSelect } from "../modals/ModalSelect";
 import { ModalTextInput } from "../modals/ModalTextInput";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 const DEFAULT_LANGUAGE = "English";
 const DEFAULT_PRACTICE = "General Transactions";
@@ -494,7 +495,7 @@ export function NewWorkflowModal({
                 !isEditing && type === "assistant"
                     ? {
                           label: importedSkillName ?? "Upload markdown",
-                          icon: <Upload className="h-3.5 w-3.5" />,
+                          icon: <MovingIcon name="upload" size={14} />,
                           onClick: () => markdownInputRef.current?.click(),
                           disabled: loading,
                       }

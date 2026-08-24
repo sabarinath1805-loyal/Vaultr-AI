@@ -1,6 +1,6 @@
 "use client";
 
-import { PlusIcon } from "lucide-react";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 interface Props {
     onBrowseAll: () => void;
@@ -32,7 +32,7 @@ export function AddDocButton({
                     {selectedDocIds.length}
                 </span>
             ) : (
-                <PlusIcon className="h-4 w-4 shrink-0" />
+                <MovingIcon name="plus" size={16} />
             )}
             <span className={hideLabel ? "hidden" : "hidden sm:inline"}>
                 {selectedDocIds.length === 1 ? "Document" : "Documents"}
@@ -40,5 +40,4 @@ export function AddDocButton({
         </button>
     );
 }
-
 

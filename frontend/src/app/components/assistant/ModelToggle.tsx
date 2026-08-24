@@ -7,10 +7,8 @@ import {
 } from "react";
 import {
     AlertCircle,
-    Check,
     LockKeyhole,
 } from "lucide-react";
-import { ChevronDown } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuLabel,
@@ -24,6 +22,7 @@ import {
 import { isModelAvailable } from "@/app/lib/modelAvailability";
 import type { ApiKeyState } from "@/app/lib/mikeApi";
 import { useOllamaModels } from "@/app/hooks/useOllamaModels";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 export interface ModelOption {
     id: string;
@@ -120,7 +119,8 @@ export const ModelToggle = forwardRef<ModelToggleHandle, Props>(
                         <span className="max-w-[140px] truncate">
                             {selectedLabel}
                         </span>
-                        <ChevronDown
+                        <MovingIcon
+                            name="chevron-down"
                             className={`h-3 w-3 shrink-0 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
                         />
                     </button>
@@ -142,7 +142,13 @@ export const ModelToggle = forwardRef<ModelToggleHandle, Props>(
                             >
                                 <LockKeyhole className="h-3.5 w-3.5 text-gray-500" strokeWidth={1.5} />
                                 <span className="flex-1">{m.label}</span>
-                                {m.id === value && <Check className="ml-1 h-3.5 w-3.5 text-gray-600" />}
+                                {m.id === value && (
+                                    <MovingIcon
+                                        name="check"
+                                        size={14}
+                                        className="ml-1 text-gray-600"
+                                    />
+                                )}
                             </LiquidDropdownItem>
                         ))
                     ) : (
@@ -183,7 +189,11 @@ export const ModelToggle = forwardRef<ModelToggleHandle, Props>(
                                                 />
                                             )}
                                             {m.id === value && available && (
-                                                <Check className="ml-1 h-3.5 w-3.5 text-gray-600" />
+                                                <MovingIcon
+                                                    name="check"
+                                                    size={14}
+                                                    className="ml-1 text-gray-600"
+                                                />
                                             )}
                                         </LiquidDropdownItem>
                                     );
@@ -196,4 +206,3 @@ export const ModelToggle = forwardRef<ModelToggleHandle, Props>(
         );
     },
 );
-

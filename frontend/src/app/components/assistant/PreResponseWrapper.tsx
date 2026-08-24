@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 export function PreResponseWrapper({
     children,
@@ -66,7 +66,8 @@ export function PreResponseWrapper({
                         </span>
                     )}
                 </span>
-                <ChevronDown
+                <MovingIcon
+                    name="chevron-down"
                     size={12}
                     className={`relative top-px shrink-0 ml-2 transition-transform duration-200 ${isOpen ? "" : "-rotate-90"}`}
                 />

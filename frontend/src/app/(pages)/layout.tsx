@@ -2,13 +2,13 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { PanelLeft } from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { ChatHistoryProvider } from "@/app/contexts/ChatHistoryContext";
 import { SidebarContext } from "@/app/contexts/SidebarContext";
 import { PageChromeContext } from "@/app/contexts/PageChromeContext";
 import { AppSidebar } from "@/app/components/shared/AppSidebar";
 import { FullScreenLoader } from "@/app/components/shared/FullScreenLoader";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 export default function MikeLayout({
     children,
@@ -119,7 +119,7 @@ export default function MikeLayout({
                                         title="Open sidebar"
                                         aria-label="Open sidebar"
                                     >
-                                        <PanelLeft className="h-4 w-4" />
+                                        <MovingIcon name="panel-left" size={16} />
                                     </button>
                                     <div
                                         ref={handleMobileActionsContainerRef}
@@ -137,5 +137,4 @@ export default function MikeLayout({
         </ChatHistoryProvider>
     );
 }
-
 

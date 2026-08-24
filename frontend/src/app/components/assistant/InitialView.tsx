@@ -2,16 +2,6 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-    FileCheck2,
-    FilePenLine,
-    Files,
-    FolderPlus,
-    MoreHorizontal,
-    ScanText,
-    Sparkles,
-    TableProperties,
-} from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUserProfile } from "@/app/contexts/UserProfileContext";
 import { MikeIcon } from "@/app/components/chat/mike-icon";
@@ -28,6 +18,7 @@ import {
     useQuickActionsPreference,
 } from "./quickActionsPreferences";
 import type { Message, Workflow } from "../shared/types";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 interface InitialViewProps {
     onSubmit: (message: Message) => void;
@@ -93,23 +84,22 @@ export function InitialView({ onSubmit }: InitialViewProps) {
     }, []);
 
     function quickActionIcon(id: QuickActionId) {
-        const iconClass = "h-4 w-4 shrink-0";
         switch (id) {
             case "proofread":
-                return <FileCheck2 className={iconClass} strokeWidth={1.5} />;
+                return <MovingIcon name="check" size={16} />;
             case "compareDocuments":
-                return <Files className={iconClass} strokeWidth={1.5} />;
+                return <MovingIcon name="copy" size={16} />;
             case "extractKeyTerms":
-                return <ScanText className={iconClass} strokeWidth={1.5} />;
+                return <MovingIcon name="search" size={16} />;
             case "draftFromTemplate":
-                return <FilePenLine className={iconClass} strokeWidth={1.5} />;
+                return <MovingIcon name="plus" size={16} />;
             case "newProject":
             case "projectChat":
-                return <FolderPlus className={iconClass} strokeWidth={1.5} />;
+                return <MovingIcon name="folder" size={16} />;
             case "newTabularReview":
-                return <TableProperties className={iconClass} strokeWidth={1.5} />;
+                return <MovingIcon name="table" size={16} />;
             default:
-                return <Sparkles className={iconClass} strokeWidth={1.5} />;
+                return <MovingIcon name="workflow" size={16} />;
         }
     }
 
@@ -221,7 +211,7 @@ export function InitialView({ onSubmit }: InitialViewProps) {
                                 aria-label="Configure quick actions"
                                 className="vaultr-quick-actions-config flex h-9 w-9 items-center justify-center rounded-lg"
                             >
-                                <MoreHorizontal className="h-4 w-4" />
+                                <MovingIcon name="ellipsis" size={16} />
                             </button>
                         </div>
                     </div>
@@ -256,5 +246,4 @@ export function InitialView({ onSubmit }: InitialViewProps) {
         </div>
     );
 }
-
 

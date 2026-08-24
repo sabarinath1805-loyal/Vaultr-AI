@@ -9,16 +9,7 @@ import {
     useImperativeHandle,
 } from "react";
 import {
-    ArrowUp,
-    AudioLines,
-    Check,
-    Library,
     Loader2,
-    Paperclip,
-    Plus,
-    Square,
-    Waypoints,
-    X,
 } from "lucide-react";
 import { UploadOverlay } from "./UploadOverlay";
 import { FileTypeIcon } from "../shared/FileTypeIcon";
@@ -63,6 +54,7 @@ import {
     formatUnsupportedDocumentWarning,
     partitionSupportedDocumentFiles,
 } from "@/app/lib/documentUploadValidation";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 export interface ChatInputHandle {
     focus: () => void;
@@ -435,7 +427,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                         <div className="vaultr-composer-attachments flex flex-wrap gap-1.5">
                             {selectedWorkflow && (
                                 <div className="vaultr-composer-chip vaultr-composer-chip-workflow inline-flex items-center gap-1">
-                                    <Library className="h-2.5 w-2.5 shrink-0" />
+                                    <MovingIcon name="library" size={10} />
                                     <span className="max-w-[140px] truncate">
                                         {selectedWorkflow.title}
                                     </span>
@@ -447,7 +439,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                         className="rounded-full p-0.5 ml-0.5 text-white/60 hover:text-white hover:bg-white/20 transition-colors"
                                         aria-label={`Remove ${selectedWorkflow.title}`}
                                     >
-                                        <X className="h-2.5 w-2.5" />
+                                        <MovingIcon name="x" size={10} />
                                     </button>
                                 </div>
                             )}
@@ -476,7 +468,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                             className="ml-0.5 rounded-full p-0.5 text-gray-400 transition-colors hover:bg-gray-900/5 hover:text-gray-700"
                                             aria-label={`Remove ${doc.filename}`}
                                         >
-                                            <X className="h-2.5 w-2.5" />
+                                        <MovingIcon name="x" size={10} />
                                         </button>
                                     </div>
                                 );
@@ -551,7 +543,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                                 {attachedDocs.length}
                                             </span>
                                         ) : (
-                                            <Plus className="h-5 w-5" strokeWidth={1.5} />
+                                            <MovingIcon name="plus" size={20} />
                                         )}
                                     </button>
                                 </DropdownMenuTrigger>
@@ -568,7 +560,7 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                                 setDocSelectorOpen(true);
                                             }}
                                         >
-                                            <Paperclip className="h-4 w-4" strokeWidth={1.5} />
+                                            <MovingIcon name="paperclip" size={16} />
                                             <span>Add documents</span>
                                         </LiquidDropdownItem>
                                     )}
@@ -578,9 +570,9 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                                             onSelect={() => setWorkflowModalOpen(true)}
                                         >
                                             {selectedWorkflow ? (
-                                                <Check className="h-4 w-4" strokeWidth={1.5} />
+                                                <MovingIcon name="check" size={16} />
                                             ) : (
-                                                <Waypoints className="h-4 w-4" strokeWidth={1.5} />
+                                                <MovingIcon name="workflow" size={16} />
                                             )}
                                             <span>
                                                 {selectedWorkflow
@@ -621,18 +613,11 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput(
                             disabled={!isLoading && !canSubmit}
                         >
                             {isLoading ? (
-                                <Square
-                                    className="h-4 w-4"
-                                    fill="currentColor"
-                                    strokeWidth={0}
-                                />
+                                <MovingIcon name="square" size={16} />
                             ) : canSubmit || !voiceWhenEmpty ? (
-                                <ArrowUp className="h-4 w-4" strokeWidth={2} />
+                                <MovingIcon name="arrow-up" size={16} strokeWidth={2} />
                             ) : (
-                                <AudioLines
-                                    className="h-[18px] w-[18px]"
-                                    strokeWidth={1.5}
-                                />
+                                <MovingIcon name="audio-lines" size={18} strokeWidth={1.5} />
                             )}
                         </button>
                     </div>

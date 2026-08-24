@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, MessageSquare, Table2, X } from "lucide-react";
 import { SearchBar } from "@/app/components/ui/search-bar";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -16,6 +15,7 @@ import {
     APP_SURFACE_ACTIVE_CLASS,
     APP_SURFACE_HOVER_CLASS,
 } from "@/app/components/ui/liquid-surface";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 type WorkflowPreviewMode = "auto" | "prompt" | "columns";
 type MobilePickerPane = "list" | "details";
@@ -144,10 +144,10 @@ export function WorkflowPickerContent({
                                 const disabled =
                                     disabledWorkflow?.(workflow) ?? false;
                                 const isSelected = selected?.id === workflow.id;
-                                const TypeIcon =
+                                const typeIconName =
                                     workflow.metadata.type === "tabular"
-                                        ? Table2
-                                        : MessageSquare;
+                                        ? "table"
+                                        : "message-square";
                                 return (
                                     <button
                                         key={workflow.id}
@@ -175,7 +175,11 @@ export function WorkflowPickerContent({
                                             {workflow.metadata.title}
                                         </span>
                                         {showTypeIcon ? (
-                                            <TypeIcon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                                            <MovingIcon
+                                                name={typeIconName}
+                                                size={14}
+                                                className="text-gray-400"
+                                            />
                                         ) : (
                                             <span className="shrink-0 text-xs text-gray-400">
                                                 {workflow.is_system
@@ -240,7 +244,7 @@ function WorkflowPreview({
                             onClick={onClear}
                             className={`rounded-md p-1 text-gray-400 transition-colors hover:text-gray-600 ${APP_SURFACE_HOVER_CLASS}`}
                         >
-                            <X className="h-3.5 w-3.5" />
+                            <MovingIcon name="x" size={14} />
                         </button>
                     ) : null}
                 </div>
@@ -389,8 +393,10 @@ function WorkflowColumnPreview({ columns }: { columns: ColumnConfig[] }) {
                                 <span className="max-w-24 shrink-0 truncate text-gray-400">
                                     {formatLabel(column.format ?? "text")}
                                 </span>
-                                <ChevronDown
-                                    className={`h-3 w-3 shrink-0 text-gray-300 transition-transform duration-150 ${isExpanded ? "rotate-180" : ""}`}
+                                <MovingIcon
+                                    name="chevron-down"
+                                    size={12}
+                                    className={`shrink-0 text-gray-300 transition-transform duration-150 ${isExpanded ? "rotate-180" : ""}`}
                                 />
                             </button>
                             {isExpanded ? (

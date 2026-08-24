@@ -8,7 +8,7 @@ import {
     type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, Loader2, Plus, Search, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { usePageChrome } from "@/app/contexts/PageChromeContext";
 import { cn } from "@/app/lib/utils";
 import {
@@ -16,6 +16,7 @@ import {
     APP_SURFACE_HOVER_CLASS,
     APP_SURFACE_PRESSED_CLASS,
 } from "@/app/components/ui/liquid-surface";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 export interface PageHeaderBreadcrumb {
     label?: ReactNode;
@@ -276,7 +277,7 @@ function PageHeaderNewActionControl({
             {action.loading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
-                <Plus className="h-4 w-4" />
+                <MovingIcon name="plus" size={16} />
             )}
         </PageHeaderActionButton>
     );
@@ -317,7 +318,7 @@ function PageHeaderSearchActionControl({
                         `w-56 sm:w-80 ${APP_SURFACE_ACTIVE_CLASS}`,
                     )}
                 >
-                    <Search className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                    <MovingIcon name="search" size={14} className="text-gray-400 shrink-0" />
                     <input
                         autoFocus={open}
                         type="text"
@@ -338,7 +339,7 @@ function PageHeaderSearchActionControl({
                             aria-label="Clear search"
                             className="shrink-0 rounded-full p-0.5 text-gray-400 transition-colors hover:bg-black/5 hover:text-gray-600"
                         >
-                            <X className="h-3.5 w-3.5" />
+                            <MovingIcon name="x" size={14} />
                         </button>
                     )}
                 </div>
@@ -350,7 +351,7 @@ function PageHeaderSearchActionControl({
                     title={placeholder}
                     aria-label={placeholder}
                 >
-                    <Search className="h-4 w-4" />
+                    <MovingIcon name="search" size={16} />
                 </PageHeaderActionButton>
             )}
         </div>
@@ -423,7 +424,7 @@ function PageHeaderBreadcrumbs({ items }: { items: PageHeaderBreadcrumb[] }) {
                     title={parent.title ?? "Back"}
                     aria-label={parent.title ?? "Back"}
                 >
-                    <ChevronLeft className="h-5 w-5" />
+                    <MovingIcon name="chevron-down" size={20} className="rotate-90" />
                 </button>
             )}
             <div className="flex min-w-0 items-center gap-1.5">

@@ -483,6 +483,7 @@ export function WorkflowList() {
 
             {/* Table */}
             <TableScrollArea
+                aria-busy={effectiveLoading}
                 header={
                     <TableHeaderRow>
                         <TableStickyCell header>
@@ -497,6 +498,7 @@ export function WorkflowList() {
                                     }}
                                     onChange={toggleAll}
                                     className={TABLE_CHECKBOX_CLASS}
+                                    aria-label="Select all workflows"
                                 />
                             )}
                             <span className="mr-1">Name</span>
@@ -759,6 +761,7 @@ export function WorkflowList() {
                                     )}
                                 </TableCell>
                                 <div
+                                    role="cell"
                                     className="w-8 shrink-0 flex justify-end"
                                     onClick={(e) => e.stopPropagation()}
                                 >

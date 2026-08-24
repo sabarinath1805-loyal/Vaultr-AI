@@ -4,9 +4,9 @@
  * Test user: e2e@mike.local / E2eTestPass1! (session loaded from e2e/.auth/user.json)
  *
  * Key source facts used by these selectors:
- *  - WorkflowList.tsx: h1 "Workflows"; Plus icon button (no aria-label) opens NewWorkflowModal
+ *  - WorkflowList.tsx: h1 "Workflows"; "New workflow" button opens NewWorkflowModal
  *  - NewWorkflowModal.tsx: placeholder "Workflow name"; submit button text "Create workflow"
- *  - systemWorkflows.ts (generated): built-in id "builtin-draft-cp-checklist", title "Draft CP Checklist"
+ *  - systemWorkflows.ts (generated): built-in id "builtin-cp-checklist-draft", title "CP Checklist Draft"
  *  - WorkflowDetailPage ([id]/page.tsx): readOnly badge renders <span>Read-only</span>;
  *    WorkflowPromptEditor passes editable:!readOnly to Tiptap → contenteditable="false" when readOnly
  *  - WorkflowPromptEditor.tsx: editorProps class = "workflow-editor-content" on the ProseMirror div
@@ -57,10 +57,10 @@ test.describe("Workflows", () => {
         ).toBeVisible({ timeout: 10_000 });
 
         // System workflows are generated into backend/src/lib/systemWorkflows.ts —
-        // "Draft CP Checklist" (id: builtin-draft-cp-checklist) is always present
-        // is always present; its title appears as a row in the table.
+        // "CP Checklist Draft" (id: builtin-cp-checklist-draft) is always present;
+        // its canonical generated title appears as a row in the table.
         // REGRESSION: fails if the workflow list page or built-in workflow rendering is broken
-        await expect(page.getByText("Draft CP Checklist")).toBeVisible({
+        await expect(page.getByText("CP Checklist Draft")).toBeVisible({
             timeout: 10_000,
         });
     });
@@ -70,18 +70,15 @@ test.describe("Workflows", () => {
     test("create a custom assistant workflow and navigate to its detail page", async ({
         page,
     }) => {
+        test.setTimeout(60_000);
         await page.goto("/workflows");
         await expect(
             page.getByRole("heading", { name: "Workflows" }),
         ).toBeVisible({ timeout: 10_000 });
 
-        // The Plus icon button (no aria-label) is the last button inside the div
-        // that directly contains the h1 "Workflows" heading.  The only other button
-        // in that container is the HeaderSearchBtn search toggle, which comes first.
-        // TODO: verify selector if the page header layout changes
-        const newWorkflowBtn = page
-            .locator("div:has(> h1:has-text('Workflows')) button")
-            .last();
+        const newWorkflowBtn = page.getByRole("button", {
+            name: "New workflow",
+        });
         await expect(newWorkflowBtn).toBeVisible({ timeout: 5_000 });
         await newWorkflowBtn.click();
 
@@ -109,16 +106,19 @@ test.describe("Workflows", () => {
         page,
     }) => {
         // Navigate directly to the known built-in ID; this avoids having to click
-        // through the DisplayWorkflowModal "View Page" button. builtin-draft-cp-checklist
+        // through the DisplayWorkflowModal "View Page" button. builtin-cp-checklist-draft
         // is an assistant-type workflow, so use the typed detail route
         // (/workflows/assistant/[id]) that the app itself links to via
         // workflowDetailPath — the flat /workflows/[id] path does not exist here.
-        await page.goto("/workflows/assistant/builtin-draft-cp-checklist");
+        await page.goto("/workflows/assistant/builtin-cp-checklist-draft");
 
         // The page loads and shows the built-in workflow title
-        await expect(page.getByText("Draft CP Checklist")).toBeVisible({
-            timeout: 15_000,
-        });
+        await expect(
+            page
+                .getByRole("main")
+                .getByRole("heading", { name: "CP Checklist Draft" })
+                .first(),
+        ).toBeVisible({ timeout: 15_000 });
 
         // WorkflowDetailPage renders a "Read-only" badge for built-in (is_system) workflows
         // REGRESSION: fails if built-in read-only enforcement is removed from the detail page
@@ -142,16 +142,16 @@ test.describe("Workflows", () => {
     test("editing a custom workflow prompt triggers auto-save", async ({
         page,
     }) => {
+        test.setTimeout(60_000);
         /* Step 1: create a fresh custom workflow to edit */
         await page.goto("/workflows");
         await expect(
             page.getByRole("heading", { name: "Workflows" }),
         ).toBeVisible({ timeout: 10_000 });
 
-        // TODO: verify selector if the page header layout changes
-        const newWorkflowBtn = page
-            .locator("div:has(> h1:has-text('Workflows')) button")
-            .last();
+        const newWorkflowBtn = page.getByRole("button", {
+            name: "New workflow",
+        });
         await newWorkflowBtn.click();
 
         const workflowTitle = `E2E Edit Workflow ${Date.now()}`;

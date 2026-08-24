@@ -307,6 +307,7 @@ export const TRTable = forwardRef<TRTableHandle, Props>(function TRTable(
                             }}
                             onChange={toggleAll}
                             className={TABLE_CHECKBOX_CLASS}
+                            aria-label="Select all rows"
                         />
                         <span>{firstColumnLabel}</span>
                     </div>

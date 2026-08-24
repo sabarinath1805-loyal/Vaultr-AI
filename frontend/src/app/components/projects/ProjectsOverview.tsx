@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Plus } from "lucide-react";
 import {
     listProjects,
     updateProject,
@@ -42,6 +41,7 @@ import {
 } from "@/app/components/shared/TablePrimitive";
 import { PillButton } from "@/app/components/ui/pill-button";
 import { TabPillButton } from "@/app/components/ui/tab-pill-button";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 function formatDate(iso: string) {
     return new Date(iso).toLocaleDateString(undefined, {
@@ -461,7 +461,7 @@ export function ProjectsOverview() {
                     onClick={() => setActionsOpen((v) => !v)}
                 >
                     Actions
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <MovingIcon name="chevron-down" size={14} />
                 </TabPillButton>
                 {actionsOpen && (
                     <div className="absolute top-full right-0 mt-1 w-36 rounded-lg border border-gray-100 bg-white shadow-lg z-50 overflow-hidden">
@@ -512,6 +512,7 @@ export function ProjectsOverview() {
 
             {/* Table */}
             <TableScrollArea
+                aria-busy={effectiveLoading}
                 header={
                     <TableHeaderRow>
                         <TableStickyCell header>
@@ -647,7 +648,7 @@ export function ProjectsOverview() {
                                     onClick={() => setModalOpen(true)}
                                     className="mt-4 px-3"
                                 >
-                                    <Plus className="h-3.5 w-3.5" />
+                                    <MovingIcon name="plus" size={14} />
                                     Create
                                 </PillButton>
                             </>
@@ -697,6 +698,7 @@ export function ProjectsOverview() {
                                 {/* Project Name */}
                                 <TablePrimaryCell
                                     selected={selectedIds.includes(project.id)}
+                                    checkboxTitle={`Select ${project.name}`}
                                     onSelectionChange={() =>
                                         toggleOne(project.id)
                                     }
@@ -738,6 +740,7 @@ export function ProjectsOverview() {
                                 </TableCell>
 
                                 <div
+                                    role="cell"
                                     className="w-8 shrink-0 flex justify-end"
                                     onClick={(e) => e.stopPropagation()}
                                 >
