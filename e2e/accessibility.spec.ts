@@ -50,6 +50,21 @@ function formatViolation(v: {
     }) — ${v.helpUrl}`;
 }
 
+function formatViolationDetails(v: {
+    nodes: Array<{
+        target: unknown[];
+        failureSummary?: string;
+    }>;
+}): string {
+    return v.nodes
+        .map((node) => {
+            const target = node.target.join(" ");
+            const summary = node.failureSummary?.replace(/\s+/g, " ").trim();
+            return `    ${target}${summary ? ` — ${summary}` : ""}`;
+        })
+        .join("\n");
+}
+
 /**
  * Run an axe scan on the current page. Violations at BLOCKING_IMPACTS fail the
  * test with a readable list; violations at LOGGED_IMPACTS are printed to the
@@ -71,7 +86,12 @@ async function expectNoBlockingViolations(page: Page, pageLabel: string) {
         console.log(
             `[a11y] ${pageLabel}: ${logged.length} serious violation(s) ` +
                 `(logged, not yet enforced):\n` +
-                logged.map((v) => `  ${formatViolation(v)}`).join("\n"),
+                logged
+                    .map(
+                        (v) =>
+                            `  ${formatViolation(v)}\n${formatViolationDetails(v)}`,
+                    )
+                    .join("\n"),
         );
     }
 
@@ -79,6 +99,11 @@ async function expectNoBlockingViolations(page: Page, pageLabel: string) {
         blocking.map(formatViolation),
         `critical-impact axe violations on ${pageLabel}`,
     ).toEqual([]);
+}
+
+async function ensureSidebarOpen(page: Page) {
+    const openSidebar = page.getByRole("button", { name: "Open sidebar" });
+    if (await openSidebar.isVisible()) await openSidebar.click();
 }
 
 /* ─── Test 1: login page (pre-auth) ──────────────────────────────────────── */
@@ -114,6 +139,67 @@ test("assistant page has no critical accessibility violations", async ({
     });
 
     await expectNoBlockingViolations(page, "/assistant");
+});
+
+test("interactive icon motion respects reduced-motion preferences", async ({
+    page,
+}) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/assistant");
+    await ensureSidebarOpen(page);
+
+    const searchButton = page.getByRole("button", { name: /Search/ });
+    await expect(searchButton).toBeVisible({ timeout: 10_000 });
+    await searchButton.hover();
+
+    const movingParts = searchButton.locator(".vaultr-moving-icon, .vaultr-moving-icon *");
+    const motionStyles = await movingParts.evaluateAll((elements) =>
+        elements.map((element) => {
+            const style = getComputedStyle(element);
+            return {
+                animationName: style.animationName,
+                transitionDuration: style.transitionDuration,
+                transform: style.transform,
+            };
+        }),
+    );
+
+    expect(motionStyles.length).toBeGreaterThan(0);
+    expect(motionStyles).toEqual(
+        expect.arrayContaining(
+            motionStyles.map(() => ({
+                animationName: "none",
+                transitionDuration: "0s",
+                transform: "none",
+            })),
+        ),
+    );
+});
+
+test("search dialog contains and restores keyboard focus", async ({ page }) => {
+    await page.goto("/assistant");
+    await ensureSidebarOpen(page);
+
+    const searchTrigger = page.getByRole("button", { name: /Search/ });
+    await searchTrigger.click();
+    const dialog = page.getByRole("dialog", {
+        name: "Search chats and projects",
+    });
+    const searchInput = dialog.getByPlaceholder("Search chats and projects");
+    await expect(searchInput).toBeFocused();
+
+    await searchInput.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(searchTrigger).toBeFocused();
+
+    await searchTrigger.click();
+    await expect(searchInput).toBeFocused();
+    await searchInput.press("Shift+Tab");
+    await expect
+        .poll(() => dialog.evaluate((element) => element.contains(document.activeElement)))
+        .toBe(true);
+    await dialog.locator("button:not(:disabled)").last().press("Tab");
+    await expect(searchInput).toBeFocused();
 });
 
 /* ─── Test 3: projects list ──────────────────────────────────────────────── */

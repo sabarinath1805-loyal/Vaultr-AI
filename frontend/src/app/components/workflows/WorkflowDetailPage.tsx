@@ -671,6 +671,7 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
                                                     )
                                                 }
                                                 className={TABLE_CHECKBOX_CLASS}
+                                                aria-label="Select all columns"
                                             />
                                         ) : (
                                             <span
@@ -771,7 +772,7 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
                                                     {col.prompt}
                                                 </TableCell>
                                                 {!readOnly && (
-                                                    <div className="w-8 shrink-0 flex justify-end">
+                                                    <div role="cell" className="w-8 shrink-0 flex justify-end">
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { LogOut, Trash2 } from "lucide-react";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 import { useAuth } from "@/app/contexts/AuthContext";
@@ -335,7 +335,7 @@ export default function AccountPage() {
                     onClick={handleLogout}
                     className="w-full gap-1.5 rounded-lg border border-transparent bg-gray-950 px-3 text-white shadow-none transition-colors hover:bg-gray-900 hover:text-white active:bg-black sm:w-auto"
                 >
-                    <LogOut className="h-4 w-4 shrink-0" />
+                    <MovingIcon name="log-out" size={16} className="shrink-0" />
                     Sign Out
                 </Button>
             </section>
@@ -361,7 +361,7 @@ export default function AccountPage() {
                         disabled={isDeleting}
                         className={`w-full shrink-0 gap-1.5 sm:w-auto ${accountGlassDangerOutlineButtonClassName}`}
                     >
-                        <Trash2 className="h-4 w-4 shrink-0" />
+                        <MovingIcon name="trash-2" size={16} className="shrink-0" />
                         Delete account
                     </Button>
                 </AccountSection>

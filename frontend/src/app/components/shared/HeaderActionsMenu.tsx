@@ -1,6 +1,6 @@
 "use client";
 
-import { MoreHorizontal, type LucideIcon } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuTrigger,
@@ -11,6 +11,7 @@ import {
 } from "@/app/components/ui/liquid-dropdown";
 import { cn } from "@/app/lib/utils";
 import { APP_SURFACE_HOVER_CLASS } from "@/app/components/ui/liquid-surface";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 export type HeaderActionsMenuItem = {
     label: string;
@@ -40,7 +41,7 @@ export function HeaderActionsMenu({
                     aria-label={title}
                     title={title}
                 >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <MovingIcon name="ellipsis" size={16} />
                 </button>
             </DropdownMenuTrigger>
             <LiquidDropdownContent align="end" className="z-[160] w-48">

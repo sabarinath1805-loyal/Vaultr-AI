@@ -255,6 +255,9 @@ export function RowActions(props: Props) {
             <button
                 ref={btnRef}
                 onClick={handleToggle}
+                aria-label="Row actions"
+                title="Row actions"
+                aria-expanded={open}
                 className={`flex items-center justify-center w-6 h-6 rounded text-gray-700 hover:text-gray-900 transition-colors leading-none ${APP_SURFACE_HOVER_CLASS}`}
             >
                 <span className="tracking-widest text-xs">···</span>

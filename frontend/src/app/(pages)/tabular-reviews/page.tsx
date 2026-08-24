@@ -28,6 +28,7 @@ import {
     SkeletonLine,
     TableBody,
     TableCell,
+    TableControlRow,
     TableEmptyState,
     TableFilters,
     type TableFilterOption,
@@ -442,6 +443,7 @@ export default function TabularReviewsPage() {
 
             {/* Table */}
             <TableScrollArea
+                aria-busy={effectiveLoading}
                 onScroll={handleScroll}
                 header={
                     <TableHeaderRow>
@@ -666,6 +668,7 @@ export default function TabularReviewsPage() {
                                         )}
                                     </TableCell>
                                     <div
+                                        role="cell"
                                         className="w-8 shrink-0 flex justify-end"
                                         onClick={(e) => e.stopPropagation()}
                                     >
@@ -684,7 +687,7 @@ export default function TabularReviewsPage() {
                     </TableBody>
                 )}
                 {!effectiveLoading && hasMore && filtered.length > 0 && (
-                    <div className="flex justify-center py-3">
+                    <TableControlRow className="flex justify-center py-3">
                         <button
                             onClick={handleLoadMore}
                             disabled={loadingMore}
@@ -699,7 +702,7 @@ export default function TabularReviewsPage() {
                                   ? "Retry loading"
                                   : "Load more"}
                         </button>
-                    </div>
+                    </TableControlRow>
                 )}
             </TableScrollArea>
 

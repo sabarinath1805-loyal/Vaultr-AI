@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { Search, X } from "lucide-react";
 import { cn } from "@/app/lib/utils";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 type SearchBarSize = "sm" | "normal";
 
@@ -62,11 +62,10 @@ export const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
                     wrapperClassName,
                 )}
             >
-                <Search
-                    className={cn(
-                        "shrink-0 text-gray-400",
-                        classes.icon,
-                    )}
+                <MovingIcon
+                    name="search"
+                    size={size === "sm" ? 12 : 14}
+                    className={cn("shrink-0 text-gray-400", classes.icon)}
                 />
                 <input
                     ref={ref}
@@ -91,7 +90,7 @@ export const SearchBar = React.forwardRef<HTMLInputElement, SearchBarProps>(
                         )}
                         aria-label={clearLabel}
                     >
-                        <X className={classes.icon} />
+                        <MovingIcon name="x" size={size === "sm" ? 12 : 14} />
                     </button>
                 ) : null}
             </div>

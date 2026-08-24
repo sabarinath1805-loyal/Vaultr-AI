@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, RefreshCw } from "lucide-react";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 import { Input } from "@/app/components/ui/input";
 import { useUserProfile } from "@/app/contexts/UserProfileContext";
 import { refreshOllamaModels } from "@/app/hooks/useOllamaModels";
@@ -45,7 +45,7 @@ const OTHER_API_KEY_FIELDS = [
         label: "CourtListener API Key",
         placeholder: "Token...",
         description:
-            "Add a CourtListener API key if you want the latest CourtListener data. Otherwise, Mike will use the bulk data hosted by us.",
+            "Add a CourtListener API key if you want the latest CourtListener data. Otherwise, Vaultr will use the bulk data hosted by us.",
     },
 ] as const;
 
@@ -75,16 +75,14 @@ export default function ApiKeysPage() {
                     className="flex items-center gap-1.5 text-xs font-medium text-gray-600 transition-colors hover:text-gray-950 disabled:cursor-not-allowed disabled:text-gray-400"
                     title="Re-check API keys and detect local (Ollama) models"
                 >
-                    <RefreshCw
-                        className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-                    />
+                    <MovingIcon name="refresh-cw" size={14} animate={refreshing} />
                     {refreshing ? "Refreshing..." : "Refresh"}
                 </button>
             </div>
             <p className="text-sm text-gray-500 mb-4">
                 You must provide your own API keys for the app to work or add
                 your API keys into the .env file if you are running your own
-                instance of Mike. All API keys are encrypted in storage.
+                instance of Vaultr. All API keys are encrypted in storage.
             </p>
             <AccountSection>
                 {MODEL_API_KEY_FIELDS.map((field, index) => (
@@ -261,9 +259,9 @@ function ApiKeyField({
                                 aria-label={reveal ? "Hide key" : "Show key"}
                             >
                                 {reveal ? (
-                                    <EyeOff className="h-4 w-4" />
+                                    <MovingIcon name="eye-off" size={16} />
                                 ) : (
-                                    <Eye className="h-4 w-4" />
+                                    <MovingIcon name="eye" size={16} />
                                 )}
                             </button>
                         )}

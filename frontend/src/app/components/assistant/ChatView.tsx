@@ -2,7 +2,6 @@
 
 import { useCallback, useState, useRef, useEffect } from "react";
 import { flushSync } from "react-dom";
-import { ArrowDown, ChevronDown } from "lucide-react";
 import { UserMessage } from "./UserMessage";
 import { AssistantMessage } from "./AssistantMessage";
 import { ChatInput } from "./ChatInput";
@@ -22,6 +21,7 @@ import type {
 import { useSidebar } from "@/app/contexts/SidebarContext";
 import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
 import { invalidateDocxBytes } from "@/app/hooks/useFetchDocxBytes";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 interface Props {
     chatId?: string | null;
@@ -659,7 +659,7 @@ export function ChatView({
                         title={chatTitle}
                     >
                         <span className="truncate">{chatTitle}</span>
-                        <ChevronDown className="h-4 w-4 shrink-0" strokeWidth={1.5} />
+                        <MovingIcon name="chevron-down" size={16} />
                     </button>
                     <button
                         type="button"
@@ -814,8 +814,10 @@ export function ChatView({
                             onClick={scrollToBottom}
                             className="vaultr-scroll-to-bottom rounded-full p-2 cursor-pointer"
                         >
-                            <ArrowDown
-                                className="h-5 w-5"
+                            <MovingIcon
+                                name="arrow-up"
+                                size={20}
+                                className="rotate-180"
                                 strokeWidth={1.5}
                             />
                         </button>
@@ -912,5 +914,4 @@ export function ChatView({
         </div>
     );
 }
-
 

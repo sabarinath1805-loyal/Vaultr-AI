@@ -20,7 +20,7 @@ const authToggleClassName =
 const authToggleActiveClassName =
     "inline-flex h-6 items-center rounded-full border border-white/80 bg-white/86 px-3 text-gray-900 shadow-[0_2px_7px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-3px_7px_rgba(229,231,235,0.32)] backdrop-blur-xl";
 const authToggleInactiveClassName =
-    "inline-flex h-6 items-center rounded-full border border-transparent px-3 text-gray-500 transition-colors hover:bg-white/38 hover:text-gray-900";
+    "inline-flex h-6 items-center rounded-full border border-transparent px-3 text-gray-600 transition-colors hover:bg-white/38 hover:text-gray-900";
 
 export default function SignupPage() {
     const router = useRouter();

@@ -17,7 +17,7 @@ export function TabPillButton({
         active === true
             ? "border-white/80 bg-white text-gray-900"
             : active === false
-              ? "border-white/60 bg-white/45 text-gray-400 hover:bg-white/65 hover:text-gray-700"
+              ? "border-white/60 bg-white/45 text-gray-600 hover:bg-white/65 hover:text-gray-900"
               : "border-white/70 bg-white/65 text-gray-700 hover:bg-white hover:text-gray-900";
 
     return (

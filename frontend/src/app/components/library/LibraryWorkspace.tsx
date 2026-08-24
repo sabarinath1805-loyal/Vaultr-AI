@@ -12,7 +12,6 @@ import {
     useState,
 } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Upload } from "lucide-react";
 import { DocTable } from "@/app/components/documents/DocTable";
 import type { DocTableFolder } from "@/app/components/documents/DocTable";
 import { PageHeader } from "@/app/components/shared/PageHeader";
@@ -30,6 +29,7 @@ import {
     type LibraryKind,
 } from "@/app/lib/mikeApi";
 import type { Document } from "@/app/components/shared/types";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 type LibraryViewCollection = {
     documents: Document[];
@@ -297,7 +297,7 @@ export function LibraryCollectionPage({ kind }: { kind: LibraryKind }) {
                     {
                         actions: [
                             {
-                                icon: <Upload className="h-3.5 w-3.5" />,
+                                icon: <MovingIcon name="upload" size={14} />,
                                 label: (
                                     <span className="hidden sm:inline">
                                         {addCollectionLabel}
@@ -326,7 +326,7 @@ export function LibraryCollectionPage({ kind }: { kind: LibraryKind }) {
                             onClick={createFolderAction ?? undefined}
                             disabled={!createFolderAction || loading}
                         >
-                            <Plus className="h-3.5 w-3.5" />
+                            <MovingIcon name="plus" size={14} />
                             <span className="hidden sm:inline">Folder</span>
                         </TabPillButton>
                     }

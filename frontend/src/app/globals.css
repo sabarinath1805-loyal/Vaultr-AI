@@ -779,6 +779,502 @@
     box-shadow: none;
 }
 
+/* ─── Moving icon system ──────────────────────────────────────────── */
+.vaultr-moving-icon {
+    display: inline-block;
+    flex-shrink: 0;
+    overflow: visible;
+    vertical-align: middle;
+    transform-box: fill-box;
+}
+
+.vaultr-moving-icon-search,
+.vaultr-moving-icon-send,
+.vaultr-moving-icon-paperclip,
+.vaultr-moving-icon-copy,
+.vaultr-moving-icon-check {
+    overflow: visible;
+}
+
+.moving-plus-horizontal,
+.moving-plus-vertical,
+.moving-x-first,
+.moving-x-second {
+    stroke-dasharray: 17;
+    stroke-dashoffset: 0;
+}
+
+.moving-plus-horizontal,
+.moving-plus-vertical {
+    stroke-dasharray: 14;
+}
+
+.moving-check-path {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 0;
+}
+
+.moving-paperclip-path {
+    stroke-dasharray: 87;
+    stroke-dashoffset: 0;
+}
+
+.moving-workflow-line {
+    stroke-dasharray: 50;
+    stroke-dashoffset: 0;
+}
+
+.moving-panel-left-line,
+.moving-chevron-path,
+.moving-arrow-head,
+.moving-upload-group,
+.moving-download-group,
+.moving-trash-top,
+.moving-trash-body,
+.moving-trash-line,
+.moving-copy-rect,
+.moving-copy-path,
+.moving-audio-line {
+    transition: transform 200ms ease-out;
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.moving-settings-gear {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 220ms var(--vaultr-ease-out);
+}
+
+.moving-user-path,
+.moving-user-circle,
+.moving-eye-group,
+.moving-eye-pupil,
+.moving-log-out-arrow,
+.moving-refresh-group {
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: transform 220ms var(--vaultr-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-search,
+    .vaultr-moving-icon-search:hover,
+    .vaultr-moving-icon-search.is-animated {
+        animation: vaultr-moving-search 240ms var(--vaultr-ease-out);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-send
+        .moving-send-group,
+    .vaultr-moving-icon-send:hover .moving-send-group,
+    .vaultr-moving-icon-send.is-animated .moving-send-group {
+        animation: vaultr-moving-send 260ms var(--vaultr-ease-out);
+        transform-origin: center;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-plus
+        .moving-plus-horizontal,
+    .vaultr-moving-icon-plus:hover .moving-plus-horizontal,
+    .vaultr-moving-icon-plus.is-animated .moving-plus-horizontal,
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-x
+        .moving-x-first,
+    .vaultr-moving-icon-x:hover .moving-x-first,
+    .vaultr-moving-icon-x.is-animated .moving-x-first {
+        opacity: 0;
+        animation: vaultr-moving-line 180ms var(--vaultr-ease-out) forwards;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-plus
+        .moving-plus-vertical,
+    .vaultr-moving-icon-plus:hover .moving-plus-vertical,
+    .vaultr-moving-icon-plus.is-animated .moving-plus-vertical,
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-x
+        .moving-x-second,
+    .vaultr-moving-icon-x:hover .moving-x-second,
+    .vaultr-moving-icon-x.is-animated .moving-x-second {
+        opacity: 0;
+        animation: vaultr-moving-line 180ms var(--vaultr-ease-out) 60ms forwards;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-settings
+        .moving-settings-gear,
+    .vaultr-moving-icon-settings:hover .moving-settings-gear,
+    .vaultr-moving-icon-settings.is-animated .moving-settings-gear {
+        transform: rotate(45deg);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-upload
+        .moving-upload-group,
+    .vaultr-moving-icon-upload:hover .moving-upload-group,
+    .vaultr-moving-icon-upload.is-animated .moving-upload-group {
+        transform: translateY(-2px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-download
+        .moving-download-group,
+    .vaultr-moving-icon-download:hover .moving-download-group,
+    .vaultr-moving-icon-download.is-animated .moving-download-group {
+        transform: translateY(2px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-panel-left
+        .moving-panel-left-line,
+    .vaultr-moving-icon-panel-left:hover .moving-panel-left-line,
+    .vaultr-moving-icon-panel-left.is-animated .moving-panel-left-line {
+        transform: translateX(-2px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-chevron-down
+        .moving-chevron-path,
+    .vaultr-moving-icon-chevron-down:hover .moving-chevron-path,
+    .vaultr-moving-icon-chevron-down.is-animated .moving-chevron-path {
+        transform: translateY(3px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-arrow-up
+        .moving-arrow-head,
+    .vaultr-moving-icon-arrow-up:hover .moving-arrow-head,
+    .vaultr-moving-icon-arrow-up.is-animated .moving-arrow-head {
+        transform: translateY(3px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-check
+        .moving-check-path,
+    .vaultr-moving-icon-check:hover .moving-check-path,
+    .vaultr-moving-icon-check.is-animated .moving-check-path {
+        animation: vaultr-moving-check 240ms var(--vaultr-ease-out) backwards;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-copy
+        .moving-copy-rect,
+    .vaultr-moving-icon-copy:hover .moving-copy-rect,
+    .vaultr-moving-icon-copy.is-animated .moving-copy-rect {
+        transform: translate(-3px, -3px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-copy
+        .moving-copy-path,
+    .vaultr-moving-icon-copy:hover .moving-copy-path,
+    .vaultr-moving-icon-copy.is-animated .moving-copy-path {
+        transform: translate(3px, 3px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-trash-2
+        .moving-trash-top,
+    .vaultr-moving-icon-trash-2:hover .moving-trash-top,
+    .vaultr-moving-icon-trash-2.is-animated .moving-trash-top {
+        transform: translateY(-1px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-trash-2
+        .moving-trash-body,
+    .vaultr-moving-icon-trash-2:hover .moving-trash-body,
+    .vaultr-moving-icon-trash-2.is-animated .moving-trash-body,
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-trash-2
+        .moving-trash-line,
+    .vaultr-moving-icon-trash-2:hover .moving-trash-line,
+    .vaultr-moving-icon-trash-2.is-animated .moving-trash-line {
+        transform: translateY(1px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-user
+        .moving-user-path,
+    .vaultr-moving-icon-user:hover .moving-user-path,
+    .vaultr-moving-icon-user.is-animated .moving-user-path {
+        animation: vaultr-moving-user-path 240ms var(--vaultr-ease-out);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-user
+        .moving-user-circle,
+    .vaultr-moving-icon-user:hover .moving-user-circle,
+    .vaultr-moving-icon-user.is-animated .moving-user-circle {
+        animation: vaultr-moving-user-circle 240ms var(--vaultr-ease-out);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-paperclip
+        .moving-paperclip-path,
+    .vaultr-moving-icon-paperclip:hover .moving-paperclip-path,
+    .vaultr-moving-icon-paperclip.is-animated .moving-paperclip-path {
+        animation: vaultr-moving-paperclip 260ms var(--vaultr-ease-out) forwards;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-message-square
+        .moving-message-square-path,
+    .vaultr-moving-icon-message-square:hover .moving-message-square-path,
+    .vaultr-moving-icon-message-square.is-animated .moving-message-square-path {
+        animation: vaultr-moving-message 240ms var(--vaultr-ease-out);
+        transform-origin: bottom left;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-workflow
+        .moving-workflow-start,
+    .vaultr-moving-icon-workflow:hover .moving-workflow-start,
+    .vaultr-moving-icon-workflow.is-animated .moving-workflow-start,
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-workflow
+        .moving-workflow-end,
+    .vaultr-moving-icon-workflow:hover .moving-workflow-end,
+    .vaultr-moving-icon-workflow.is-animated .moving-workflow-end {
+        animation: vaultr-moving-workflow-node 260ms var(--vaultr-ease-out) forwards;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-workflow
+        .moving-workflow-line,
+    .vaultr-moving-icon-workflow:hover .moving-workflow-line,
+    .vaultr-moving-icon-workflow.is-animated .moving-workflow-line {
+        animation: vaultr-moving-workflow-line 260ms var(--vaultr-ease-out) forwards;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-ellipsis
+        .moving-ellipsis-group,
+    .vaultr-moving-icon-ellipsis:hover .moving-ellipsis-group,
+    .vaultr-moving-icon-ellipsis.is-animated .moving-ellipsis-group {
+        animation: vaultr-moving-ellipsis 180ms var(--vaultr-ease-out);
+        transform-origin: center;
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-audio-lines
+        .moving-audio-line,
+    .vaultr-moving-icon-audio-lines:hover .moving-audio-line,
+    .vaultr-moving-icon-audio-lines.is-animated .moving-audio-line {
+        animation: vaultr-moving-audio 220ms var(--vaultr-ease-out);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-eye
+        .moving-eye-pupil,
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-eye-off
+        .moving-eye-group,
+    .vaultr-moving-icon-eye:hover .moving-eye-pupil,
+    .vaultr-moving-icon-eye-off:hover .moving-eye-group {
+        transform: scale(1.16);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-log-out
+        .moving-log-out-arrow,
+    .vaultr-moving-icon-log-out:hover .moving-log-out-arrow {
+        transform: translateX(2px);
+    }
+
+    :where(button:not(:disabled), a, [role="button"]):hover
+        .vaultr-moving-icon-refresh-cw
+        .moving-refresh-group,
+    .vaultr-moving-icon-refresh-cw:hover .moving-refresh-group,
+    .vaultr-moving-icon-refresh-cw.is-animated .moving-refresh-group {
+        transform: rotate(180deg);
+    }
+
+    /* Feature-specific glyphs that still use their existing Lucide geometry
+       get the same small interaction response until they are ported into the
+       shared moving-icon registry. */
+    :where(button:not(:disabled), a, [role="button"]):hover
+        > svg:not(.vaultr-moving-icon):not(.animate-spin):not([class*="rotate-"]),
+    :where(button:not(:disabled), a, [role="button"]):hover
+        > * > svg:not(.vaultr-moving-icon):not(.animate-spin):not([class*="rotate-"]) {
+        animation: vaultr-moving-generic 160ms var(--vaultr-ease-out) both;
+        transform-origin: center;
+    }
+}
+
+@keyframes vaultr-moving-search {
+    0%,
+    100% {
+        transform: translate(0, 0);
+    }
+    25% {
+        transform: translateY(-1px);
+    }
+    50% {
+        transform: translateX(-1px);
+    }
+}
+
+@keyframes vaultr-moving-send {
+    0% {
+        transform: scale(1) translate(0, 0);
+    }
+    50% {
+        transform: translate(1px, -1px) rotate(-4deg);
+    }
+    100% {
+        transform: scale(1) translate(0, 0);
+    }
+}
+
+@keyframes vaultr-moving-line {
+    0% {
+        opacity: 0;
+        stroke-dashoffset: 17;
+    }
+    15% {
+        opacity: 1;
+        stroke-dashoffset: 17;
+    }
+    100% {
+        opacity: 1;
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes vaultr-moving-check {
+    0%,
+    33% {
+        opacity: 0;
+        stroke-dashoffset: 24;
+    }
+    100% {
+        opacity: 1;
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes vaultr-moving-paperclip {
+    0%,
+    15% {
+        stroke-dashoffset: 87;
+    }
+    100% {
+        stroke-dashoffset: 174;
+    }
+}
+
+@keyframes vaultr-moving-user-path {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    33% {
+        transform: translateY(2px);
+    }
+    66% {
+        transform: translateY(-2px);
+    }
+}
+
+@keyframes vaultr-moving-user-circle {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    33% {
+        transform: translateY(4px);
+    }
+    66% {
+        transform: translateY(-2px);
+    }
+}
+
+@keyframes vaultr-moving-message {
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+    40% {
+        transform: rotate(3deg);
+    }
+    60% {
+        transform: rotate(-2deg);
+    }
+    80% {
+        transform: rotate(1deg);
+    }
+}
+
+@keyframes vaultr-moving-workflow-node {
+    0%,
+    50% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+@keyframes vaultr-moving-workflow-line {
+    0%,
+    15%,
+    50% {
+        stroke-dashoffset: 50;
+    }
+    100% {
+        stroke-dashoffset: 0;
+    }
+}
+
+@keyframes vaultr-moving-ellipsis {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    25% {
+        transform: translateY(-2px);
+    }
+    50% {
+        transform: translateY(0);
+    }
+}
+
+@keyframes vaultr-moving-audio {
+    0%,
+    100% {
+        transform: scaleY(1);
+    }
+    50% {
+        transform: scaleY(1.35);
+    }
+}
+
+@keyframes vaultr-moving-generic {
+    0%,
+    100% {
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        transform: translateY(-1px) scale(1.06);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .vaultr-moving-icon,
+    .vaultr-moving-icon *,
+    .vaultr-moving-icon::before,
+    .vaultr-moving-icon::after {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+        stroke-dashoffset: 0 !important;
+        opacity: 1 !important;
+    }
+}
+
 .vaultr-user-message-copy {
     color: var(--vaultr-primary);
     font-size: 14.5px;
