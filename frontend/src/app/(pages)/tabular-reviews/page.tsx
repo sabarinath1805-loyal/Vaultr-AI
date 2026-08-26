@@ -631,6 +631,7 @@ export default function TabularReviewsPage() {
                                                         review.id,
                                                     )
                                                 }
+                                        checkboxTitle={`Select ${review.title ?? "Untitled Review"}`}
                                         selectionIndicator={
                                             deleting ? (
                                                 <Loader2 className="mr-4 h-3 w-3 shrink-0 animate-spin text-gray-400" />
@@ -667,9 +668,8 @@ export default function TabularReviewsPage() {
                                             </span>
                                         )}
                                     </TableCell>
-                                    <div
-                                        role="cell"
-                                        className="w-8 shrink-0 flex justify-end"
+                                    <TableCell
+                                        className="w-8 flex justify-end"
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <RowActions
@@ -680,7 +680,7 @@ export default function TabularReviewsPage() {
                                                 handleDeleteReviewRow(review)
                                             }
                                         />
-                                    </div>
+                                    </TableCell>
                                 </TableRow>
                             );
                         })}

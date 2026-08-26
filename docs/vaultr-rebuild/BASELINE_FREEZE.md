@@ -282,3 +282,65 @@ scope, creating the hardened-base commit and annotated tag
 `upstream` must remain untouched. No Vaultr product conversion begins here.
 
 **BASE READY FOR VAULTR CONVERSION: YES**
+
+## Final Post-UI Checkpoint Freeze — 2026-08-23
+
+This is the append-only freeze record for the post-UI foundation. The
+original hardened base remains `vaultr-hardened-base-v1` at
+`ae84bde30b9b861a8fc57abcc490d6d3f054de3c`; the foundation UI commit is
+`2a1eafb`. The final audited commit is the checkpoint commit created from
+this reviewed tree and is reported after Git creates it.
+
+The exact Stage A boundary was:
+
+`STAGE A COMPLETE — SOURCE FROZEN FOR FINAL POST-UI AUDIT`
+
+After that boundary, only independent verification was performed. The
+narrow Stage A changes addressed populated-table scan timing, row-checkbox
+accessible names, valid table action-cell semantics, and the scoped workflow
+detail heading locator. The generated workflow source remains canonical at
+`CP Checklist Draft`; freshness reproduced 31 workflows byte-for-byte from
+`4b9c7cd0d93b6254780abcc2cc382be6b56cd945`.
+
+### Freeze evidence
+
+| Gate | Result |
+|---|---|
+| Node / npm | v22.15.0 / 10.9.2 |
+| npm audit: root, frontend, backend, Word | 0 findings in every severity/informational category for all four workspaces |
+| Frontend | typecheck/build pass; 28 files / 240 tests; lint 0 errors / 36 warnings; 23 routes |
+| Backend | build pass; 51 files / 574 tests; 9 files / 31 tests skipped under existing opt-in gates |
+| Word add-in | typecheck/build/manifest pass; 64/64 headless tests |
+| Repository Playwright | 27 passed / 4 skipped / 0 failed / 0 flaky, final no-retry run |
+| Real Supabase/storage matrix | 9 files / 31 tests passed |
+| Fresh database | bootstrap and verification pass; 29/29 RLS; 0 browser grants; populated rerun fails closed |
+| Workflow reproducibility | 31 generated workflows, byte-for-byte fresh |
+| B-01 / B-02 / B-03 | independently closed |
+| B-04 | independently closed, foreign provenance unverified and redacted |
+| B-05 / DOC-01-C | independently closed, immutable reuse preserved on loser path |
+| DOC-01 | independently closed across the frozen mutation inventory |
+
+The backend regression environment blanked `MANIFEST_SIGNING_KEY` for the
+test process only, isolating developer-local secret state without printing,
+changing, or deleting the secret. The final browser suite was run headless;
+no popup was opened. A reused backend process had previously exhausted its
+known in-memory rate limiter, so it was restarted before the authoritative
+no-retry run. The transient HTTP 429 cascade was not reproduced after the
+clean service reset.
+
+The axe gate had no critical violations. Serious contrast findings remain
+non-blocking UI debt: login Sign up at 3.9:1 and two muted Projects/Tabular
+tabs at 2.53:1. Expected missing-project 404s render `Project not found` and
+are narrowly suppressed from console diagnostics while unexpected errors
+remain visible.
+
+### Freeze decision
+
+The reviewed tracked scope is authorized for the checkpoint commit
+`chore: freeze hardened Vaultr UI foundation`, the new annotated tag
+`vaultr-hardened-ui-base-v1`, and push to `origin` only. The user-owned
+`Claude web May 2026.zip` remains untouched, untracked, and excluded.
+
+**POST-UI FOUNDATION READY FOR LEX PORT: YES**
+
+Lex work remains out of scope.

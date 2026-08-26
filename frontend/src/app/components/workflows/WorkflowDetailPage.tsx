@@ -738,6 +738,7 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
                                                 <TablePrimaryCell
                                                     widthClassName={NAME_COL_W}
                                                     selected={isChecked}
+                                                    checkboxTitle={`Select ${col.name}`}
                                                     onSelectionChange={() =>
                                                         setSelectedColIndices(
                                                             (previous) =>
@@ -772,7 +773,7 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
                                                     {col.prompt}
                                                 </TableCell>
                                                 {!readOnly && (
-                                                    <div role="cell" className="w-8 shrink-0 flex justify-end">
+                                                    <TableCell className="w-8 flex justify-end">
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -799,7 +800,7 @@ export function WorkflowDetailPage({ id, workflowType }: Props) {
                                                         >
                                                             <X className="h-3.5 w-3.5" />
                                                         </button>
-                                                    </div>
+                                                    </TableCell>
                                                 )}
                                             </TableRow>
                                         );

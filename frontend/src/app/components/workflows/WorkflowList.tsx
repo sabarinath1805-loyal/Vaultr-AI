@@ -685,6 +685,7 @@ export function WorkflowList() {
                             >
                                 <TablePrimaryCell
                                     selected={selectedIds.includes(wf.id)}
+                                    checkboxTitle={`Select ${wf.metadata.title}`}
                                     onSelectionChange={() => toggleOne(wf.id)}
                                     label={wf.metadata.title}
                                 />
@@ -760,9 +761,8 @@ export function WorkflowList() {
                                         </span>
                                     )}
                                 </TableCell>
-                                <div
-                                    role="cell"
-                                    className="w-8 shrink-0 flex justify-end"
+                                <TableCell
+                                    className="w-8 flex justify-end"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     {wf.is_system ? (
@@ -794,7 +794,7 @@ export function WorkflowList() {
                                             }}
                                         />
                                     )}
-                                </div>
+                                </TableCell>
                             </TableRow>
                             );
                         })}

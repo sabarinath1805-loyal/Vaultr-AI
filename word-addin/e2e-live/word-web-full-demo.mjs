@@ -1,5 +1,5 @@
 /**
- * Drive the Mike add-in inside REAL Word on the web, recording video —
+ * Drive the Vaultr add-in inside REAL Word on the web, recording video —
  * FULL button tour. Extends word-web-session.mjs (same profile, same
  * sideload path) to exercise every actionable control in the pane:
  *
@@ -22,7 +22,7 @@
  *
  * Prereqs: Microsoft session in ~/.cache/vaultr-word-web-profile (run the
  * original script with --login), add-in dev server on https://localhost:3000,
- * Mike backend on :3001, demo user seeded.
+ * Vaultr backend on :3001, demo user seeded.
  */
 import { chromium } from "@playwright/test";
 import os from "node:os";
@@ -277,7 +277,7 @@ const paneFrame = await step("open-task-pane", async () => {
 });
 
 await step("sign-in-to-vaultr", async () => {
-  // The profile persists localStorage, so a previous run's Mike session may
+  // The profile persists localStorage, so a previous run's Vaultr session may
   // still be live — land on either the login page or the tab shell.
   const emailInput = paneFrame.getByPlaceholder("you@firm.com");
   const chatTab = paneFrame.getByRole("tab", { name: "Chat" });

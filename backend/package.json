@@ -14,7 +14,7 @@
     "node": ">=22 <23"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.90.0",
+    "@anthropic-ai/sdk": "^0.120.0",
     "@aws-sdk/client-s3": "^3.787.0",
     "@aws-sdk/s3-request-presigner": "^3.787.0",
     "@google/genai": "^1.50.1",
@@ -51,5 +51,8 @@
     "typescript": "^5.8.3",
     "vitest": "^4.1.9"
   },
-  "license": "AGPL-3.0-only"
+  "license": "AGPL-3.0-only",
+  "overrides": {
+    "esbuild": "0.28.1"
+  }
 }
