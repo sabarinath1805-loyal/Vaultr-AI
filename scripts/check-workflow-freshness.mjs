@@ -6,20 +6,20 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 const config = JSON.parse(fs.readFileSync(path.join(root, "scripts/workflow-source.json"), "utf8"));
-const source = path.resolve(process.env.MIKE_WORKFLOWS_DIR ?? path.resolve(root, config.path));
+const source = path.resolve(process.env.VAULTR_WORKFLOWS_DIR ?? path.resolve(root, config.path));
 if (!fs.existsSync(source)) {
   throw new Error(`Workflow source directory not found: ${source}`);
 }
-const approvedRef = process.env.MIKE_WORKFLOWS_REF ?? config.ref;
+const approvedRef = process.env.VAULTR_WORKFLOWS_REF ?? config.ref;
 if (!/^[0-9a-f]{40}$/i.test(approvedRef ?? "")) {
   throw new Error("Workflow source is not pinned to an exact commit SHA");
 }
 
-const output = fs.mkdtempSync(path.join(os.tmpdir(), "mike-workflow-freshness-"));
+const output = fs.mkdtempSync(path.join(os.tmpdir(), "vaultr-workflow-freshness-"));
 try {
   execFileSync(process.execPath, [path.join(root, "scripts/build-workflows.js")], {
     cwd: root,
-    env: { ...process.env, MIKE_WORKFLOWS_DIR: source, MIKE_WORKFLOWS_REF: approvedRef, MIKE_WORKFLOWS_OUTPUT_DIR: output },
+    env: { ...process.env, VAULTR_WORKFLOWS_DIR: source, VAULTR_WORKFLOWS_REF: approvedRef, VAULTR_WORKFLOWS_OUTPUT_DIR: output },
     stdio: "inherit",
   });
   const generated = path.join(output, "backend/src/lib/systemWorkflows.ts");
