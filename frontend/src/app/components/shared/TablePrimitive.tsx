@@ -39,11 +39,11 @@ function canPortalToDocument() {
     return typeof document !== "undefined";
 }
 
-export const TABLE_STICKY_CELL_BG = "bg-app-surface";
+export const TABLE_STICKY_CELL_BG = "bg-app-floating";
 export const TABLE_PRIMARY_CELL_WIDTH_CLASS =
     "w-[248px] sm:w-[292px] md:w-[332px] shrink-0";
 export const TABLE_CHECKBOX_CLASS =
-    "mr-4 h-2.5 w-2.5 shrink-0 rounded border-gray-200 cursor-pointer accent-black";
+    "mr-4 h-3.5 w-3.5 shrink-0 rounded-[4px] border-[var(--vaultr-border-strong)] cursor-pointer accent-[var(--vaultr-primary)]";
 
 type DivProps = HTMLAttributes<HTMLDivElement>;
 
@@ -181,7 +181,7 @@ export function TableScrollArea({
     return (
         <div
             className={cn(
-                "mx-4 mb-2 min-h-0 min-w-0 flex-1 rounded-2xl md:mx-6 md:mb-3",
+                "mx-4 mb-3 min-h-0 min-w-0 flex-1 rounded-xl md:mx-6 md:mb-5",
                 className,
             )}
         >
@@ -226,7 +226,7 @@ export function TableHeaderRow({ children, className, ...props }: DivProps) {
         <div
             role="row"
             className={cn(
-                "z-[70] flex h-10 min-w-max items-center bg-app-surface pr-3 text-xs font-medium text-gray-500 select-none backdrop-blur-xl",
+                "z-[70] flex h-11 min-w-max items-center border-b border-[var(--vaultr-border)] bg-[var(--vaultr-surface-subtle)] pr-3 text-[11px] font-semibold uppercase tracking-[0.045em] text-[var(--vaultr-secondary)] select-none",
                 className,
             )}
             {...props}
@@ -303,7 +303,7 @@ export function TableRow({
                 role="row"
                 tabIndex={interactive ? 0 : undefined}
                 className={cn(
-                    "group flex h-10 min-w-max items-center pr-3 transition-colors",
+                    "group flex h-11 min-w-max items-center border-b border-[var(--vaultr-border)] pr-3 transition-colors last:border-b-0",
                     interactive && "cursor-pointer",
                     interactive && !selected && APP_SURFACE_HOVER_CLASS,
                     selected && APP_SURFACE_ACTIVE_CLASS,
@@ -435,7 +435,7 @@ export function TablePrimaryCell({
                     className="min-w-0 flex-1 text-sm text-gray-800 bg-transparent outline-none"
                 />
             ) : (
-                <span className="min-w-0 flex-1 truncate text-sm text-gray-800">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--vaultr-primary)]">
                     {label}
                 </span>
             )
@@ -487,7 +487,7 @@ export function TableCell({ children, className, ...props }: DivProps) {
     return (
         <div
             role="cell"
-            className={cn("shrink-0 truncate text-sm text-gray-500", className)}
+            className={cn("shrink-0 truncate text-sm text-[var(--vaultr-secondary)]", className)}
             {...props}
         >
             {children}

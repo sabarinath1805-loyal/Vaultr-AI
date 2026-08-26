@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { X } from "lucide-react";
 import { PillButton } from "@/app/components/ui/pill-button";
 import { cn } from "@/app/lib/utils";
+import { MovingIcon } from "@/app/components/ui/moving-icon";
 
 type ModalSize = "sm" | "md" | "lg" | "xl";
 type ModalAction = Omit<
@@ -96,7 +96,31 @@ export function Modal({
             focusTarget?.focus();
         });
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === "Escape") onClose();
+            if (event.key === "Escape") {
+                event.preventDefault();
+                onClose();
+                return;
+            }
+            if (event.key !== "Tab" || !dialogRef.current) return;
+            const focusable = Array.from(
+                dialogRef.current.querySelectorAll<HTMLElement>(
+                    'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ),
+            ).filter((element) => !element.hasAttribute("hidden"));
+            if (focusable.length === 0) {
+                event.preventDefault();
+                dialogRef.current.focus();
+                return;
+            }
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
         };
         document.addEventListener("keydown", handleKeyDown);
         return () => {
@@ -123,10 +147,11 @@ export function Modal({
                 role="dialog"
                 aria-modal="true"
                 aria-label={dialogLabel}
+                tabIndex={-1}
                 className={cn(
-                    "vaultr-modal-surface w-full rounded-3xl flex h-[600px] flex-col",
+                    "vaultr-modal-surface flex h-[min(600px,calc(100dvh-2rem))] w-full flex-col rounded-2xl",
                     sizeClassName[size],
-                    "border border-white/70 bg-gray-50/95 shadow-[0_14px_40px_rgba(15,23,42,0.101),0_5px_14px_rgba(15,23,42,0.067)] backdrop-blur-3xl",
+                    "border border-[var(--vaultr-border)] bg-[var(--vaultr-surface-raised)] shadow-[0_20px_56px_rgba(37,37,31,0.18),0_2px_8px_rgba(37,37,31,0.08)]",
                     className,
                 )}
                 onClick={(e) => e.stopPropagation()}
@@ -158,10 +183,10 @@ export function Modal({
                         </div>
                         <button
                             onClick={onClose}
-                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/70 bg-white/55 text-gray-500 shadow-[inset_0_1px_0_rgba(255,255,255,0.75),inset_0_-1px_0_rgba(255,255,255,0.55),0_6px_18px_rgba(15,23,42,0.08)] backdrop-blur-xl transition-colors hover:bg-white/75 hover:text-gray-700"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--vaultr-border)] bg-[var(--vaultr-surface-subtle)] text-[var(--vaultr-secondary)] transition-colors hover:bg-[var(--app-surface-hover)] hover:text-[var(--vaultr-primary)]"
                             aria-label="Close"
                         >
-                            <X className="h-3.5 w-3.5" />
+                            <MovingIcon name="x" className="h-3.5 w-3.5" />
                         </button>
                     </div>
                 )}
@@ -179,7 +204,7 @@ export function Modal({
                             secondaryAction
                                 ? "justify-between"
                                 : "justify-end",
-                            "border-t border-white/60",
+                            "border-t border-[var(--vaultr-border)]",
                         )}
                     >
                         {secondaryAction && (
@@ -242,8 +267,8 @@ function ModalActionButton({
     const tone =
         variant === "danger"
             ? "danger"
-            : fallbackVariant === "secondary" && variant === "secondary"
-              ? "blue"
+        : fallbackVariant === "secondary" && variant === "secondary"
+              ? "white"
               : variant === "primary"
                 ? "black"
                 : "white";

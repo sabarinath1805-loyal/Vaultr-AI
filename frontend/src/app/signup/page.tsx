@@ -12,15 +12,12 @@ import { useAuth } from "@/app/contexts/AuthContext";
 import { updateUserProfile } from "@/app/lib/mikeApi";
 
 const authGlassCardClassName =
-    "rounded-2xl border border-white/70 bg-white/72 p-8 shadow-[0_4px_14px_rgba(15,23,42,0.045),inset_0_1px_0_rgba(255,255,255,0.86),inset_0_-8px_18px_rgba(255,255,255,0.12)] backdrop-blur-2xl";
+    "vaultr-auth-card p-8 sm:p-10";
 const authInputClassName =
-    "rounded-lg border border-transparent bg-gray-100 px-3 shadow-none focus-visible:border-gray-200 focus-visible:ring-2 focus-visible:ring-gray-300/45";
-const authToggleClassName =
-    "flex gap-1 rounded-full bg-gray-200 p-1 text-xs font-medium";
-const authToggleActiveClassName =
-    "inline-flex h-6 items-center rounded-full border border-white/80 bg-white/86 px-3 text-gray-900 shadow-[0_2px_7px_rgba(15,23,42,0.08),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-3px_7px_rgba(229,231,235,0.32)] backdrop-blur-xl";
-const authToggleInactiveClassName =
-    "inline-flex h-6 items-center rounded-full border border-transparent px-3 text-gray-600 transition-colors hover:bg-white/38 hover:text-gray-900";
+    "vaultr-auth-input h-11 px-3.5 shadow-none";
+const authToggleClassName = "vaultr-auth-switcher";
+const authToggleActiveClassName = "vaultr-auth-switcher-item";
+const authToggleInactiveClassName = "vaultr-auth-switcher-item";
 
 export default function SignupPage() {
     const router = useRouter();
@@ -102,7 +99,7 @@ export default function SignupPage() {
     // Success View
     if (success) {
         return (
-            <div className="min-h-dvh bg-gray-50/80 flex items-start justify-center px-6 pt-32 md:pt-40 pb-10 relative">
+            <div className="vaultr-auth-canvas relative flex min-h-dvh items-start justify-center px-6 pb-10 pt-32 md:pt-40">
                 <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2">
                     <SiteLogo size="lg" asLink />
                 </div>
@@ -127,16 +124,21 @@ export default function SignupPage() {
 
     // Default Signup Form View
     return (
-        <div className="min-h-dvh bg-gray-50/80 flex items-start justify-center px-6 pt-32 md:pt-40 pb-10 relative">
+        <div className="vaultr-auth-canvas relative flex min-h-dvh items-start justify-center px-5 pb-12 pt-28 sm:px-6 md:pt-32">
             <div className="absolute top-4 md:top-8 left-1/2 -translate-x-1/2">
                 <SiteLogo size="lg" asLink />
             </div>
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-[32rem]">
                 <div className={`${authGlassCardClassName} mb-4`}>
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-left text-2xl font-medium font-serif text-gray-950">
-                            Create Account
-                        </h2>
+                    <div className="mb-8 flex items-start justify-between gap-6">
+                        <div>
+                            <h1 className="font-serif text-[2rem] font-medium leading-tight tracking-[-0.02em] text-[var(--vaultr-primary)]">
+                                Create your workspace
+                            </h1>
+                            <p className="mt-2 text-sm leading-relaxed text-[var(--vaultr-secondary)]">
+                                Set up a secure place for your legal work.
+                            </p>
+                        </div>
                         <div className={authToggleClassName}>
                             <Link
                                 href="/login"
@@ -144,7 +146,7 @@ export default function SignupPage() {
                             >
                                 Log in
                             </Link>
-                            <span className={authToggleActiveClassName}>
+                            <span className={authToggleActiveClassName} data-active="true">
                                 Sign up
                             </span>
                         </div>
@@ -258,7 +260,7 @@ export default function SignupPage() {
                         <Button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-black hover:bg-gray-900 text-white"
+                            className="h-11 w-full bg-[var(--vaultr-primary)] text-white shadow-[0_1px_2px_rgba(37,37,31,0.2)] hover:bg-[#38372f]"
                         >
                             {loading ? "Creating account..." : "Sign up"}
                         </Button>

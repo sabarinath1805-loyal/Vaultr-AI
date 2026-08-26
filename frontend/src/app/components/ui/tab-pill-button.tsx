@@ -15,17 +15,17 @@ export function TabPillButton({
 }: TabPillButtonProps) {
     const stateClass =
         active === true
-            ? "border-white/80 bg-white text-gray-900"
+            ? "border-[var(--vaultr-border)] bg-[var(--vaultr-surface-raised)] text-[var(--vaultr-primary)] shadow-[0_1px_2px_rgba(37,37,31,0.06)]"
             : active === false
-              ? "border-white/60 bg-white/45 text-gray-600 hover:bg-white/65 hover:text-gray-900"
-              : "border-white/70 bg-white/65 text-gray-700 hover:bg-white hover:text-gray-900";
+              ? "border-transparent bg-transparent text-[var(--vaultr-secondary)] hover:bg-[var(--app-surface-hover)] hover:text-[var(--vaultr-primary)]"
+              : "border-[var(--vaultr-border)] bg-[var(--vaultr-surface-subtle)] text-[var(--vaultr-secondary)] hover:bg-[var(--vaultr-surface-raised)] hover:text-[var(--vaultr-primary)]";
 
     return (
         <button
             type={type}
             aria-pressed={active}
             className={cn(
-                "inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-3 text-xs font-medium shadow-[0_3px_9px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,0.86),inset_0_-1px_0_rgba(255,255,255,0.58)] backdrop-blur-xl transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
+                "inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100",
                 stateClass,
                 className,
             )}
