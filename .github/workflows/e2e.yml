@@ -17,7 +17,7 @@
 # always take the skip path), cost, and how to verify the specs ran are in
 # docs/e2e-ci.md ("Enable the LLM specs").
 #
-# The e2e user (e2e@mike.local) is bootstrapped in-job by e2e/auth.setup.ts against
+# The e2e user (e2e@vaultr.local) is bootstrapped in-job by e2e/auth.setup.ts against
 # the local Supabase admin API, so no E2E_PASSWORD secret is needed — the defaults
 # baked into auth.setup.ts are the single source of truth.
 name: e2e
