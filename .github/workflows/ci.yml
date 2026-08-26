@@ -34,16 +34,16 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/checkout@v4
         with:
-          repository: Open-Legal-Products/mike-workflows
+          repository: sabarinath1805-loyal/vaultr-workflows
           ref: 4b9c7cd0d93b6254780abcc2cc382be6b56cd945
-          path: mike-workflows
+          path: vaultr-workflows
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: node scripts/check-workflow-freshness.mjs
         env:
-          MIKE_WORKFLOWS_DIR: mike-workflows
-          MIKE_WORKFLOWS_REF: 4b9c7cd0d93b6254780abcc2cc382be6b56cd945
+          VAULTR_WORKFLOWS_DIR: vaultr-workflows
+          VAULTR_WORKFLOWS_REF: 4b9c7cd0d93b6254780abcc2cc382be6b56cd945
 
   backend:
     name: Backend build and tests

@@ -5,15 +5,15 @@ const path = require("path");
 
 const ROOT_DIR = path.resolve(__dirname, "..");
 const WORKSPACE_DIR = path.resolve(ROOT_DIR, "..");
-const OUTPUT_ROOT = process.env.MIKE_WORKFLOWS_OUTPUT_DIR
-  ? path.resolve(process.env.MIKE_WORKFLOWS_OUTPUT_DIR)
+const OUTPUT_ROOT = process.env.VAULTR_WORKFLOWS_OUTPUT_DIR
+  ? path.resolve(process.env.VAULTR_WORKFLOWS_OUTPUT_DIR)
   : ROOT_DIR;
 const SOURCE_CONFIG_PATH = path.join(__dirname, "workflow-source.json");
 const SOURCE_CONFIG = JSON.parse(fs.readFileSync(SOURCE_CONFIG_PATH, "utf8"));
-const WORKFLOWS_DIR = process.env.MIKE_WORKFLOWS_DIR
-  ? path.resolve(process.env.MIKE_WORKFLOWS_DIR)
+const WORKFLOWS_DIR = process.env.VAULTR_WORKFLOWS_DIR
+  ? path.resolve(process.env.VAULTR_WORKFLOWS_DIR)
   : path.resolve(ROOT_DIR, SOURCE_CONFIG.path);
-const EXPECTED_SOURCE_REF = process.env.MIKE_WORKFLOWS_REF || SOURCE_CONFIG.ref;
+const EXPECTED_SOURCE_REF = process.env.VAULTR_WORKFLOWS_REF || SOURCE_CONFIG.ref;
 const WORKFLOW_COLLECTIONS = [
   { directory: "assistant-workflows", type: "assistant" },
   { directory: "tabular-review-workflows", type: "tabular" },
@@ -381,21 +381,32 @@ function readWorkflow(category, workflowDir) {
   assertString(metadata.author, `${label}.metadata.author`);
   assertString(metadata.language, `${label}.language`);
   assertString(metadata.version, `${label}.version`);
-  assertString(metadata["mike-display-name"], `${label}.metadata.mike-display-name`);
-  if (metadata["mike-type"] !== category) {
-    fail(`${label}.metadata.mike-type must be "${category}"`);
+  // vaultr-* keys are canonical; legacy mike-* keys keep the original
+  // Open-Legal-Products workflow sources building unchanged after the fork.
+  const displayName = metadata["vaultr-display-name"] ?? metadata["mike-display-name"];
+  const type = metadata["vaultr-type"] ?? metadata["mike-type"];
+  const availability = metadata["vaultr-availability"] ?? metadata["mike-availability"];
+  if (metadata["vaultr-type"] && metadata["mike-type"]) {
+    fail(`${label}.metadata must not set both vaultr-type and mike-type`);
   }
-  if (!["system", "add-on"].includes(metadata["mike-availability"])) {
-    fail(`${label}.metadata.mike-availability must be "system" or "add-on"`);
+  if (metadata["vaultr-availability"] && metadata["mike-availability"]) {
+    fail(`${label}.metadata must not set both vaultr-availability and mike-availability`);
+  }
+  assertString(displayName, `${label}.metadata.vaultr-display-name`);
+  if (type !== category) {
+    fail(`${label}.metadata.vaultr-type must be "${category}"`);
+  }
+  if (!["system", "add-on"].includes(availability)) {
+    fail(`${label}.metadata.vaultr-availability must be "system" or "add-on"`);
   }
   assertString(metadata.practice, `${label}.metadata.practice`);
   assertString(metadata.jurisdictions, `${label}.metadata.jurisdictions`);
 
   const normalizedMetadata = {
     name: frontmatter.name,
-    title: metadata["mike-display-name"],
+    title: displayName,
     description: frontmatter.description,
-    type: metadata["mike-type"],
+    type: type,
     contributors: [
       {
         name: metadata.author.trim(),
@@ -423,7 +434,7 @@ function readWorkflow(category, workflowDir) {
     }
     return {
       id,
-      availability: metadata["mike-availability"],
+      availability: availability,
       metadata: normalizedMetadata,
       skill_md: skillMd,
       source_skill_md: sourceSkillMd,
@@ -449,7 +460,7 @@ function readWorkflow(category, workflowDir) {
 
   return {
     id,
-    availability: metadata["mike-availability"],
+    availability: availability,
     metadata: normalizedMetadata,
     skill_md: skillMd || null,
     source_skill_md: sourceSkillMd,
@@ -542,7 +553,7 @@ function main() {
   }
   if (!EXPECTED_SOURCE_REF || !/^[0-9a-f]{40}$/i.test(EXPECTED_SOURCE_REF)) {
     fail(
-      `Workflow source ref is not pinned to a full commit SHA. Set scripts/workflow-source.json.ref or MIKE_WORKFLOWS_REF before generation.`,
+      `Workflow source ref is not pinned to a full commit SHA. Set scripts/workflow-source.json.ref or VAULTR_WORKFLOWS_REF before generation.`,
     );
   }
   try {

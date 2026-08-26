@@ -1,6 +1,6 @@
 {
-  "repository": "https://github.com/Open-Legal-Products/mike-workflows.git",
-  "path": "../mike-workflows",
+  "repository": "https://github.com/sabarinath1805-loyal/vaultr-workflows.git",
+  "path": "../vaultr-workflows",
   "ref": "4b9c7cd0d93b6254780abcc2cc382be6b56cd945",
   "collections": [
     "assistant-workflows",
