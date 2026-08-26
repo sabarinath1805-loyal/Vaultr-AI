@@ -9,7 +9,7 @@ import Link from "next/link";
 import { SiteLogo } from "@/app/components/site-logo";
 import { CheckCircle2 } from "lucide-react";
 import { useAuth } from "@/app/contexts/AuthContext";
-import { updateUserProfile } from "@/app/lib/mikeApi";
+import { updateUserProfile } from "@/app/lib/vaultrApi";
 
 const authGlassCardClassName =
     "vaultr-auth-card p-8 sm:p-10";

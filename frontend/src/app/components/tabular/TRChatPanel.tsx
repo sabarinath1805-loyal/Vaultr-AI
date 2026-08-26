@@ -15,7 +15,7 @@ import {
     Trash2,
     X,
 } from "lucide-react";
-import { MikeIcon } from "@/app/components/chat/mike-icon";
+import { VaultrIcon } from "@/app/components/chat/vaultr-icon";
 import {
     streamTabularChat,
     getTabularChats,
@@ -25,7 +25,7 @@ import {
     mapTRMessages,
     type TRChat,
     type TRCitationAnnotation,
-} from "@/app/lib/mikeApi";
+} from "@/app/lib/vaultrApi";
 import type { AssistantEvent } from "../shared/types";
 import { ModelToggle } from "../assistant/ModelToggle";
 import { ApiKeyMissingPopup } from "../popups/ApiKeyMissingPopup";
@@ -41,7 +41,7 @@ import {
     isModelAvailable,
     type ModelProvider,
 } from "@/app/lib/modelAvailability";
-import type { ApiKeyState } from "@/app/lib/mikeApi";
+import type { ApiKeyState } from "@/app/lib/vaultrApi";
 import {
     APP_SURFACE_ACTIVE_CLASS,
     APP_SURFACE_HOVER_CLASS,
@@ -178,10 +178,10 @@ function TRResponseStatus({ isActive }: { isActive: boolean }) {
 
     return (
         <div className="w-full h-9 flex items-center mb-2">
-            <MikeIcon
+            <VaultrIcon
                 spin={isActive}
                 done={showDone && doneVisible}
-                mike={!(showDone && doneVisible)}
+                brand={!(showDone && doneVisible)}
                 size={22}
             />
         </div>

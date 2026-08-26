@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   streamChat,
   streamProjectChat,
-} from "@/app/lib/mikeApi";
+} from "@/app/lib/vaultrApi";
 import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
 import { useGenerateChatTitle } from "./useGenerateChatTitle";
 import type {

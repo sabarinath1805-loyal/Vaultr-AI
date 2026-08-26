@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { MikeIcon } from "@/app/components/chat/mike-icon";
+import { VaultrIcon } from "@/app/components/chat/vaultr-icon";
 
 export type StatusState = "active" | "error" | null;
 
@@ -49,10 +49,10 @@ export function ResponseStatus({ status }: { status: StatusState }) {
                     aria-hidden="true"
                 />
             ) : (
-                <MikeIcon
+                <VaultrIcon
                     spin={isActive}
                     done={showDone && doneVisible}
-                    mike={!isError && !(showDone && doneVisible)}
+                    brand={!isError && !(showDone && doneVisible)}
                     size={22}
                 />
             )}

@@ -32,7 +32,7 @@ import {
     deleteProjectFolder,
     moveDocumentToFolder,
     moveSubfolderToFolder,
-} from "@/app/lib/mikeApi";
+} from "@/app/lib/vaultrApi";
 import { useAssistantChat } from "@/app/hooks/useAssistantChat";
 import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
 import { UserMessage } from "@/app/components/assistant/UserMessage";
@@ -45,7 +45,7 @@ import { SpreadsheetView } from "@/app/components/shared/views/SpreadsheetView";
 import { ConfirmPopup } from "@/app/components/popups/ConfirmPopup";
 import { OwnerOnlyPopup } from "@/app/components/popups/OwnerOnlyPopup";
 import { DocxView } from "@/app/components/shared/views/DocxView";
-import { MikeIcon } from "@/app/components/chat/mike-icon";
+import { VaultrIcon } from "@/app/components/chat/vaultr-icon";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUserProfile } from "@/app/contexts/UserProfileContext";
 import { useSidebar } from "@/app/contexts/SidebarContext";
@@ -137,7 +137,7 @@ function AssistantGreeting({ username }: { username: string }) {
                             "transform 300ms var(--vaultr-ease-drawer)",
                     }}
                 >
-                    <MikeIcon size={ICON_SIZE} />
+                    <VaultrIcon size={ICON_SIZE} />
                 </div>
                 <h1
                     ref={textRef}
@@ -628,7 +628,7 @@ export default function ProjectAssistantChatPage({ params }: Props) {
 
     const handleChatDrop = (e: React.DragEvent) => {
         e.preventDefault();
-        const docId = e.dataTransfer.getData("application/mike-doc");
+        const docId = e.dataTransfer.getData("application/vaultr-doc");
         if (!docId) return;
         const doc = project?.documents?.find((d) => d.id === docId);
         if (doc) chatInputRef.current?.addDoc(doc);
@@ -1018,10 +1018,10 @@ export default function ProjectAssistantChatPage({ params }: Props) {
                                 // Only show the upload overlay for external file drags, not internal moves
                                 const isInternal =
                                     Array.from(e.dataTransfer.types).includes(
-                                        "application/mike-doc",
+                                        "application/vaultr-doc",
                                     ) ||
                                     Array.from(e.dataTransfer.types).includes(
-                                        "application/mike-folder",
+                                        "application/vaultr-folder",
                                     );
                                 if (!isInternal) setExplorerDragOver(true);
                             }}
@@ -1090,10 +1090,10 @@ export default function ProjectAssistantChatPage({ params }: Props) {
                                 onDrop={async (e) => {
                                     e.preventDefault();
                                     const docId = e.dataTransfer.getData(
-                                        "application/mike-doc",
+                                        "application/vaultr-doc",
                                     );
                                     const folderId = e.dataTransfer.getData(
-                                        "application/mike-folder",
+                                        "application/vaultr-folder",
                                     );
                                     if (docId) {
                                         e.stopPropagation();

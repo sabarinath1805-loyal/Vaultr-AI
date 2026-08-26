@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ALLOWED_MODEL_IDS, DEFAULT_MODEL_ID } from "../components/assistant/ModelToggle";
 
-const STORAGE_KEY = "mike.selectedModel";
+const STORAGE_KEY = "vaultr.selectedModel";
 
 function isAllowed(id: string): boolean {
     return ALLOWED_MODEL_IDS.has(id) || id.startsWith("ollama/");

@@ -20,7 +20,7 @@ import {
     LiquidDropdownItem,
 } from "@/app/components/ui/liquid-dropdown";
 import { isModelAvailable } from "@/app/lib/modelAvailability";
-import type { ApiKeyState } from "@/app/lib/mikeApi";
+import type { ApiKeyState } from "@/app/lib/vaultrApi";
 import { useOllamaModels } from "@/app/hooks/useOllamaModels";
 import { MovingIcon } from "@/app/components/ui/moving-icon";
 

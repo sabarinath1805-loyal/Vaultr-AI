@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageSquare, Table2 } from "lucide-react";
-import { createWorkflow, updateWorkflow } from "@/app/lib/mikeApi";
+import { createWorkflow, updateWorkflow } from "@/app/lib/vaultrApi";
 import type { Workflow } from "../shared/types";
 import { PRACTICE_OPTIONS } from "./practices";
 import { Modal } from "../modals/Modal";

@@ -27,7 +27,7 @@ import {
     renameLibraryFolder,
     uploadLibraryDocument,
     type LibraryKind,
-} from "@/app/lib/mikeApi";
+} from "@/app/lib/vaultrApi";
 import type { Document } from "@/app/components/shared/types";
 import { MovingIcon } from "@/app/components/ui/moving-icon";
 

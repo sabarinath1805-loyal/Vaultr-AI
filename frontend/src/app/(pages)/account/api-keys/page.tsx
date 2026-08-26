@@ -9,7 +9,7 @@ import {
     MfaVerificationPopup,
     needsMfaVerification,
 } from "@/app/components/popups/MfaVerificationPopup";
-import { isMfaRequiredError } from "@/app/lib/mikeApi";
+import { isMfaRequiredError } from "@/app/lib/vaultrApi";
 import {
     accountGlassIconButtonClassName,
     accountGlassInputClassName,
