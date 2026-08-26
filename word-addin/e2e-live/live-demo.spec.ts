@@ -1,7 +1,7 @@
 /**
  * LIVE full-stack demo of the Word add-in (see playwright.live.config.ts).
  *
- * Real sign-in (local Supabase), real Mike backend, real LLM responses —
+ * Real sign-in (local Supabase), real Vaultr backend, real LLM responses —
  * only the Word JS API is shimmed (a plain browser has no Office host).
  * Every run records video; these double as review reels of the integration
  * working end-to-end: sign in → chat redlines → proofread redlines → draft.

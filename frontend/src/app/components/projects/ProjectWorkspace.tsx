@@ -161,8 +161,10 @@ export function ProjectWorkspaceProvider({
             })
             .catch((error) => {
                 if (!(error instanceof VaultrApiError && error.status === 404)) {
-                    console.error("[project workspace] failed to load project", error);
-                }
+                    console.error(
+                        "[project workspace] failed to load project",
+                        error,
+                    );                }
                 if (!cancelled) {
                     setProject(null);
                     setFolders([]);

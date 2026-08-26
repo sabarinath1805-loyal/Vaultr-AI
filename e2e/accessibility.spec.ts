@@ -106,6 +106,24 @@ async function ensureSidebarOpen(page: Page) {
     if (await openSidebar.isVisible()) await openSidebar.click();
 }
 
+async function expectFinalTableState(
+    page: Page,
+    selectAllLabel: string,
+): Promise<void> {
+    const table = page.getByRole("table");
+    await expect(table).toBeVisible({ timeout: 10_000 });
+    await expect(
+        table.getByRole("checkbox", { name: selectAllLabel }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const checkboxes = table.getByRole("checkbox");
+    for (let index = 0; index < (await checkboxes.count()); index += 1) {
+        await expect(checkboxes.nth(index)).toHaveAttribute(
+            "aria-label",
+            /.+/,
+        );
+    }}
+
 /* ─── Test 1: login page (pre-auth) ──────────────────────────────────────── */
 
 /* describe-scoped test.use so only this test runs without a stored session.
@@ -209,10 +227,9 @@ test("projects page has no critical accessibility violations", async ({
 }) => {
     await page.goto("/projects");
     await expect(page).toHaveURL(/\/projects/);
-    /* The Plus icon button (aria-label="New project") renders with the list. */
-    await expect(
-        page.getByRole("button", { name: "New project" }),
-    ).toBeVisible({ timeout: 10_000 });
+    /* The final-state select-all checkbox appears only after project loading
+       has completed, including the populated row render. */
+    await expectFinalTableState(page, "Select all projects");
 
     await expectNoBlockingViolations(page, "/projects");
 });
@@ -224,9 +241,7 @@ test("tabular reviews page has no critical accessibility violations", async ({
 }) => {
     await page.goto("/tabular-reviews");
     await expect(page).toHaveURL(/\/tabular-reviews/);
-    await expect(
-        page.getByRole("heading", { name: "Tabular Reviews" }),
-    ).toBeVisible({ timeout: 10_000 });
+    await expectFinalTableState(page, "Select all reviews");
 
     await expectNoBlockingViolations(page, "/tabular-reviews");
 });

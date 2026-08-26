@@ -1,5 +1,5 @@
 /**
- * Drive the Mike add-in inside REAL Word on the web, recording video.
+ * Drive the Vaultr add-in inside REAL Word on the web, recording video.
  *
  * Word online requires a signed-in Microsoft account, which no automation can
  * (or should) create. So this runs in two modes against ONE persistent
@@ -12,12 +12,12 @@
  *
  *   node e2e-live/word-web-session.mjs --record
  *     Reuses the saved session: opens a new Word document, sideloads
- *     manifest.xml via Add-ins → Upload My Add-in, opens the Mike pane,
- *     signs into Mike, and exercises chat redlines. Records video +
+ *     manifest.xml via Add-ins → Upload My Add-in, opens the Vaultr pane,
+ *     signs into Vaultr, and exercises chat redlines. Records video +
  *     step screenshots to ~/Desktop/vaultr-word-addin-videos/word-on-the-web/.
  *
  * Prereqs for --record: the add-in dev server on https://localhost:3000 and
- * the Mike backend on :3001 (see scripts/dev.sh), demo user seeded.
+ * the Vaultr backend on :3001 (see scripts/dev.sh), demo user seeded.
  */
 import { chromium } from "@playwright/test";
 import os from "node:os";
@@ -312,7 +312,7 @@ await step("upload-manifest", async () => {
 
 const paneFrame = await step("open-task-pane", async () => {
   // Sideloading usually opens the pane; otherwise click the ribbon button
-  // the manifest adds (Home → Mike).
+  // the manifest adds (Home → Vaultr).
   try {
     return await waitForFrame((f) => f.url().includes("localhost:3000"), 30_000);
   } catch {

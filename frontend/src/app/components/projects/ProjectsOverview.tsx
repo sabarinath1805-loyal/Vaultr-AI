@@ -739,9 +739,8 @@ export function ProjectsOverview() {
                                     {formatDate(project.created_at)}
                                 </TableCell>
 
-                                <div
-                                    role="cell"
-                                    className="w-8 shrink-0 flex justify-end"
+                                <TableCell
+                                    className="w-8 flex justify-end"
                                     onClick={(e) => e.stopPropagation()}
                                 >
                                     {(project.is_owner ??
@@ -761,7 +760,7 @@ export function ProjectsOverview() {
                                             }}
                                         />
                                     )}
-                                </div>
+                                </TableCell>
                             </TableRow>
                             );
                         })}

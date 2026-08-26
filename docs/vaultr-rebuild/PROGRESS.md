@@ -326,3 +326,55 @@ Final status for this round: **BASE READY FOR VAULTR CONVERSION: YES**.
 Stage C is limited to the requested hardened-base commit/tag/push to `origin`.
 Vaultr v2 conversion and all branding, UI, hosting, and domain work remain
 prohibited.
+
+## Final Post-UI Gate Remediation + Checkpoint Freeze — 2026-08-23
+
+The post-UI source-freeze boundary was formally reached:
+
+`STAGE A COMPLETE — SOURCE FROZEN FOR FINAL POST-UI AUDIT`
+
+The remaining Stage A issues were resolved narrowly: populated table scans
+wait for final data, every production selection checkbox has an accessible
+name, direct action controls are represented by table cells, and the workflow
+detail heading locator is scoped to the editor. The generated workflow name
+`CP Checklist Draft` was confirmed canonical from the generated artifact and
+workflow source; freshness passed byte-for-byte for all 31 workflows at
+`4b9c7cd0d93b6254780abcc2cc382be6b56cd945`.
+
+Independent frozen Stage B results:
+
+- Node **v22.15.0** / npm **10.9.2**.
+- Root, frontend, backend, and Word npm audits: **zero** informational, low,
+  moderate, high, and critical findings in each workspace.
+- Frontend: typecheck/build pass, **28 files / 240 tests**, lint **0 errors /
+  36 warnings**, 23 generated routes.
+- Backend: build pass, **51 files / 574 tests**, with **9 files / 31 tests**
+  skipped only under existing opt-in gates; local `MANIFEST_SIGNING_KEY` was
+  blanked process-only for hermetic assertions.
+- Word: typecheck/build/manifest pass and **64/64** headless browser tests.
+- Repository Playwright: authoritative fresh-service run **27 passed / 4
+  skipped / 0 failed / 0 flaky**, no retries.
+- Real local Supabase/storage: **9 files / 31 tests** passed.
+- Fresh database: canonical bootstrap and verification passed, **29/29 RLS**,
+  **0 browser grants**, and the populated-target bootstrap failed closed.
+- B-01, B-02, B-03, B-04, B-05/DOC-01-C, and DOC-01 are independently closed.
+
+The previous reused-backend browser attempt encountered the known in-memory
+rate limiter and HTTP 429 cascades. Restarting the local backend and running
+the complete suite headlessly produced the authoritative no-retry green run;
+no product rate-limit change was made. The accessibility gate has no critical
+violations. Remaining serious contrast debt is recorded for later UX work
+(login Sign up 3.9:1; two muted Projects/Tabular tabs 2.53:1). Expected
+missing-project 404 handling displays `Project not found` and suppresses only
+the matching typed diagnostic.
+
+The original hardened base is `vaultr-hardened-base-v1` at
+`ae84bde30b9b861a8fc57abcc490d6d3f054de3c`; the foundation UI commit is
+`2a1eafb`. The final audited post-UI commit is the checkpoint commit created
+from this reviewed tree and is reported in the final handoff. The protected
+user-owned `Claude web May 2026.zip` remains untouched and untracked.
+
+**POST-UI FOUNDATION READY FOR LEX PORT: YES**
+
+The next phase may port the Lex model/streaming layer, but that work is not
+part of this checkpoint and has not been started.

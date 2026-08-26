@@ -115,10 +115,11 @@ test.describe("Workflows", () => {
         // The page loads and shows the built-in workflow title
         await expect(
             page
-                .getByRole("main")
-                .getByRole("heading", { name: "CP Checklist Draft" })
-                .first(),
-        ).toBeVisible({ timeout: 15_000 });
+                .locator(".workflow-editor-content")
+                .getByRole("heading", { name: "CP Checklist Draft" }),
+        ).toBeVisible({
+            timeout: 15_000,
+        });
 
         // WorkflowDetailPage renders a "Read-only" badge for built-in (is_system) workflows
         // REGRESSION: fails if built-in read-only enforcement is removed from the detail page
