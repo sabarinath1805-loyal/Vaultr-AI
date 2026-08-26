@@ -1,4 +1,4 @@
-# MikeOSS — full local stack, one `docker compose up`. No external accounts.
+# Vaultr — full local stack, one `docker compose up`. No external accounts.
 # Supabase is embedded (db + auth + rest + gateway); storage is RustFS.
 # The only thing you must supply is one model API key in backend/.env.
 #
@@ -60,8 +60,8 @@ services:
       GOTRUE_SMTP_PORT: "1025"
       # No SMTP_USER/PASS: Mailpit needs no auth, and GoTrue refuses to send
       # credentials over a plaintext (non-TLS) connection ("unencrypted connection").
-      GOTRUE_SMTP_ADMIN_EMAIL: admin@mike.local
-      GOTRUE_SMTP_SENDER_NAME: Mike
+      GOTRUE_SMTP_ADMIN_EMAIL: admin@vaultr.local
+      GOTRUE_SMTP_SENDER_NAME: Vaultr
       # Confirmation/recovery links resolve to the gateway, which strips /auth/v1.
       GOTRUE_MAILER_URLPATHS_CONFIRMATION: /auth/v1/verify
       GOTRUE_MAILER_URLPATHS_RECOVERY: /auth/v1/verify

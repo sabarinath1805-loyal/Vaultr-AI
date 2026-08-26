@@ -163,7 +163,7 @@ export async function bootstrapDatabase(databaseUrl) {
   );
   if (existing || existingBackendTables > 0) {
     fail(
-      "target is not empty: the canonical bootstrap requires a new database with no Mike application tables or migration ledger",
+      "target is not empty: the canonical bootstrap requires a new database with no Vaultr application tables or migration ledger",
     );
   }
 

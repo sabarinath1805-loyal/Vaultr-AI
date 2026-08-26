@@ -1,14 +1,11 @@
-# Mike
+# Vaultr
 
-![Mike](https://mikeoss.com/link-image.jpg)
-
-Mike (MikeOSS) is an open-source legal AI platform for document review,
-drafting, and legal research.
+Vaultr is an open-source legal AI platform for document review, drafting, and
+legal research — a hardened fork of [Mike (MikeOSS)](https://github.com/Open-Legal-Products/mike)
+by Open Legal Products, with its own visual system and workflow library.
 
 It has a Next.js frontend, an Express backend, Supabase Auth/Postgres, and
 Cloudflare R2-compatible object storage.
-
-Website: [mikeoss.com](https://mikeoss.com)
 
 ## Quick start with Docker
 
@@ -44,7 +41,7 @@ Local service endpoints:
 
 | Service | Address | Notes |
 | --- | --- | --- |
-| Mike | `http://localhost:3000` | Main application |
+| Vaultr | `http://localhost:3000` | Main application |
 | Supabase API | `http://localhost:54321` | Auth and data API gateway |
 | Postgres | `localhost:54322` | Host access for database tools |
 | RustFS console | `http://localhost:9001` | `rustfsadmin` / `rustfsadmin` |
@@ -107,13 +104,13 @@ anywhere.
 
 ## System Workflows
 
-Mike's system assistant and tabular review workflows are maintained in the
-[`Open-Legal-Products/mike-workflows`](https://github.com/Open-Legal-Products/mike-workflows)
+Vaultr's system assistant and tabular review workflows are maintained in the
+[`sabarinath1805-loyal/vaultr-workflows`](https://github.com/sabarinath1805-loyal/vaultr-workflows)
 repository.
 
 ## Manual or production deployment
 
-Use this path when connecting Mike to managed Supabase and S3-compatible
+Use this path when connecting Vaultr to managed Supabase and S3-compatible
 storage rather than the infrastructure bundled in Docker Compose.
 
 ### Prerequisites
@@ -181,9 +178,9 @@ Model-provider keys and the CourtListener token can be configured globally in
 `backend/.env` or per user under **Account > Models & API Keys**. If a provider
 key is configured globally, the matching account field is read-only.
 
-Supabase Auth, rather than the Mike backend, sends signup, email-change, and
+Supabase Auth, rather than the Vaultr backend, sends signup, email-change, and
 password-recovery messages. Configure production SMTP in the Supabase dashboard
-if those flows are enabled. Mike does not require a Resend API key.
+if those flows are enabled. Vaultr does not require a Resend API key.
 
 ### Install dependencies
 
@@ -218,7 +215,7 @@ for configuration, verification, and security considerations.
 
 ## CourtListener Integration
 
-Mike can use CourtListener for US case law citation verification, case fetching,
+Vaultr can use CourtListener for US case law citation verification, case fetching,
 targeted opinion search, and case-law panels in assistant responses.
 
 To enable live CourtListener access, set `COURTLISTENER_API_TOKEN` in
@@ -229,7 +226,7 @@ Fresh databases created from `backend/schema.sql` already include the
 CourtListener support tables. Existing deployments should apply the matching
 dated migration in `backend/migrations/` before enabling the feature.
 
-Bulk data is optional. When `COURTLISTENER_BULK_DATA_ENABLED=true`, Mike first
+Bulk data is optional. When `COURTLISTENER_BULK_DATA_ENABLED=true`, Vaultr first
 tries local Supabase/R2 data before falling back to CourtListener's API:
 
 - citation metadata is read from `public.courtlistener_citation_index`
@@ -263,7 +260,7 @@ Supabase Auth. Check the email-provider settings and configure production SMTP
 in the Supabase dashboard.
 
 **Port `54322` is already allocated.** Another local Postgres or Supabase stack
-is using Mike's default host port. Stop that stack or start Mike with a different
+is using Vaultr's default host port. Stop that stack or start Vaultr with a different
 mapping, for example `DB_PORT=54323 docker compose up --build`.
 
 **The model picker shows a missing-key warning.** Add a key under
@@ -277,7 +274,7 @@ the backend.
 **CourtListener bulk lookup is not returning local results.** Confirm
 `COURTLISTENER_BULK_DATA_ENABLED=true`, the two CourtListener tables are
 populated, and opinion JSON exists under `courtlistener/opinions/by-cluster/` in
-R2. Mike falls back to the live API when bulk data is unavailable and a token is
+R2. Vaultr falls back to the live API when bulk data is unavailable and a token is
 configured.
 
 **DOC or DOCX conversion fails.** Install LibreOffice and restart the backend so

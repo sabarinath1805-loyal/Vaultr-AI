@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Mike. Please keep contributions small, focused, and easy to review.
+Thanks for helping improve Vaultr. Please keep contributions small, focused, and easy to review.
 
 ## Guidelines
 
@@ -23,10 +23,10 @@ Thanks for helping improve Mike. Please keep contributions small, focused, and e
 ## System Workflows
 
 System workflows live in the sibling
-[`Open-Legal-Products/mike-workflows`](https://github.com/Open-Legal-Products/mike-workflows)
+[`sabarinath1805-loyal/vaultr-workflows`](https://github.com/sabarinath1805-loyal/vaultr-workflows)
 repository under `assistant-workflows/` and `tabular-review-workflows/`. Put
 structured metadata in the YAML frontmatter at the top of `SKILL.md`, set
-`metadata.mike-availability` to `system`, put workflow instructions in the body
+`metadata.vaultr-availability` to `system`, put workflow instructions in the body
 of `SKILL.md`, and use `table-columns.yaml` for tabular review columns.
 
 After changing system workflows, regenerate the app files:
@@ -37,7 +37,7 @@ node scripts/build-workflows.js
 
 ## Security
 
-Do not open a public issue for security vulnerabilities. Use [GitHub's private vulnerability reporting](https://github.com/Open-Legal-Products/mike/security/advisories/new) instead.
+Do not open a public issue for security vulnerabilities. Use [GitHub's private vulnerability reporting](https://github.com/sabarinath1805-loyal/Vaultr-AI/security/advisories/new) instead.
 
 We will aim to respond promptly and coordinate a disclosure timeline with you.
 
