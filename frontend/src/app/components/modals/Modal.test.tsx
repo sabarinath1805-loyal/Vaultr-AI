@@ -39,6 +39,11 @@ describe("Modal", () => {
             expect(screen.getByLabelText("Matter name")).toHaveFocus(),
         );
 
+        await user.tab();
+        expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
+        await user.tab({ shift: true });
+        expect(screen.getByLabelText("Matter name")).toHaveFocus();
+
         await user.keyboard("{Escape}");
 
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

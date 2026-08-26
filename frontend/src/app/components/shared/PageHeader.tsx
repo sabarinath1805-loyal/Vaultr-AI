@@ -111,7 +111,7 @@ export function PageHeader({
             className={cn(
                 "flex items-center justify-between",
                 "mx-4 md:mx-6",
-                "min-h-[76px] pb-4 pt-5.5",
+                "min-h-[84px] pb-5 pt-6",
                 shrink && "shrink-0",
             )}
         >
@@ -155,7 +155,7 @@ function PageHeaderActionGroups({
                     key={groupIndex}
                     className={cn(
                         "flex shrink-0 items-center gap-2",
-                        "rounded-full border border-white/70 bg-app-surface px-1 py-1 shadow-[0_8px_24px_rgba(15,23,42,0.06)] backdrop-blur-2xl",
+                        "rounded-xl border border-[var(--vaultr-border)] bg-[var(--vaultr-surface-subtle)] px-1 py-1 shadow-[0_1px_2px_rgba(37,37,31,0.035)]",
                     )}
                 >
                     {group.actions.map((action, index) => (
@@ -377,14 +377,14 @@ function pageHeaderActionControlClassName({
     className,
 }: PageHeaderActionControlClassNameOptions = {}) {
     return cn(
-        "flex h-7 items-center justify-center rounded-full text-sm transition-colors disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:text-gray-300",
+        "flex h-8 items-center justify-center rounded-lg text-sm transition-colors disabled:cursor-default disabled:text-gray-300 disabled:hover:bg-transparent disabled:hover:text-gray-300",
         APP_SURFACE_HOVER_CLASS,
         APP_SURFACE_PRESSED_CLASS,
         iconOnly
-            ? "w-7"
-            : "w-7 gap-1.5 px-0 sm:w-auto sm:px-3",
+            ? "w-8"
+            : "w-8 gap-1.5 px-0 sm:w-auto sm:px-3",
         disabled ? "cursor-default" : "cursor-pointer",
-        "text-gray-500 hover:text-gray-900",
+        "text-[var(--vaultr-secondary)] hover:text-[var(--vaultr-primary)]",
         className,
     );
 }
@@ -416,7 +416,7 @@ function PageHeaderBreadcrumbs({ items }: { items: PageHeaderBreadcrumb[] }) {
         .find((item) => item.onClick);
 
     return (
-        <div className="flex min-w-0 items-center gap-1.5 text-2xl font-medium font-serif">
+        <div className="flex min-w-0 items-center gap-2 font-serif text-[1.65rem] font-medium leading-tight tracking-[-0.018em]">
             {parent?.onClick && (
                 <button
                     onClick={parent.onClick}

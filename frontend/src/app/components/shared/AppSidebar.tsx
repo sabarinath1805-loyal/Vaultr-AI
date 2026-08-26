@@ -425,7 +425,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                         </div>
                                     ) : recentProjects.length === 0 ? (
                                         <div
-                                            className={`px-2.5 py-2 text-xs text-gray-500 ${
+                                            className={`px-2.5 py-2 text-xs text-[var(--vaultr-secondary)] ${
                                                 shouldAnimate
                                                     ? "sidebar-fade-in-2"
                                                     : ""
@@ -519,7 +519,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                     </div>
                                 ) : !hasVisibleHistory ? (
                                     <div
-                                        className={`px-2.5 py-2 text-xs text-gray-500 ${
+                                        className={`px-2.5 py-2 text-xs text-[var(--vaultr-secondary)] ${
                                             shouldAnimate
                                                 ? "sidebar-fade-in-2"
                                                 : ""
@@ -675,7 +675,7 @@ export function AppSidebar({ isOpen, onToggle }: AppSidebarProps) {
                                             <div className="truncate text-sm font-medium leading-none text-gray-900">
                                                 {getDisplayName()}
                                             </div>
-                                            <div className="truncate text-[12px] leading-none text-gray-500">
+                                            <div className="truncate text-[12px] leading-none text-[var(--vaultr-secondary)]">
                                                 {getUserTier()}
                                             </div>
                                         </div>
