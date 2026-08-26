@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { useAuth } from "./useAuth";
-import { Button } from "@mike/shared/ui/button";
-import { Input } from "@mike/shared/ui/input";
-import { Label } from "@mike/shared/ui/label";
-import { Spinner } from "@mike/shared/ui/spinner";
-import { MikeIcon } from "@mike/shared/chat/mike-icon";
+import { Button } from "@vaultr/shared/ui/button";
+import { Input } from "@vaultr/shared/ui/input";
+import { Label } from "@vaultr/shared/ui/label";
+import { Spinner } from "@vaultr/shared/ui/spinner";
+import { VaultrIcon } from "@vaultr/shared/chat/vaultr-icon";
 
 export function LoginPage(): React.ReactElement {
   const { login, loading, error } = useAuth();
@@ -25,10 +25,10 @@ export function LoginPage(): React.ReactElement {
         noValidate
       >
         <div className="flex flex-col items-center gap-2.5 text-center">
-          <MikeIcon size={44} />
+          <VaultrIcon size={44} />
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-tight text-foreground">
-              Welcome to Mike
+              Welcome to Vaultr
             </h1>
             <p className="text-sm text-muted-foreground">
               AI-powered legal assistant

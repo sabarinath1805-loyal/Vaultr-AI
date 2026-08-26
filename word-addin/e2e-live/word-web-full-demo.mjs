@@ -20,7 +20,7 @@
  *   chat redlines -> Suplier, reciept       proofread -> Schedual, writen
  *   anonymise     -> John Smith, address    improve   -> clauses 4 and 5
  *
- * Prereqs: Microsoft session in ~/.cache/mike-word-web-profile (run the
+ * Prereqs: Microsoft session in ~/.cache/vaultr-word-web-profile (run the
  * original script with --login), add-in dev server on https://localhost:3000,
  * Mike backend on :3001, demo user seeded.
  */
@@ -30,11 +30,11 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const PROFILE = path.join(os.homedir(), ".cache", "mike-word-web-profile");
+const PROFILE = path.join(os.homedir(), ".cache", "vaultr-word-web-profile");
 const OUT_DIR = path.join(
   os.homedir(),
   "Desktop",
-  "mike-word-addin-videos",
+  "vaultr-word-addin-videos",
   "word-on-the-web",
 );
 const MANIFEST = path.join(
@@ -271,31 +271,31 @@ const paneFrame = await step("open-task-pane", async () => {
   try {
     return await waitForFrame((f) => f.url().includes("localhost:3000"), 30_000);
   } catch {
-    await wac.getByRole("button", { name: /mike/i }).first().click();
+    await wac.getByRole("button", { name: /vaultr/i }).first().click();
     return await waitForFrame((f) => f.url().includes("localhost:3000"), 60_000);
   }
 });
 
-await step("sign-in-to-mike", async () => {
+await step("sign-in-to-vaultr", async () => {
   // The profile persists localStorage, so a previous run's Mike session may
   // still be live — land on either the login page or the tab shell.
   const emailInput = paneFrame.getByPlaceholder("you@firm.com");
   const chatTab = paneFrame.getByRole("tab", { name: "Chat" });
   await emailInput.or(chatTab).first().waitFor({ timeout: 120_000 });
   if (await emailInput.isVisible().catch(() => false)) {
-    await emailInput.fill("demo@mike.local");
-    await paneFrame.getByPlaceholder("••••••••").fill("MikeDemo!2026");
+    await emailInput.fill("demo@vaultr.local");
+    await paneFrame.getByPlaceholder("••••••••").fill("VaultrDemo!2026");
     await paneClick(paneFrame.getByRole("button", { name: "Sign in" }));
   }
   await chatTab.waitFor({ timeout: 60_000 });
-  await shot("mike-signed-in");
+  await shot("vaultr-signed-in");
 });
 
 // ---- Chat: redlines → Apply 2 tracked edits --------------------------------
 await step("chat-apply-tracked-edits", async () => {
   await paneClick(paneFrame.getByRole("switch", { name: "Suggest tracked edits" }));
   await paneFrame
-    .getByPlaceholder("Ask Mike…")
+    .getByPlaceholder("Ask Vaultr…")
     .fill("Fix the spelling mistakes in this agreement.");
   await paneClick(paneFrame.getByRole("button", { name: "Send" }));
   const apply = paneFrame.getByRole("button", { name: "Apply 2 tracked edits", exact: true });
@@ -315,7 +315,7 @@ await step("chat-insert-below", async () => {
   await paneClick(paneFrame.getByRole("switch", { name: "Suggest tracked edits" }));
   await paneClick(paneFrame.getByRole("switch", { name: "Use document as context" }));
   await paneFrame
-    .getByPlaceholder("Ask Mike…")
+    .getByPlaceholder("Ask Vaultr…")
     .fill("Summarize this agreement in two sentences.");
   await paneClick(paneFrame.getByRole("button", { name: "Send" }));
   // The stub summary ends "...confidentiality between the parties (clause 5)."

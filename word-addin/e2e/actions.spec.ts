@@ -156,7 +156,7 @@ test.describe("Improve Writing", () => {
       .click();
 
     await expect(
-      page.getByText(/selected text changed while Mike was responding/i)
+      page.getByText(/selected text changed while Vaultr was responding/i)
     ).toBeVisible();
     const calls = await addin.wordCalls();
     expect(calls.inserts).toHaveLength(0);

@@ -1,8 +1,8 @@
-# Mike Word Add-in
+# Vaultr Word Add-in
 
-An Office.js task pane add-in that brings the Mike legal AI platform directly into Microsoft Word. From the task pane you can chat with an AI about the open document (with optional full-document context), apply AI suggestions as tracked-change redlines, run one-click actions (improve writing, proofread, anonymise, draft clause), execute saved Mike workflows against the document, and browse or upload to Mike projects — all without leaving Word.
+An Office.js task pane add-in that brings the Vaultr legal AI platform directly into Microsoft Word. From the task pane you can chat with an AI about the open document (with optional full-document context), apply AI suggestions as tracked-change redlines, run one-click actions (improve writing, proofread, anonymise, draft clause), execute saved Vaultr workflows against the document, and browse or upload to Vaultr projects — all without leaving Word.
 
-The add-in talks to the **same API and Supabase project as the web app**: sign-in goes directly to Supabase (`/auth/v1/token`), while chat, actions, workflows, projects, and uploads call the Mike API (`http://localhost:3001` in local development).
+The add-in talks to the **same API and Supabase project as the web app**: sign-in goes directly to Supabase (`/auth/v1/token`), while chat, actions, workflows, projects, and uploads call the Vaultr API (`http://localhost:3001` in local development).
 
 ---
 
@@ -10,8 +10,8 @@ The add-in talks to the **same API and Supabase project as the web app**: sign-i
 
 - Node.js 22+
 - Microsoft Word desktop (macOS or Windows) **or** Word on the web — sideloading steps differ; see below (desktop is the smoother path for local development)
-- The Mike API running locally (`npm run dev` from `backend/`) and Supabase configured per the root [README](../README.md) (`backend/.env` + `frontend/.env.local`)
-- A Mike user account — the pane signs in with the same credentials as the web app. Sign up through the web app once, or create a user in Supabase Auth (Dashboard → Authentication → Add user).
+- The Vaultr API running locally (`npm run dev` from `backend/`) and Supabase configured per the root [README](../README.md) (`backend/.env` + `frontend/.env.local`)
+- A Vaultr user account — the pane signs in with the same credentials as the web app. Sign up through the web app once, or create a user in Supabase Auth (Dashboard → Authentication → Add user).
 - For real model responses, a funded LLM API key in `backend/.env` — or use the keyless stand-in described in [Testing without an LLM key](#testing-without-an-llm-key).
 
 ---
@@ -28,19 +28,19 @@ It is idempotent (safe to re-run) and only prompts you when it genuinely needs i
 
 The script verifies the backend before launching:
 
-- **Mike backend** — `GET <api>/health`
+- **Vaultr backend** — `GET <api>/health`
 - **Supabase** — `GET <supabase>/auth/v1/health`
 
 If either is down it prints how to start them and **refuses to launch** (the task pane would just fail to sign in). Start the backend first:
 
 ```bash
 # from backend/
-npm run dev                  # the Mike API on :3001
+npm run dev                  # the Vaultr API on :3001
 ```
 
 Flags:
 - `--setup-only` — do everything except the final `npm start` (prep deps/env/cert; report backend status without launching).
-- `FORCE=1 bash word-addin/scripts/dev.sh` — launch even if the backend check fails (sign-in won't work until Mike is up).
+- `FORCE=1 bash word-addin/scripts/dev.sh` — launch even if the backend check fails (sign-in won't work until Vaultr is up).
 
 The sections below explain each step the script automates, and the manual / web sideloading paths.
 
@@ -66,7 +66,7 @@ The sections below explain each step the script automates, and the manual / web 
    ```
 
    - `REACT_APP_SUPABASE_URL` / `REACT_APP_SUPABASE_ANON_KEY` — the same values as `frontend/.env.local`'s `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY` (from the Supabase dashboard).
-   - `REACT_APP_API_BASE_URL` — the Mike backend; default is `http://localhost:3001`.
+   - `REACT_APP_API_BASE_URL` — the Vaultr backend; default is `http://localhost:3001`.
 
    > **Mixed content / HTTPS:** Word serves the task pane over HTTPS (`https://localhost:3000`), and its WebView blocks plain-HTTP requests to the local backend. The `dev.sh` script avoids this by pointing the bundle at the dev server's same-origin HTTPS proxy (it sets the URLs to `https://localhost:3000` and proxies `/api` → `http://localhost:3001` and `/auth` etc. → Supabase). If you set the raw URLs above by hand, use `dev.sh` or replicate that proxy when testing in desktop Word.
 
@@ -86,7 +86,7 @@ The sections below explain each step the script automates, and the manual / web 
 
    Restart Word after installing.
 
-4. **Start the Mike backend**
+4. **Start the Vaultr backend**
 
    From the repo root:
 
@@ -100,7 +100,7 @@ The sections below explain each step the script automates, and the manual / web 
    npm start
    ```
 
-   This runs `office-addin-debugging start manifest.xml`, which starts the webpack dev server on `https://localhost:3000` **and** automatically opens Word with the add-in sideloaded. The task pane appears under **Home → Mike Legal AI → Open Mike**.
+   This runs `office-addin-debugging start manifest.xml`, which starts the webpack dev server on `https://localhost:3000` **and** automatically opens Word with the add-in sideloaded. The task pane appears under **Home → Vaultr Legal AI → Open Vaultr**.
 
 ---
 
@@ -113,7 +113,7 @@ mkdir -p ~/Library/Containers/com.microsoft.Word/Data/Documents/wef
 cp manifest.xml ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/
 ```
 
-Restart Word, then: **Insert → Add-ins → My Add-ins → Mike**
+Restart Word, then: **Insert → Add-ins → My Add-ins → Vaultr**
 
 ### Word on the web
 
@@ -168,17 +168,17 @@ One-click AI operations, each streaming their result into a result box:
 
 ### Workflows tab
 
-Select a saved Mike workflow from the dropdown and click **Run workflow on document**. The workflow instruction and document context are sent to the API. Results stream in and can be inserted as paragraphs below the cursor.
+Select a saved Vaultr workflow from the dropdown and click **Run workflow on document**. The workflow instruction and document context are sent to the API. Results stream in and can be inserted as paragraphs below the cursor.
 
 ### Projects tab
 
-Browse Mike projects you have access to. Selecting a project shows all documents currently in it. Click **Upload current document to project** to export the open Word document as a `.docx` file and upload it to the selected project via the Mike backend.
+Browse Vaultr projects you have access to. Selecting a project shows all documents currently in it. Click **Upload current document to project** to export the open Word document as a `.docx` file and upload it to the selected project via the Vaultr backend.
 
 ---
 
 ## Signing in
 
-Enter the same email and password you use for the Mike web app. The add-in authenticates directly against Supabase (`/auth/v1/token`) and stores the access token in `OfficeRuntime.storage` (persists across task pane reloads). Click **Sign out** in the header to clear the token.
+Enter the same email and password you use for the Vaultr web app. The add-in authenticates directly against Supabase (`/auth/v1/token`) and stores the access token in `OfficeRuntime.storage` (persists across task pane reloads). Click **Sign out** in the header to clear the token.
 
 ---
 
@@ -199,7 +199,7 @@ It builds the bundle with test env vars, serves it over plain HTTP, injects an O
 
 ## Testing without an LLM key
 
-No funded API key? `e2e-live/anthropic-stub.mjs` is a tiny local server that speaks the Anthropic Messages streaming protocol and returns scripted answers keyed to the add-in's prompts (chat redlines, proofread, anonymise, improve, draft). Everything else stays real — Supabase auth, the Mike backend, SSE streaming, and the Word JS API tracked changes:
+No funded API key? `e2e-live/anthropic-stub.mjs` is a tiny local server that speaks the Anthropic Messages streaming protocol and returns scripted answers keyed to the add-in's prompts (chat redlines, proofread, anonymise, improve, draft). Everything else stays real — Supabase auth, the Vaultr backend, SSE streaming, and the Word JS API tracked changes:
 
 ```bash
 node e2e-live/anthropic-stub.mjs &                          # listens on :4141
@@ -237,7 +237,7 @@ Then **fully quit Word (Cmd-Q)** — its webview caches trust decisions — and 
 A previous run exited without deregistering (crash, Ctrl-C) and left the sideload hard-link behind. `npm start` now clears this automatically via its `prestart` hook; if you hit it anyway, run `npm run stop` and retry.
 
 **`npm start` / `dev.sh` complains port 3000 is in use**
-The add-in dev server and the manifest are hardwired to `https://localhost:3000`, which collides with the Mike web app's dev server. Find the holder with `lsof -nP -iTCP:3000 -sTCP:LISTEN` and stop it (usually `npm run dev` in `frontend/`).
+The add-in dev server and the manifest are hardwired to `https://localhost:3000`, which collides with the Vaultr web app's dev server. Find the holder with `lsof -nP -iTCP:3000 -sTCP:LISTEN` and stop it (usually `npm run dev` in `frontend/`).
 
 **The pane never appears in Word on the web**
 See the caveat under [Word on the web](#word-on-the-web) — Chrome's Local Network Access checks silently block the localhost iframe; use `e2e-live/manual-session.mjs`.
@@ -252,9 +252,9 @@ Confirm the `REACT_APP_SUPABASE_URL` / `REACT_APP_SUPABASE_ANON_KEY` in `.env.de
 The add-in requires WordApi 1.4. Confirm the Word host and build support that requirement set; otherwise use a supported Microsoft 365 Word client.
 
 **Document upload fails**
-- Confirm the Mike API is running (`npm run dev` in `backend/`) and reachable at `http://localhost:3001`
+- Confirm the Vaultr API is running (`npm run dev` in `backend/`) and reachable at `http://localhost:3001`
 - Confirm the API's configured object-storage bucket exists
 - Check the backend logs for the specific error
 
 **Workflows tab shows "No workflows found"**
-Workflows are fetched from `GET /workflows` on the Mike backend. Confirm the backend is running and that at least one workflow exists in the database.
+Workflows are fetched from `GET /workflows` on the Vaultr backend. Confirm the backend is running and that at least one workflow exists in the database.

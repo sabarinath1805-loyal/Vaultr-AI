@@ -5,13 +5,13 @@ import {
   listProjects,
   listProjectDocuments,
   uploadProjectDocument,
-} from "../api/mikeApi";
-import type { Project, Document } from "@mike/core";
+} from "../api/vaultrApi";
+import type { Project, Document } from "@vaultr/core";
 import { useWordDoc } from "../hooks/useWordDoc";
-import { Button } from "@mike/shared/ui/button";
-import { Label } from "@mike/shared/ui/label";
-import { Spinner } from "@mike/shared/ui/spinner";
-import { Select } from "@mike/shared/ui/select";
+import { Button } from "@vaultr/shared/ui/button";
+import { Label } from "@vaultr/shared/ui/label";
+import { Spinner } from "@vaultr/shared/ui/spinner";
+import { Select } from "@vaultr/shared/ui/select";
 
 export function ProjectPicker(): React.ReactElement {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -167,7 +167,7 @@ export function ProjectPicker(): React.ReactElement {
         </div>
         <p className="text-sm font-medium text-foreground">No projects found.</p>
         <p className="text-xs text-muted-foreground">
-          Create a project in the Mike web app to upload documents to it.
+          Create a project in the Vaultr web app to upload documents to it.
         </p>
       </div>
     );

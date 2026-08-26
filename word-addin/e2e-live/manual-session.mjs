@@ -1,7 +1,7 @@
 /**
  * Manual-testing launcher: opens REAL Word on the web in the persistent
  * profile (Microsoft session captured via word-web-session.mjs --login),
- * creates a new document, sideloads the Mike manifest, opens the task
+ * creates a new document, sideloads the Vaultr manifest, opens the task
  * pane — then HANDS THE BROWSER TO YOU. Nothing else is automated; close
  * the window to end the session.
  *
@@ -15,7 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const PROFILE = path.join(os.homedir(), ".cache", "mike-word-web-profile");
+const PROFILE = path.join(os.homedir(), ".cache", "vaultr-word-web-profile");
 const MANIFEST = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
@@ -53,7 +53,7 @@ await wac
   .waitFor({ timeout: 180_000 });
 await page.waitForTimeout(8000);
 
-console.log("Sideloading the Mike manifest…");
+console.log("Sideloading the Vaultr manifest…");
 const more = wac.getByText(/^more add-ins$/i).first();
 for (let attempt = 0; attempt < 4; attempt++) {
   await wac.locator("#InsertAddInFlyout").click();
@@ -99,16 +99,16 @@ await dialogFrame
   .click({ timeout: 15_000 })
   .catch(() => {});
 
-console.log("Waiting for the Mike pane…");
+console.log("Waiting for the Vaultr pane…");
 try {
   await waitForFrame((f) => f.url().includes("localhost:3000"), 30_000);
 } catch {
-  await wac.getByRole("button", { name: /mike/i }).first().click();
+  await wac.getByRole("button", { name: /vaultr/i }).first().click();
   await waitForFrame((f) => f.url().includes("localhost:3000"), 60_000);
 }
 
 console.log(
-  "READY — Word + Mike pane are yours. Test manually; close the browser window to end.",
+  "READY — Word + Vaultr pane are yours. Test manually; close the browser window to end.",
 );
 // Keep the process (and therefore the browser) alive until the user closes it.
 await new Promise((resolve) => context.on("close", resolve));

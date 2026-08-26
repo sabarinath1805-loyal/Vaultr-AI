@@ -14,8 +14,8 @@ import { test, expect, type Page } from "@playwright/test";
 import { installOfficeMock } from "../e2e/support/office-mock";
 import type { WordCalls } from "../e2e/support/office-mock";
 
-const EMAIL = "demo@mike.local";
-const PASSWORD = "MikeDemo!2026";
+const EMAIL = "demo@vaultr.local";
+const PASSWORD = "VaultrDemo!2026";
 
 // A small services agreement with deliberate typos ("Suplier", "reciept")
 // and PII (name + address) so Proofread and chat redlining have real work.
@@ -58,7 +58,7 @@ test("signs in and applies chat-proposed redlines from a real model", async ({
 
   await page.getByRole("switch", { name: "Suggest tracked edits" }).click();
   await page
-    .getByPlaceholder("Ask Mike…")
+    .getByPlaceholder("Ask Vaultr…")
     .fill(
       "Fix the spelling mistakes in this agreement. Propose each fix as an edit."
     );

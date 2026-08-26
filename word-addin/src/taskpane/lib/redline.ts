@@ -9,7 +9,7 @@
  * `applyTrackedEdits` can locate in the document with Word's search API.
  */
 
-// Shared contract for edits Mike must be able to apply automatically: the
+// Shared contract for edits Vaultr must be able to apply automatically: the
 // parser below and the Word search in applyTrackedEdits both depend on
 // ORIGINAL being a verbatim, single-paragraph snippet.
 export const REDLINE_FORMAT = `Report each item in exactly this format, with one blank line between items:

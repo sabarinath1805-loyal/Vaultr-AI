@@ -1,5 +1,5 @@
 /**
- * Auth flow E2E coverage for the Mike Word add-in.
+ * Auth flow E2E coverage for the Vaultr Word add-in.
  *
  * Exercises the real, user-visible behaviour of the login gate:
  *   - App.tsx loading spinner -> token gate -> LoginPage / tab shell / Sign out
@@ -90,7 +90,7 @@ test.describe("auth flow", () => {
     await addin.expectAuthedShell();
     await expect(page.getByRole("button", { name: "Sign in" })).toHaveCount(0);
 
-    // Token is persisted into OfficeRuntime.storage under "mike_token".
+    // Token is persisted into OfficeRuntime.storage under "vaultr_token".
     expect(await addin.getToken()).toBe("valid-jwt-123");
   });
 

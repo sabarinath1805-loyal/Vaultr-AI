@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Workflow as WorkflowIcon, AlertCircle } from "lucide-react";
-import { listWorkflows } from "../api/mikeApi";
+import { listWorkflows } from "../api/vaultrApi";
 import { streamAssistant } from "../api/stream";
-import type { Workflow } from "@mike/core";
+import type { Workflow } from "@vaultr/core";
 import { useWordDoc } from "../hooks/useWordDoc";
-import { Label } from "@mike/shared/ui/label";
-import { Spinner } from "@mike/shared/ui/spinner";
-import { Select } from "@mike/shared/ui/select";
-import { Markdown } from "@mike/shared/chat/Markdown";
+import { Label } from "@vaultr/shared/ui/label";
+import { Spinner } from "@vaultr/shared/ui/spinner";
+import { Select } from "@vaultr/shared/ui/select";
+import { Markdown } from "@vaultr/shared/chat/Markdown";
 import { PillButton } from "./assistant/PillButton";
 import { EventBlock } from "./assistant/EventBlocks";
 import { RESPONSE_GLASS_SURFACE } from "./assistant/messageStyles";
@@ -136,7 +136,7 @@ export function WorkflowPicker(): React.ReactElement {
         </div>
         <p className="text-sm font-medium text-foreground">No workflows found.</p>
         <p className="text-xs text-muted-foreground">
-          Create an assistant workflow in the Mike web app and it will appear
+          Create an assistant workflow in the Vaultr web app and it will appear
           here.
         </p>
       </div>

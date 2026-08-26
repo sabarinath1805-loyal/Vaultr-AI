@@ -8,9 +8,9 @@
 
   <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
   <Version>1.0.0.0</Version>
-  <ProviderName>Mike Legal AI</ProviderName>
+  <ProviderName>Vaultr Legal AI</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Mike" />
+  <DisplayName DefaultValue="Vaultr" />
   <Description DefaultValue="AI-powered legal assistant for Word" />
 
   <IconUrl DefaultValue="https://localhost:3000/assets/icon-32.png" />
@@ -45,7 +45,7 @@
 
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
             <OfficeTab id="TabHome">
-              <Group id="MikeLegalAI.Group">
+              <Group id="VaultrLegalAI.Group">
                 <Label resid="GroupLabel" />
                 <Icon>
                   <bt:Image size="16" resid="Icon.16x16" />
@@ -53,7 +53,7 @@
                   <bt:Image size="80" resid="Icon.80x80" />
                 </Icon>
 
-                <Control xsi:type="Button" id="MikeLegalAI.OpenMike">
+                <Control xsi:type="Button" id="VaultrLegalAI.OpenVaultr">
                   <Label resid="TaskpaneButton.Label" />
                   <Supertip>
                     <Title resid="TaskpaneButton.Label" />
@@ -65,7 +65,7 @@
                     <bt:Image size="80" resid="Icon.80x80" />
                   </Icon>
                   <Action xsi:type="ShowTaskpane">
-                    <TaskpaneId>MikeTaskpane</TaskpaneId>
+                    <TaskpaneId>VaultrTaskpane</TaskpaneId>
                     <SourceLocation resid="Taskpane.Url" />
                   </Action>
                 </Control>
@@ -88,11 +88,11 @@
         <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/taskpane.html" />
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GroupLabel" DefaultValue="Mike Legal AI" />
-        <bt:String id="TaskpaneButton.Label" DefaultValue="Open Mike" />
+        <bt:String id="GroupLabel" DefaultValue="Vaultr Legal AI" />
+        <bt:String id="TaskpaneButton.Label" DefaultValue="Open Vaultr" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open the Mike AI legal assistant pane" />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open the Vaultr AI legal assistant pane" />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

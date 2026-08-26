@@ -3,7 +3,7 @@
  * Single source of truth for the add-in's Supabase session.
  *
  * The task pane authenticates with Supabase's password grant and then calls the
- * Mike API with the resulting JWT as a Bearer token. Those access tokens are
+ * Vaultr API with the resulting JWT as a Bearer token. Those access tokens are
  * short-lived (Supabase defaults to a one-hour expiry), so a token persisted in
  * OfficeRuntime.storage during an earlier session is reliably expired by the
  * time the user reopens Word — and EVERY authenticated call then fails with
@@ -22,8 +22,8 @@
  * gate rather than looping on dead 401s.
  */
 
-const ACCESS_KEY = "mike_token";
-const REFRESH_KEY = "mike_refresh_token";
+const ACCESS_KEY = "vaultr_token";
+const REFRESH_KEY = "vaultr_refresh_token";
 
 const SUPABASE_URL: string = process.env.REACT_APP_SUPABASE_URL ?? "";
 const SUPABASE_ANON_KEY: string = process.env.REACT_APP_SUPABASE_ANON_KEY ?? "";

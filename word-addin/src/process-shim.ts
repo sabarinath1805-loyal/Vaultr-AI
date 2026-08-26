@@ -1,7 +1,7 @@
 /**
  * Browser `process` global shim — MUST be the first module in every entry.
  *
- * The task pane now consumes the shared @mike/api-client, whose module-eval-time
+ * The task pane now consumes the shared @vaultr/api-client, whose module-eval-time
  * code reads `process?.env?.…` via optional chaining (e.g. its default API base
  * and NODE_ENV). webpack's EnvironmentPlugin only text-substitutes the specific
  * registered `process.env.KEY` member reads at build time; it does NOT create a

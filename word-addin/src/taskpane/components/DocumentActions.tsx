@@ -11,8 +11,8 @@ import { useWordDoc } from "../hooks/useWordDoc";
 import type { WordSelectionAnchor, RedlineApplyReport } from "../hooks/useWordDoc";
 import { parseRedlineEdits, REDLINE_FORMAT } from "../lib/redline";
 import type { RedlineEdit } from "../lib/redline";
-import { Input } from "@mike/shared/ui/input";
-import { Label } from "@mike/shared/ui/label";
+import { Input } from "@vaultr/shared/ui/input";
+import { Label } from "@vaultr/shared/ui/label";
 import { PillButton } from "./assistant/PillButton";
 import { EventBlock, DocFindBlock } from "./assistant/EventBlocks";
 import { EditCard } from "./assistant/EditCard";
@@ -419,7 +419,7 @@ export function DocumentActions(): React.ReactElement {
 
       if (result === "stale") {
         setApplyError(
-          "The selected text changed while Mike was responding. Select it again and rerun the rewrite."
+          "The selected text changed while Vaultr was responding. Select it again and rerun the rewrite."
         );
       }
     } catch (error) {

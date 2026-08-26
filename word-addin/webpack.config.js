@@ -66,7 +66,7 @@ module.exports = async (_env, options) => {
     }
 
     // Word loads the task pane over HTTPS, and its WebView blocks "mixed content"
-    // (HTTP requests from an HTTPS page). The Mike API and local Supabase only
+    // (HTTP requests from an HTTPS page). The Vaultr API and local Supabase only
     // serve HTTP, so calling them directly fails with "Load failed". Proxy them
     // through this HTTPS dev server instead, so the pane makes only same-origin
     // HTTPS calls (REACT_APP_SUPABASE_URL=https://localhost:3000,
@@ -98,7 +98,7 @@ module.exports = async (_env, options) => {
     devtool: "source-map",
     entry: {
       // process-shim MUST load first: it installs a browser `process` global so
-      // the shared @mike/api-client's module-eval-time `process?.env?.…` reads
+      // the shared @vaultr/api-client's module-eval-time `process?.env?.…` reads
       // don't throw "process is not defined" (see src/process-shim.ts).
       taskpane: ["./src/process-shim.ts", "./src/taskpane/index.tsx"],
       commands: ["./src/process-shim.ts", "./src/commands/commands.ts"],
@@ -111,19 +111,19 @@ module.exports = async (_env, options) => {
     resolve: {
       extensions: [".ts", ".tsx", ".js", ".jsx"],
       alias: {
-        // Shared design system (the @mike/shared package). In the fork this
+        // Shared design system (the @vaultr/shared package). In the fork this
         // lives in the monorepo's packages/; here the files are vendored under
         // src/vendor. Same name the fork's web app imports.
-        "@mike/shared": path.resolve(__dirname, "src/vendor/shared"),
+        "@vaultr/shared": path.resolve(__dirname, "src/vendor/shared"),
         // Shared typed API client + core types/enums. Point at the TS entry so
-        // ts-loader compiles them (transpileOnly) exactly like @mike/shared
+        // ts-loader compiles them (transpileOnly) exactly like @vaultr/shared
         // above — these resolve purely by alias (no package.json dependency).
-        // @mike/api-client transitively imports @mike/core, so both are aliased.
-        "@mike/api-client": path.resolve(
+        // @vaultr/api-client transitively imports @vaultr/core, so both are aliased.
+        "@vaultr/api-client": path.resolve(
           __dirname,
           "src/vendor/api-client/index.ts"
         ),
-        "@mike/core": path.resolve(__dirname, "src/vendor/core/index.ts"),
+        "@vaultr/core": path.resolve(__dirname, "src/vendor/core/index.ts"),
         // De-dupe React when resolving the shared sources.
         react: path.resolve(__dirname, "node_modules/react"),
         "react-dom": path.resolve(__dirname, "node_modules/react-dom"),
@@ -169,7 +169,7 @@ module.exports = async (_env, options) => {
         REACT_APP_SUPABASE_URL: isDev ? "" : undefined,
         REACT_APP_SUPABASE_ANON_KEY: isDev ? "" : undefined,
         REACT_APP_DEFAULT_MODEL: "claude-sonnet-4-6",
-        // The Mike web app origin — the task pane links here (e.g. the
+        // The Vaultr web app origin — the task pane links here (e.g. the
         // account/api-keys page); it never fetches from it.
         REACT_APP_WEB_APP_URL: isDev ? "http://localhost:3000" : undefined,
         NODE_ENV: isDev ? "development" : "production",

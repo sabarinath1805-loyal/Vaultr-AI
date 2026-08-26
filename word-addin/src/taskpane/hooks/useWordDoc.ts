@@ -104,7 +104,7 @@ export function useWordDoc() {
     });
 
   /**
-   * Capture the exact selection the user asked Mike to rewrite. Tracking the
+   * Capture the exact selection the user asked Vaultr to rewrite. Tracking the
    * range lets Word adjust its position if unrelated text changes while the
    * model is responding, without falling back to an ambiguous body search.
    */
@@ -125,7 +125,7 @@ export function useWordDoc() {
 
   /**
    * Replace the exact range captured for the rewrite. Refuse to apply if the
-   * user edited that range while Mike was responding.
+   * user edited that range while Vaultr was responding.
    */
   const replaceSelection = (
     anchor: WordSelectionAnchor,

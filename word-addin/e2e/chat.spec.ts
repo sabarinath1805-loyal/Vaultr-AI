@@ -37,7 +37,7 @@ test("typing + Send streams an assistant bubble that concatenates content_delta 
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  await page.getByPlaceholder("Ask Mike…").fill("Summarize this document");
+  await page.getByPlaceholder("Ask Vaultr…").fill("Summarize this document");
   await page.getByRole("button", { name: "Send" }).click();
 
   // The user's message renders as its own bubble...
@@ -60,7 +60,7 @@ test("a pre-[DONE] error event surfaces as 'Error: ...' in the assistant bubble"
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  await page.getByPlaceholder("Ask Mike…").fill("Do something");
+  await page.getByPlaceholder("Ask Vaultr…").fill("Do something");
   await page.getByRole("button", { name: "Send" }).click();
 
   // The client throws on the pre-[DONE] error; ChatPanel replaces the bubble
@@ -81,7 +81,7 @@ test("'Use document as context' reads the document and includes document_context
     .getByRole("switch", { name: "Use document as context" })
     .click();
 
-  await page.getByPlaceholder("Ask Mike…").fill("What law governs?");
+  await page.getByPlaceholder("Ask Vaultr…").fill("What law governs?");
 
   const requestPromise = page.waitForRequest("**/chat");
   await page.getByRole("button", { name: "Send" }).click();
@@ -99,7 +99,7 @@ test("the request omits document_context when the context switch is off", async 
   await addin.gotoTaskpane({ documentText: "Some document body text." });
   await addin.expectAuthedShell();
 
-  await page.getByPlaceholder("Ask Mike…").fill("Hello");
+  await page.getByPlaceholder("Ask Vaultr…").fill("Hello");
 
   const requestPromise = page.waitForRequest("**/chat");
   await page.getByRole("button", { name: "Send" }).click();
@@ -117,7 +117,7 @@ test("'Insert below cursor' adds a paragraph without replacing the selection", a
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  await page.getByPlaceholder("Ask Mike…").fill("Draft a clause");
+  await page.getByPlaceholder("Ask Vaultr…").fill("Draft a clause");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Insert me into the doc.")).toBeVisible();
 
@@ -141,7 +141,7 @@ test("'Insert below (tracked)' inserts a paragraph under track-changes ON", asyn
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  await page.getByPlaceholder("Ask Mike…").fill("Suggest an edit");
+  await page.getByPlaceholder("Ask Vaultr…").fill("Suggest an edit");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(page.getByText("Tracked suggestion text.")).toBeVisible();
 
@@ -161,7 +161,7 @@ test("Enter sends the message", async ({ addin, page }) => {
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  const input = page.getByPlaceholder("Ask Mike…");
+  const input = page.getByPlaceholder("Ask Vaultr…");
   await input.fill("Send with Enter");
   await input.press("Enter");
 
@@ -174,7 +174,7 @@ test("Shift+Enter does not send the message", async ({ addin, page }) => {
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  const input = page.getByPlaceholder("Ask Mike…");
+  const input = page.getByPlaceholder("Ask Vaultr…");
   await input.fill("Draft line one");
   await input.press("Shift+Enter");
 
@@ -197,7 +197,7 @@ test("the composer swaps Send for a Stop control while streaming, then restores"
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  const input = page.getByPlaceholder("Ask Mike…");
+  const input = page.getByPlaceholder("Ask Vaultr…");
 
   await input.fill("Take your time");
   await page.getByRole("button", { name: "Send" }).click();
@@ -231,7 +231,7 @@ test("'Suggest tracked edits' forces document context and sends the format contr
     page.getByRole("switch", { name: "Use document as context" })
   ).toBeDisabled();
 
-  await page.getByPlaceholder("Ask Mike…").fill("Fix the typos");
+  await page.getByPlaceholder("Ask Vaultr…").fill("Fix the typos");
   const requestPromise = page.waitForRequest("**/chat");
   await page.getByRole("button", { name: "Send" }).click();
   const request = await requestPromise;
@@ -262,7 +262,7 @@ test("applies chat-proposed edits to the document as tracked changes", async ({
   });
   await addin.expectAuthedShell();
 
-  await page.getByPlaceholder("Ask Mike…").fill("Propose edits");
+  await page.getByPlaceholder("Ask Vaultr…").fill("Propose edits");
   await page.getByRole("button", { name: "Send" }).click();
 
   await page.getByRole("button", { name: "Apply 2 tracked edits" }).click();
@@ -291,7 +291,7 @@ test("plain prose answers offer insert options but no tracked-edit apply", async
   await addin.gotoTaskpane();
   await addin.expectAuthedShell();
 
-  await page.getByPlaceholder("Ask Mike…").fill("What law governs?");
+  await page.getByPlaceholder("Ask Vaultr…").fill("What law governs?");
   await page.getByRole("button", { name: "Send" }).click();
   await expect(
     page.getByText("Delaware law governs this agreement.")
