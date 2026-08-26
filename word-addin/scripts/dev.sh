@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Mike Word Add-in — one-command local dev setup + launch.
+# Vaultr Word Add-in — one-command local dev setup + launch.
 #
 #   bash word-addin/scripts/dev.sh
 #
@@ -11,15 +11,15 @@
 #      the webpack build inlines these at compile time, so they must exist
 #      before the bundle is built.
 #   3. Runs `npm install` if node_modules is missing.
-#   4. Checks the Mike backend (and Supabase) are reachable (warns if not).
+#   4. Checks the Vaultr backend (and Supabase) are reachable (warns if not).
 #   5. Verifies port 3000 is free — the dev server + manifest are hardwired to
-#      it, and the Mike web app on :3000 collides. Fails fast with a fix.
+#      it, and the Vaultr web app on :3000 collides. Fails fast with a fix.
 #   6. Installs the trusted dev HTTPS certificate if Word doesn't already trust
 #      it (this step may prompt for your keychain/admin password).
 #   7. Sources the env and runs `npm start`, which boots the webpack dev server
 #      on https://localhost:3000 and sideloads the add-in into Word desktop.
 #
-# Prerequisite: the Mike API must be running (`npm run dev` in backend/),
+# Prerequisite: the Vaultr API must be running (`npm run dev` in backend/),
 # and frontend/.env.local must be filled in (see the repo README).
 #
 # Pass --setup-only to do everything except the port check + final `npm start`.
@@ -96,20 +96,20 @@ else
     ok "dependencies installed"
 fi
 
-# ── 5. Mike backend health (API + Supabase) ──────────────────────────────────
+# ── 5. Vaultr backend health (API + Supabase) ──────────────────────────────────
 # The add-in is useless without the API: sign-in goes to Supabase while chat,
-# actions, workflows, project browsing, and uploads call the Mike API.
-step "Checking the Mike backend is running"
+# actions, workflows, project browsing, and uploads call the Vaultr API.
+step "Checking the Vaultr backend is running"
 BACKEND_OK=1
 
-# 5a. Mike backend — GET /health returns {"ok":true}.
+# 5a. Vaultr backend — GET /health returns {"ok":true}.
 health_code="$(curl -s -m6 -o /dev/null -w '%{http_code}' "$API_BASE/health" 2>/dev/null)" || true
 [ -n "$health_code" ] || health_code=000
 if [ "$health_code" = "200" ]; then
-    ok "Mike backend healthy at $API_BASE"
+    ok "Vaultr backend healthy at $API_BASE"
 else
     BACKEND_OK=0
-    warn "Mike API NOT reachable at $API_BASE (HTTP $health_code)."
+    warn "Vaultr API NOT reachable at $API_BASE (HTTP $health_code)."
     warn "Start it:  cd backend && npm run dev"
 fi
 
@@ -127,7 +127,7 @@ fi
 
 # ── 6. Port 3000 availability ─────────────────────────────────────────────────
 # The webpack dev server AND the add-in manifest are hardwired to
-# https://localhost:3000. The Mike web app (`npm run dev:web`) also
+# https://localhost:3000. The Vaultr web app (`npm run dev:web`) also
 # binds 3000, so the two collide. Fail fast with a clear message BEFORE the cert
 # prompt / launch — otherwise `npm start` dies with an opaque EADDRINUSE.
 # (Skipped for --setup-only, which never launches; re-running while the add-in's
@@ -138,7 +138,7 @@ if [ "$SETUP_ONLY" != 1 ]; then
         holder="$(lsof -nP -iTCP:3000 -sTCP:LISTEN 2>/dev/null | awk 'NR==2{print $1" (pid "$2")"}')"
         warn "Port 3000 is already in use by: ${holder:-another process}"
         echo "    The add-in dev server and Word's manifest both require https://localhost:3000."
-        echo "    This is most likely the Mike web app — stop it first:"
+        echo "    This is most likely the Vaultr web app — stop it first:"
         echo "      lsof -nP -iTCP:3000 -sTCP:LISTEN     # confirm what it is"
         echo "      # then stop that process (e.g. quit 'npm run dev:web')"
         echo "    Then re-run this script."
@@ -194,17 +194,17 @@ fi
 # ── 8. Launch ────────────────────────────────────────────────────────────────
 if [ "$SETUP_ONLY" = 1 ]; then
     step "Setup complete"
-    [ "$BACKEND_OK" = 1 ] || warn "Backend is not fully up — start Mike before launching (see above)."
+    [ "$BACKEND_OK" = 1 ] || warn "Backend is not fully up — start Vaultr before launching (see above)."
     echo "    To launch: cd $ADDIN_DIR && set -a && source .env.development && set +a && npm start"
     exit 0
 fi
 
 if [ "$BACKEND_OK" != 1 ]; then
-    step "Mike backend is not running"
-    echo "    The add-in needs Mike running before it does anything useful. Start it:"
-    echo "      (backend/)    npm run dev        # the Mike API on :3001"
+    step "Vaultr backend is not running"
+    echo "    The add-in needs Vaultr running before it does anything useful. Start it:"
+    echo "      (backend/)    npm run dev        # the Vaultr API on :3001"
     echo "    and make sure frontend/.env.local has your Supabase URL + publishable key."
-    echo "    Then re-run this script. To launch anyway, set FORCE=1 (sign-in will fail until Mike is up)."
+    echo "    Then re-run this script. To launch anyway, set FORCE=1 (sign-in will fail until Vaultr is up)."
     [ "${FORCE:-0}" = 1 ] || exit 1
     warn "FORCE=1 set — launching despite the backend being down."
 fi
@@ -225,7 +225,7 @@ ok "ready to (re)register the add-in"
 step "Starting dev server + sideloading into Word"
 echo "    (webpack serves https://localhost:3000 and proxies /auth + /api to the"
 echo "     real backends; Word opens with the add-in.)"
-echo "    In Word: Home → Mike Legal AI → Open Mike"
+echo "    In Word: Home → Vaultr Legal AI → Open Vaultr"
 # Tell webpack where to proxy backend calls (tracks the real backend URLs).
 export SUPABASE_PROXY_TARGET="${SUPA_URL:-http://127.0.0.1:54321}"
 export API_PROXY_TARGET="$API_BASE"

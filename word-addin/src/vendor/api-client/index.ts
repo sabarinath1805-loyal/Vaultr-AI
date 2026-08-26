@@ -16,25 +16,25 @@ import type {
     WorkflowContributor,
     TabularReview,
     TabularReviewDetailOut,
-} from "@mike/core";
+} from "@vaultr/core";
 
-export type { ApiKeyProvider, ApiKeySource } from "@mike/core";
+export type { ApiKeyProvider, ApiKeySource } from "@vaultr/core";
 
-// MERGE-REVIEW: the fork's createMikeApiClient helper (below) references
-// Mike-prefixed type names; @mike/core exports the unprefixed types the rest of
+// MERGE-REVIEW: the fork's createVaultrApiClient helper (below) references
+// Vaultr-prefixed type names; @vaultr/core exports the unprefixed types the rest of
 // this client already uses, so alias them here to keep one source of truth.
-type MikeProject = Project;
-type MikeChat = Chat;
+type VaultrProject = Project;
+type VaultrChat = Chat;
 
 export type AuthHeaderProvider = () => Promise<Record<string, string>>;
 
-export type MikeApiClientConfig = {
+export type VaultrApiClientConfig = {
     baseUrl?: string;
     getAuthHeaders?: AuthHeaderProvider;
     fetchImpl?: typeof fetch;
 };
 
-type ResolvedMikeApiClientConfig = Required<MikeApiClientConfig>;
+type ResolvedVaultrApiClientConfig = Required<VaultrApiClientConfig>;
 
 // Server-side shape before mapping
 interface ServerMessage {
@@ -61,13 +61,13 @@ const devLog = (...args: Parameters<typeof console.log>) => {
     if (isDev) console.log(...args);
 };
 
-export class MikeApiError extends Error {
+export class VaultrApiError extends Error {
     status: number;
     code: string | null;
 
     constructor(args: { message: string; status: number; code?: string | null }) {
         super(args.message);
-        this.name = "MikeApiError";
+        this.name = "VaultrApiError";
         this.status = args.status;
         this.code = args.code ?? null;
     }
@@ -75,7 +75,7 @@ export class MikeApiError extends Error {
 
 export function isMfaRequiredError(error: unknown) {
     return (
-        error instanceof MikeApiError &&
+        error instanceof VaultrApiError &&
         error.status === 403 &&
         error.code === "mfa_verification_required"
     );
@@ -84,7 +84,7 @@ export function isMfaRequiredError(error: unknown) {
 const DEFAULT_API_BASE =
     process?.env?.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:3001";
 
-let clientConfig: ResolvedMikeApiClientConfig = {
+let clientConfig: ResolvedVaultrApiClientConfig = {
     baseUrl: DEFAULT_API_BASE,
     getAuthHeaders: async () => ({}),
     // Arrow wrapper so fetch is always invoked as a plain function, never as a
@@ -93,10 +93,10 @@ let clientConfig: ResolvedMikeApiClientConfig = {
     fetchImpl: (...args: Parameters<typeof fetch>) => fetch(...args),
 };
 
-function resolveMikeApiClientConfig(
-    config: MikeApiClientConfig = {},
-    base: ResolvedMikeApiClientConfig = clientConfig,
-): ResolvedMikeApiClientConfig {
+function resolveVaultrApiClientConfig(
+    config: VaultrApiClientConfig = {},
+    base: ResolvedVaultrApiClientConfig = clientConfig,
+): ResolvedVaultrApiClientConfig {
     return {
         ...base,
         ...config,
@@ -106,25 +106,25 @@ function resolveMikeApiClientConfig(
     };
 }
 
-export function configureMikeApiClient(config: MikeApiClientConfig): void {
-    clientConfig = resolveMikeApiClientConfig(config);
+export function configureVaultrApiClient(config: VaultrApiClientConfig): void {
+    clientConfig = resolveVaultrApiClientConfig(config);
 }
 
 async function getAuthHeader(
-    config: ResolvedMikeApiClientConfig = clientConfig,
+    config: ResolvedVaultrApiClientConfig = clientConfig,
 ): Promise<Record<string, string>> {
     return config.getAuthHeaders();
 }
 
 function apiUrl(
     path: string,
-    config: ResolvedMikeApiClientConfig = clientConfig,
+    config: ResolvedVaultrApiClientConfig = clientConfig,
 ): string {
     return `${config.baseUrl}${path}`;
 }
 
 async function apiRequestWithConfig<T>(
-    config: ResolvedMikeApiClientConfig,
+    config: ResolvedVaultrApiClientConfig,
     path: string,
     init?: RequestInit,
 ): Promise<T> {
@@ -192,7 +192,7 @@ async function toApiError(response: Response, path: string) {
             error?: { code?: unknown; message?: unknown };
         };
         // MERGE-REVIEW: the fork backend returns both `{ error: { code, message } }`
-        // and `{ detail, code }` error shapes; handle either so MikeApiError carries
+        // and `{ detail, code }` error shapes; handle either so VaultrApiError carries
         // an accurate code/message in all cases.
         const code =
             typeof parsed.error?.code === "string"
@@ -206,24 +206,24 @@ async function toApiError(response: Response, path: string) {
                 : typeof parsed.detail === "string" && parsed.detail
                   ? parsed.detail
                   : `API error: ${response.status}`;
-        devLog("[mike-api] non-ok response", {
+        devLog("[vaultr-api] non-ok response", {
             path,
             status: response.status,
             code,
             detail: parsed.detail,
         });
-        return new MikeApiError({
+        return new VaultrApiError({
             status: response.status,
             code,
             message,
         });
     } catch {
-        devLog("[mike-api] non-ok non-json response", {
+        devLog("[vaultr-api] non-ok non-json response", {
             path,
             status: response.status,
             bodyPreview: text.slice(0, 200),
         });
-        return new MikeApiError({
+        return new VaultrApiError({
             status: response.status,
             message: text || `API error: ${response.status}`,
         });
@@ -346,8 +346,8 @@ export async function updateUserMfaOnLogin(
 
 // MERGE-REVIEW: upstream defined ApiKeyProvider/ApiKeySource locally with the
 // extra "openrouter" and "courtlistener" providers. The fork sources these
-// types from @mike/core (imported above), so the local redefinition is dropped
-// to keep a single source of truth — @mike/core's ApiKeyProvider should be
+// types from @vaultr/core (imported above), so the local redefinition is dropped
+// to keep a single source of truth — @vaultr/core's ApiKeyProvider should be
 // extended with "openrouter" and "courtlistener" to match the backend schema.
 export type ApiKeyState = Record<
     ApiKeyProvider,
@@ -747,7 +747,7 @@ export async function uploadProjectDocument(
 }
 
 async function uploadProjectDocumentWithConfig(
-    config: ResolvedMikeApiClientConfig,
+    config: ResolvedVaultrApiClientConfig,
     projectId: string,
     file: File,
 ): Promise<Document> {
@@ -773,7 +773,7 @@ export async function uploadStandaloneDocument(
 }
 
 async function uploadStandaloneDocumentWithConfig(
-    config: ResolvedMikeApiClientConfig,
+    config: ResolvedVaultrApiClientConfig,
     file: File,
 ): Promise<Document> {
     const authHeaders = await getAuthHeader(config);
@@ -862,7 +862,7 @@ export async function getChat(chatId: string): Promise<ChatDetailOut> {
 }
 
 async function getChatWithConfig(
-    config: ResolvedMikeApiClientConfig,
+    config: ResolvedVaultrApiClientConfig,
     chatId: string,
 ): Promise<ChatDetailOut> {
     const raw = await apiRequestWithConfig<ServerChatDetailOut>(
@@ -897,8 +897,8 @@ async function getChatWithConfig(
     return { chat: raw.chat, messages };
 }
 
-export function createMikeApiClient(config: MikeApiClientConfig = {}) {
-    const scopedConfig = resolveMikeApiClientConfig(config, {
+export function createVaultrApiClient(config: VaultrApiClientConfig = {}) {
+    const scopedConfig = resolveVaultrApiClientConfig(config, {
         baseUrl: DEFAULT_API_BASE,
         getAuthHeaders: async () => ({}),
         // See note above: arrow wrapper avoids "Illegal invocation" in Chromium.
@@ -908,19 +908,19 @@ export function createMikeApiClient(config: MikeApiClientConfig = {}) {
     return {
         projects: {
             list: () =>
-                apiRequestWithConfig<MikeProject[]>(scopedConfig, "/projects"),
+                apiRequestWithConfig<VaultrProject[]>(scopedConfig, "/projects"),
             create: (
                 name: string,
                 cm_number?: string,
                 shared_with?: string[],
             ) =>
-                apiRequestWithConfig<MikeProject>(scopedConfig, "/projects", {
+                apiRequestWithConfig<VaultrProject>(scopedConfig, "/projects", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ name, cm_number, shared_with }),
                 }),
             get: (projectId: string) =>
-                apiRequestWithConfig<MikeProject>(
+                apiRequestWithConfig<VaultrProject>(
                     scopedConfig,
                     `/projects/${projectId}`,
                 ),
@@ -932,7 +932,7 @@ export function createMikeApiClient(config: MikeApiClientConfig = {}) {
                     shared_with?: string[];
                 },
             ) =>
-                apiRequestWithConfig<MikeProject>(
+                apiRequestWithConfig<VaultrProject>(
                     scopedConfig,
                     `/projects/${projectId}`,
                     {
@@ -965,7 +965,7 @@ export function createMikeApiClient(config: MikeApiClientConfig = {}) {
                 const params = new URLSearchParams();
                 if (options?.limit) params.set("limit", String(options.limit));
                 const query = params.toString();
-                return apiRequestWithConfig<MikeChat[]>(
+                return apiRequestWithConfig<VaultrChat[]>(
                     scopedConfig,
                     `/chat${query ? `?${query}` : ""}`,
                 );
@@ -1018,7 +1018,7 @@ export async function uploadLibraryDocument(
 }
 
 async function uploadLibraryDocumentWithConfig(
-    config: ResolvedMikeApiClientConfig,
+    config: ResolvedVaultrApiClientConfig,
     kind: LibraryKind,
     file: File,
 ): Promise<Document> {

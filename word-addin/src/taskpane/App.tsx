@@ -6,10 +6,10 @@ import { ChatPanel } from "./components/ChatPanel";
 import { DocumentActions } from "./components/DocumentActions";
 import { WorkflowPicker } from "./components/WorkflowPicker";
 import { ProjectPicker } from "./components/ProjectPicker";
-import { Button } from "@mike/shared/ui/button";
-import { Spinner } from "@mike/shared/ui/spinner";
-import { TabPillButton } from "@mike/shared/ui/tab-pill-button";
-import { MikeIcon } from "@mike/shared/chat/mike-icon";
+import { Button } from "@vaultr/shared/ui/button";
+import { Spinner } from "@vaultr/shared/ui/spinner";
+import { TabPillButton } from "@vaultr/shared/ui/tab-pill-button";
+import { VaultrIcon } from "@vaultr/shared/chat/vaultr-icon";
 
 type TabValue = "chat" | "actions" | "workflows" | "projects";
 
@@ -55,9 +55,9 @@ export default function App(): React.ReactElement {
       {/* Header */}
       <header className="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 px-3 py-3 @sm:px-4">
         <div className="flex items-center gap-2">
-          <MikeIcon size={22} />
+          <VaultrIcon size={22} />
           <span className="text-[15px] font-semibold tracking-tight text-foreground">
-            Mike
+            Vaultr
           </span>
         </div>
         <Button
@@ -76,7 +76,7 @@ export default function App(): React.ReactElement {
       {/* Tab bar — the web app's glass pill tabs, wrapped to fit the pane */}
       <nav
         role="tablist"
-        aria-label="Mike sections"
+        aria-label="Vaultr sections"
         className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-border/70 px-3 py-2"
       >
         {TABS.map((tab) => {

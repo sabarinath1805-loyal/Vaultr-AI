@@ -1,5 +1,5 @@
 /**
- * Shared Playwright fixture for the Mike Word add-in E2E suite.
+ * Shared Playwright fixture for the Vaultr Word add-in E2E suite.
  *
  * Spec authors import `{ test, expect }` from this module and drive the task
  * pane through the typed `addin` fixture — they should NEVER need to touch the
@@ -72,9 +72,9 @@ export interface Addin {
   page: Page;
 
   // ----- seeding (call BEFORE gotoTaskpane) -----
-  /** Start the session logged in by pre-seeding the `mike_token` storage key. */
+  /** Start the session logged in by pre-seeding the `vaultr_token` storage key. */
   seedToken(token: string): void;
-  /** Pre-seed the `mike_refresh_token` so an expired access token can refresh. */
+  /** Pre-seed the `vaultr_refresh_token` so an expired access token can refresh. */
   seedRefreshToken(token: string): void;
   /** Pre-seed the document body text returned by readDocumentText(). */
   seedDocumentText(text: string): void;
@@ -97,9 +97,9 @@ export interface Addin {
   setSelection(text: string): Promise<void>;
 
   // ----- reads -----
-  /** Read the current `mike_token` from Office storage (null if logged out). */
+  /** Read the current `vaultr_token` from Office storage (null if logged out). */
   getToken(): Promise<string | null>;
-  /** Read the current `mike_refresh_token` from Office storage (null if absent). */
+  /** Read the current `vaultr_refresh_token` from Office storage (null if absent). */
   getRefreshToken(): Promise<string | null>;
   /** Read the recorded write-side Word calls for assertions. */
   wordCalls(): Promise<WordCalls>;
@@ -113,14 +113,14 @@ export interface Addin {
    * `opts.status` (>=400) returns an HTTP failure instead.
    */
   mockChatStream(chunks: string[], opts?: ChatStreamOpts): Promise<void>;
-  /** Mock any Mike API endpoint returning JSON for the given METHOD + URL glob. */
+  /** Mock any Vaultr API endpoint returning JSON for the given METHOD + URL glob. */
   mockApiJson(
     method: HttpMethod,
     urlGlob: string,
     json: unknown,
     opts?: MockJsonOpts
   ): Promise<void>;
-  /** Mock any Mike API endpoint returning an error status for METHOD + URL glob. */
+  /** Mock any Vaultr API endpoint returning an error status for METHOD + URL glob. */
   mockApiError(
     method: HttpMethod,
     urlGlob: string,
@@ -207,9 +207,9 @@ export const test = base.extend<{ addin: Addin }>({
         seed = { ...seed, ...(opts ?? {}) };
         await page.addInitScript(installOfficeMock, seed);
         await page.goto(TASKPANE_PATH);
-        // "Mike" appears in both the login title and the app header, so this
+        // "Vaultr" appears in both the login title and the app header, so this
         // resolves once React has mounted past the loading spinner either way.
-        await expect(page.getByText("Mike").first()).toBeVisible({
+        await expect(page.getByText("Vaultr").first()).toBeVisible({
           timeout: 15_000,
         });
       },
@@ -240,7 +240,7 @@ export const test = base.extend<{ addin: Addin }>({
             window as unknown as {
               OfficeRuntime: { storage: { getItem(k: string): Promise<string | null> } };
             }
-          ).OfficeRuntime.storage.getItem("mike_token")
+          ).OfficeRuntime.storage.getItem("vaultr_token")
         );
       },
 
@@ -250,7 +250,7 @@ export const test = base.extend<{ addin: Addin }>({
             window as unknown as {
               OfficeRuntime: { storage: { getItem(k: string): Promise<string | null> } };
             }
-          ).OfficeRuntime.storage.getItem("mike_refresh_token")
+          ).OfficeRuntime.storage.getItem("vaultr_refresh_token")
         );
       },
 
@@ -271,7 +271,7 @@ export const test = base.extend<{ addin: Addin }>({
                 token_type: "bearer",
                 expires_in: 3600,
                 refresh_token: "test-refresh-token",
-                user: { id: "test-user-id", email: "e2e@mike.local" },
+                user: { id: "test-user-id", email: "e2e@vaultr.local" },
               }),
             });
           }

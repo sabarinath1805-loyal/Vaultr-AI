@@ -5,9 +5,9 @@ import { defineConfig, devices } from "@playwright/test";
  *
  * Nothing is mocked except the Word JS API surface (a real browser has no
  * Office.js host): sign-in goes to the real local Supabase, chat and actions
- * stream from the real Mike backend and a real LLM. Prerequisites:
+ * stream from the real Vaultr backend and a real LLM. Prerequisites:
  *   - webpack dev server on https://localhost:3000 (proxies /auth + /api)
- *   - Mike backend on :3001 with a real ANTHROPIC_API_KEY
+ *   - Vaultr backend on :3001 with a real ANTHROPIC_API_KEY
  *   - local Supabase with a seeded demo user
  *
  * Runs record video ("on") — these are demo reels as much as tests. LLM turns

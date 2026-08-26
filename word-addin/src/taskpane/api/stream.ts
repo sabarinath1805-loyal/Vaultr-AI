@@ -5,9 +5,9 @@
  * caller supplies none, passes documentContext through, renders only
  * `content_delta` frames, throws on a pre-`[DONE]` `error` frame, and (via
  * readSSE's terminal `[DONE]`) ignores the harmless trailing post-`[DONE]`
- * error frame. Framing/parse rules live in @mike/api-client's readSSE now.
+ * error frame. Framing/parse rules live in @vaultr/api-client's readSSE now.
  */
-import { streamChat, readSSE } from "./mikeApi";
+import { streamChat, readSSE } from "./vaultrApi";
 
 // Guard `process` like client.ts did — a stale dev server can leave the
 // substitution unapplied, and bare `process` throws in the browser.

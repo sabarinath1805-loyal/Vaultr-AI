@@ -8,9 +8,9 @@ import {
   stripRedlineBlocks,
   REDLINE_FORMAT,
 } from "../lib/redline";
-import { Markdown } from "@mike/shared/chat/Markdown";
-import { ChatInput } from "@mike/shared/chat/ChatInput";
-import { ToggleSwitch } from "@mike/shared/ui/toggle-switch";
+import { Markdown } from "@vaultr/shared/chat/Markdown";
+import { ChatInput } from "@vaultr/shared/chat/ChatInput";
+import { ToggleSwitch } from "@vaultr/shared/ui/toggle-switch";
 import { UserMessage } from "./assistant/UserMessage";
 import { PreResponseWrapper } from "./assistant/PreResponseWrapper";
 import { DocReadBlock, DocFindBlock, EventBlock } from "./assistant/EventBlocks";
@@ -208,7 +208,7 @@ export function ChatPanel(): React.ReactElement {
               Ask anything about your document
             </p>
             <p className="text-xs text-muted-foreground">
-              Mike can summarize, explain, and draft — toggle document context
+              Vaultr can summarize, explain, and draft — toggle document context
               below to ground answers in your file.
             </p>
           </div>
@@ -338,7 +338,7 @@ export function ChatPanel(): React.ReactElement {
           isLoading={streaming}
           onCancel={handleCancel}
           disabled={streaming}
-          placeholder="Ask Mike…"
+          placeholder="Ask Vaultr…"
           leftSlot={
             <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
               <ToggleSwitch

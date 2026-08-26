@@ -1,5 +1,5 @@
 import * as React from "react";
-import { cn } from "@mike/shared/lib/utils";
+import { cn } from "@vaultr/shared/lib/utils";
 
 /**
  * Duplicated from the web app's ui/pill-button.tsx (minus the Radix Slot

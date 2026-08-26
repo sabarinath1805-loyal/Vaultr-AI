@@ -32,7 +32,7 @@ export function ChatInput({
     onSubmit,
     isLoading = false,
     onCancel,
-    placeholder = "Ask Mike…",
+    placeholder = "Ask Vaultr…",
     disabled = false,
     leftSlot,
     className,

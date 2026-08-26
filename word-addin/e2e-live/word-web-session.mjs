@@ -7,14 +7,14 @@
  *
  *   node e2e-live/word-web-session.mjs --login
  *     Opens office.com headed. Sign in manually once; the script detects the
- *     session and exits. The profile (~/.cache/mike-word-web-profile) keeps
+ *     session and exits. The profile (~/.cache/vaultr-word-web-profile) keeps
  *     the cookies for later automated runs.
  *
  *   node e2e-live/word-web-session.mjs --record
  *     Reuses the saved session: opens a new Word document, sideloads
  *     manifest.xml via Add-ins → Upload My Add-in, opens the Mike pane,
  *     signs into Mike, and exercises chat redlines. Records video +
- *     step screenshots to ~/Desktop/mike-word-addin-videos/word-on-the-web/.
+ *     step screenshots to ~/Desktop/vaultr-word-addin-videos/word-on-the-web/.
  *
  * Prereqs for --record: the add-in dev server on https://localhost:3000 and
  * the Mike backend on :3001 (see scripts/dev.sh), demo user seeded.
@@ -25,11 +25,11 @@ import path from "node:path";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const PROFILE = path.join(os.homedir(), ".cache", "mike-word-web-profile");
+const PROFILE = path.join(os.homedir(), ".cache", "vaultr-word-web-profile");
 const OUT_DIR = path.join(
   os.homedir(),
   "Desktop",
-  "mike-word-addin-videos",
+  "vaultr-word-addin-videos",
   "word-on-the-web",
 );
 const MANIFEST = path.join(
@@ -316,23 +316,23 @@ const paneFrame = await step("open-task-pane", async () => {
   try {
     return await waitForFrame((f) => f.url().includes("localhost:3000"), 30_000);
   } catch {
-    await wac.getByRole("button", { name: /mike/i }).first().click();
+    await wac.getByRole("button", { name: /vaultr/i }).first().click();
     return await waitForFrame((f) => f.url().includes("localhost:3000"), 60_000);
   }
 });
 
-await step("sign-in-to-mike", async () => {
-  await paneFrame.getByPlaceholder("you@firm.com").fill("demo@mike.local", { timeout: 120_000 });
-  await paneFrame.getByPlaceholder("••••••••").fill("MikeDemo!2026");
+await step("sign-in-to-vaultr", async () => {
+  await paneFrame.getByPlaceholder("you@firm.com").fill("demo@vaultr.local", { timeout: 120_000 });
+  await paneFrame.getByPlaceholder("••••••••").fill("VaultrDemo!2026");
   await paneFrame.getByRole("button", { name: "Sign in" }).click();
   await paneFrame.getByRole("tab", { name: "Chat" }).waitFor({ timeout: 60_000 });
-  await shot("06-mike-signed-in");
+  await shot("06-vaultr-signed-in");
 });
 
 await step("chat-redlines", async () => {
   await paneFrame.getByRole("switch", { name: "Suggest tracked edits" }).click();
   await paneFrame
-    .getByPlaceholder("Ask Mike…")
+    .getByPlaceholder("Ask Vaultr…")
     .fill("Fix the spelling mistakes in this agreement.");
   await paneFrame.getByRole("button", { name: "Send" }).click();
   const apply = paneFrame.getByRole("button", { name: /Apply \d+ tracked edits?/ });

@@ -70,7 +70,7 @@ test("surfaces an error when the project list fails to load", async ({ addin, pa
   await addin.gotoTaskpane();
   await openProjectsTab(page);
 
-  // ProjectPicker shows the thrown MikeApiError from listProjects(): "API error: 500".
+  // ProjectPicker shows the thrown VaultrApiError from listProjects(): "API error: 500".
   await expect(page.getByText(/API error: 500/)).toBeVisible();
 });
 
