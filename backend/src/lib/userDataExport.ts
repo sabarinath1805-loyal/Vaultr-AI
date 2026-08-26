@@ -17,7 +17,7 @@ export function userExportFilename(
     kind: "account" | "chats" | "tabular-reviews",
     userId: string,
 ) {
-    return `mike-${kind}-export-${userId.slice(0, 8)}-${nowStamp()}.json`;
+    return `vaultr-${kind}-export-${userId.slice(0, 8)}-${nowStamp()}.json`;
 }
 
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
@@ -184,7 +184,7 @@ export async function buildUserTabularReviewsExport(
 }
 
 export function projectManifestFilename(projectId: string) {
-    return `mike-project-manifest-${projectId.slice(0, 8)}-${nowStamp()}.json`;
+    return `vaultr-project-manifest-${projectId.slice(0, 8)}-${nowStamp()}.json`;
 }
 
 /**

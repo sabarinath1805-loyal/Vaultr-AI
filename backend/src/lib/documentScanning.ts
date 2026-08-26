@@ -56,7 +56,7 @@ export async function scanDocumentBuffer(
     return { status: "unavailable", provider: null, detail: "Document scanner is not configured." };
   }
 
-  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "mike-scan-"));
+  const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "vaultr-scan-"));
   try {
     await fs.chmod(workspace, 0o700).catch(() => undefined);
     const filePath = path.join(workspace, `${crypto.randomUUID()}-${path.basename(filename)}`);

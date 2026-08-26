@@ -24,5 +24,5 @@ try {
 }
 
 app.listen(PORT, () => {
-  console.log(`Mike backend running on port ${PORT}`);
+  console.log(`Vaultr backend running on port ${PORT}`);
 });

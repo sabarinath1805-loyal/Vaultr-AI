@@ -61,7 +61,7 @@ export function validateRuntimeConfig(env: NodeJS.ProcessEnv = process.env): Run
   if (env.LOG_RAW_LLM_STREAM === "true" || env.LOG_RAW_LLM_STREAM_INCLUDE_CONTENT === "true") {
     errors.push({ name: "LOG_RAW_LLM_STREAM", severity: "error", reason: "raw LLM capture is forbidden in production" });
   }
-  for (const name of ["DEBUG", "MIKE_DEBUG", "DEV_AUTH_BYPASS", "ALLOW_INSECURE_AUTH", "DISABLE_AUTH"]) {
+  for (const name of ["DEBUG", "VAULTR_DEBUG", "MIKE_DEBUG", "DEV_AUTH_BYPASS", "ALLOW_INSECURE_AUTH", "DISABLE_AUTH"]) {
     if (env[name] === "true" || env[name] === "1") {
       errors.push({ name, severity: "error", reason: "development or auth bypass setting is enabled" });
     }

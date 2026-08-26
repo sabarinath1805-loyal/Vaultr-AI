@@ -179,7 +179,7 @@ export async function docxToPdf(buffer: Buffer): Promise<Buffer> {
   }
   const convert = await getConvert();
   const normalized = await normalizeDocxZipPaths(buffer);
-  const workspace = await fsp.mkdtemp(path.join(os.tmpdir(), "mike-conversion-"));
+  const workspace = await fsp.mkdtemp(path.join(os.tmpdir(), "vaultr-conversion-"));
   try {
     await fsp.chmod(workspace, 0o700).catch(() => undefined);
     const output = await convert(normalized, ".pdf", undefined, workspace);

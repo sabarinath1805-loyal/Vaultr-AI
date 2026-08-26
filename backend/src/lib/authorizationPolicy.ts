@@ -1,5 +1,5 @@
 /**
- * Explicit sharing policy for the current Mike-based application.
+ * Explicit sharing policy for the current Vaultr-based application.
  *
  * Route code still performs the resource/linkage checks because a policy
  * label cannot prove that a caller reached the intended parent. This module
