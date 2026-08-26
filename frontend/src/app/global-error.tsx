@@ -17,12 +17,10 @@ export default function GlobalError({
             <head>
                 <title>Something went wrong – Vaultr</title>
                 <style>{`
-                    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=EB+Garamond:wght@400;500&display=swap');
-                    
                     * { margin: 0; padding: 0; box-sizing: border-box; }
                     
                     body {
-                        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                        font-family: 'Inter', ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
                         background-color: #ffffff;
                         color: #111;
                         min-height: 100vh;
@@ -38,7 +36,7 @@ export default function GlobalError({
                     }
 
                     .error-title {
-                        font-family: 'EB Garamond', Georgia, serif;
+                        font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
                         font-size: 1.75rem;
                         font-weight: 400;
                         color: #111;
@@ -52,7 +50,7 @@ export default function GlobalError({
                         margin-bottom: 2rem;
                     }
 
-                    .btn-back { font-family: 'Inter', sans-serif; }
+                    .btn-back { font-family: 'Inter', ui-sans-serif, sans-serif; }
                 `}</style>
             </head>
             <body>

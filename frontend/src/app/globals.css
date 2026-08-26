@@ -502,7 +502,7 @@
 .vaultr-empty-title {
     margin-top: 16px;
     color: var(--vaultr-primary);
-    font-family: var(--font-eb-garamond), Georgia, serif;
+    font-family: var(--font-vaultr-serif);
     font-size: 24px;
     font-weight: 500;
     letter-spacing: -0.015em;
@@ -751,7 +751,7 @@
 .vaultr-assistant-copy {
     max-width: 75ch;
     color: var(--vaultr-primary);
-    font-family: var(--font-eb-garamond), Georgia, serif;
+    font-family: var(--font-vaultr-serif);
     font-size: 17px;
     font-optical-sizing: auto;
     font-weight: 400;
@@ -1909,10 +1909,6 @@
 }
 
 @layer utilities {
-    .font-eb-garamond {
-        font-family: var(--font-eb-garamond);
-    }
-
     .sidebar-fade-in {
         animation: sidebarFadeIn 0.3s ease-out forwards;
         animation-delay: 0.1s;
