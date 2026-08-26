@@ -45,14 +45,14 @@ if ! command -v psql >/dev/null 2>&1; then
 fi
 
 # A newly started local stack contains Supabase's system schemas but none of
-# Mike's application tables. Initialize only an empty stack: silently resetting
+# Vaultr's application tables. Initialize only an empty stack: silently resetting
 # or modifying an existing application database would be surprising.
 LEDGER_TABLE="$(
     psql "$SUPABASE_TEST_DB_URL" -XAtq \
         -c "select to_regclass('public.mike_schema_migrations');"
 )"
 if [[ -z "$LEDGER_TABLE" ]]; then
-    echo "Mike schema ledger not found; bootstrapping canonical schema"
+    echo "Vaultr schema ledger not found; bootstrapping canonical schema"
     (cd "$REPO_ROOT" && node scripts/bootstrap-schema.mjs --db-url "$SUPABASE_TEST_DB_URL")
 else
     (cd "$REPO_ROOT" && node scripts/check-schema-bootstrap.mjs --db-url "$SUPABASE_TEST_DB_URL")

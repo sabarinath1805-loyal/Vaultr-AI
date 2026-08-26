@@ -261,7 +261,7 @@ describe("projects.routes", () => {
             });
         });
 
-        it("returns 400 when a shared_with recipient is not a Mike user", async () => {
+        it("returns 400 when a shared_with recipient is not a Vaultr user", async () => {
             // No user_profiles rows seeded → findMissingUserEmails reports the
             // recipient as unknown and the create is rejected before insert.
             const res = await request(app)
@@ -271,7 +271,7 @@ describe("projects.routes", () => {
 
             expect(res.status).toBe(400);
             expect(res.body.detail).toBe(
-                "ghost@x.com does not belong to a Mike user.",
+                "ghost@x.com does not belong to a Vaultr user.",
             );
             expect(
                 supabaseState.inserts.find((i) => i.table === "projects"),
@@ -543,7 +543,7 @@ describe("projects.routes", () => {
 
             expect(res.status).toBe(200);
             expect(res.headers["content-disposition"]).toMatch(
-                /attachment; filename="mike-project-manifest-p1-/,
+                /attachment; filename="vaultr-project-manifest-p1-/,
             );
             expect(res.body.manifest_version).toBe(1);
             expect(res.body.project.name).toBe("Alpha");
@@ -583,7 +583,7 @@ describe("projects.routes", () => {
                     Buffer.from(published.public_key, "hex"),
                 ]);
                 const payload = Buffer.concat([
-                    Buffer.from("mike-project-manifest-v1\0", "utf8"),
+                    Buffer.from("vaultr-project-manifest-v1\0", "utf8"),
                     Buffer.from(res.body.digest.value, "hex"),
                 ]);
                 expect(
