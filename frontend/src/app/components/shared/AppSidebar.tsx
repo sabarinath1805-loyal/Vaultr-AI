@@ -7,7 +7,7 @@ import { useChatHistoryContext } from "@/app/contexts/ChatHistoryContext";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { SidebarChatItem } from "@/app/components/shared/SidebarChatItem";
-import { listProjects } from "@/app/lib/mikeApi";
+import { listProjects } from "@/app/lib/vaultrApi";
 import type { Chat, Project } from "@/app/components/shared/types";
 import { cn } from "@/app/lib/utils";
 import {

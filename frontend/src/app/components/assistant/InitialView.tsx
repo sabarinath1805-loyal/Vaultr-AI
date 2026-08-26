@@ -4,13 +4,13 @@ import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { useUserProfile } from "@/app/contexts/UserProfileContext";
-import { MikeIcon } from "@/app/components/chat/mike-icon";
+import { VaultrIcon } from "@/app/components/chat/vaultr-icon";
 import { ChatInput, type ChatInputHandle } from "./ChatInput";
 import { SelectAssistantProjectModal } from "./SelectAssistantProjectModal";
 import { QuickActionsModal } from "./QuickActionsModal";
 import { NewProjectModal } from "../projects/NewProjectModal";
 import { NewTRModal } from "../tabular/NewTRModal";
-import { createTabularReview } from "@/app/lib/mikeApi";
+import { createTabularReview } from "@/app/lib/vaultrApi";
 import { useDirectoryData, type DirectoryTab } from "../shared/useDirectoryData";
 import {
     QUICK_ACTIONS,
@@ -172,7 +172,7 @@ export function InitialView({ onSubmit }: InitialViewProps) {
         <div className="vaultr-empty-shell flex h-full w-full flex-col items-center px-5">
             <div className="vaultr-empty-stage flex w-full flex-1 flex-col items-center justify-center">
                 <div className="vaultr-empty-greeting flex w-full items-center justify-center gap-3">
-                    <MikeIcon mike size={30} />
+                    <VaultrIcon brand size={30} />
                     <h1 className="whitespace-nowrap font-serif font-normal">
                         {greeting}, {username}
                     </h1>

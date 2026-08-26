@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { NewTRModal } from "./NewTRModal";
 
-vi.mock("@/app/lib/mikeApi", () => ({
+vi.mock("@/app/lib/vaultrApi", () => ({
     getProject: vi.fn(),
     listWorkflows: vi.fn(async () => []),
     uploadProjectDocument: vi.fn(),

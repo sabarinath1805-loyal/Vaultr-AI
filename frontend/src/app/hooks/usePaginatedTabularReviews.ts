@@ -7,7 +7,7 @@ import {
     type SetStateAction,
 } from "react";
 import type { TabularReview } from "@/app/components/shared/types";
-import { listTabularReviewIds, listTabularReviews } from "@/app/lib/mikeApi";
+import { listTabularReviewIds, listTabularReviews } from "@/app/lib/vaultrApi";
 
 export type TabularReviewSortKey = "name" | "columns" | "documents" | "created";
 export type TabularReviewSortDirection = "asc" | "desc";

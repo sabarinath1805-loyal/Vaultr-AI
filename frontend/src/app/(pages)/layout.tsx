@@ -10,7 +10,7 @@ import { AppSidebar } from "@/app/components/shared/AppSidebar";
 import { FullScreenLoader } from "@/app/components/shared/FullScreenLoader";
 import { MovingIcon } from "@/app/components/ui/moving-icon";
 
-export default function MikeLayout({
+export default function AppLayout({
     children,
 }: {
     children: React.ReactNode;

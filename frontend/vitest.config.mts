@@ -47,13 +47,13 @@ export default defineConfig({
             // Ratchet the lib layer only, mirroring the backend's decision to
             // gate src/lib/**: components/hooks are exercised by their own
             // suites but not floor-gated (their coverage is UI-shaped and
-            // noisy). src/app/lib/** is the client library: mikeApi (the
+            // noisy). src/app/lib/** is the client library: vaultrApi (the
             // frontend half of the SSE contract), upload validation, model
             // availability, utils, and the supabase wrapper.
             include: ["src/app/lib/**"],
             exclude: ["src/app/lib/**/*.test.*"],
             // No-regression RATCHET floor, not a target. The lib layer is
-            // effectively fully tested: every mikeApi endpoint wrapper has a
+            // effectively fully tested: every vaultrApi endpoint wrapper has a
             // route/method/body assertion, and the remaining gap is only the
             // dev-logging branch and a couple of `?? null` default arms.
             // Measured on this tree: 99.69% statements, 98.53% branches,

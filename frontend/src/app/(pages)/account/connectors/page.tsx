@@ -18,7 +18,7 @@ import {
 } from "@/app/components/popups/MfaVerificationPopup";
 import {
     type McpConnectorSummary,
-    MikeApiError,
+    VaultrApiError,
     createMcpConnector,
     deleteMcpConnector,
     getMcpConnector,
@@ -28,7 +28,7 @@ import {
     setMcpToolEnabled,
     startMcpConnectorOAuth,
     updateMcpConnector,
-} from "@/app/lib/mikeApi";
+} from "@/app/lib/vaultrApi";
 import {
     accountGlassIconButtonClassName,
     accountGlassInputClassName,
@@ -276,7 +276,7 @@ export default function ConnectorsPage() {
     ): Promise<McpConnectorSummary | null> => {
         const popup = window.open(
             "about:blank",
-            "mike_mcp_oauth",
+            "vaultr_mcp_oauth",
             "popup,width=560,height=720,menubar=no,toolbar=no,location=no,status=no",
         );
         const { authorizationUrl, alreadyAuthorized } =
@@ -365,7 +365,7 @@ export default function ConnectorsPage() {
                     refreshed = await refreshMcpConnectorTools(connector.id);
                 } catch (err) {
                     if (
-                        err instanceof MikeApiError &&
+                        err instanceof VaultrApiError &&
                         err.code === "oauth_required"
                     ) {
                         replaceConnector(connector);
@@ -491,7 +491,7 @@ export default function ConnectorsPage() {
                     replaceConnector(await refreshMcpConnectorTools(connectorId));
                 } catch (err) {
                     if (
-                        err instanceof MikeApiError &&
+                        err instanceof VaultrApiError &&
                             err.code === "oauth_required"
                     ) {
                         await connectConnectorOAuth(connectorId);

@@ -18,9 +18,9 @@ import {
     getProject,
     getProjectPeople,
     listProjectChats,
-    MikeApiError,
+    VaultrApiError,
     updateProject,
-} from "@/app/lib/mikeApi";
+} from "@/app/lib/vaultrApi";
 import type {
     Chat,
     ColumnConfig,
@@ -160,7 +160,7 @@ export function ProjectWorkspaceProvider({
                 setFolders(loaded.folders ?? []);
             })
             .catch((error) => {
-                if (!(error instanceof MikeApiError && error.status === 404)) {
+                if (!(error instanceof VaultrApiError && error.status === 404)) {
                     console.error("[project workspace] failed to load project", error);
                 }
                 if (!cancelled) {
@@ -197,7 +197,7 @@ export function ProjectWorkspaceProvider({
                 return loaded;
             })
             .catch((error) => {
-                if (!(error instanceof MikeApiError && error.status === 404)) {
+                if (!(error instanceof VaultrApiError && error.status === 404)) {
                     console.error("[project assistant] failed to load", error);
                 }
                 setProjectChats([]);
