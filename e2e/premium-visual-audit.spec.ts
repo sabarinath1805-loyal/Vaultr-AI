@@ -98,14 +98,53 @@ test("captures the unauthenticated login state", async ({ browser }) => {
     await context.close();
 });
 
+/* The detail captures need at least one project / review to open. Spec files
+   run alphabetically, so on a fresh database (CI, nightly) nothing has created
+   either yet — the list renders its empty state, the row click goes nowhere,
+   and toHaveURL times out. Seed one of each through the same UI flows the
+   dedicated specs exercise (project-management.spec.ts createProject and
+   tabular-reviews.spec.ts createReview are the sources of truth for these
+   selectors), then capture from the list like a user would. */
+async function seedProject(page: import("@playwright/test").Page) {
+    await page.goto("/projects");
+    const createBtn = page.getByRole("button", { name: "New project" });
+    await expect(createBtn).toBeVisible({ timeout: 10_000 });
+    await createBtn.click();
+    const nameInput = page.getByPlaceholder("Project name");
+    await expect(nameInput).toBeVisible({ timeout: 5_000 });
+    await nameInput.fill(`Visual Audit Proj ${Date.now()}`);
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.locator('button[type="submit"]').click();
+    await page.waitForURL(/\/projects\/.+/, { timeout: 15_000 });
+}
+
+async function seedTabularReview(page: import("@playwright/test").Page) {
+    await page.goto("/tabular-reviews");
+    const heading = page.getByRole("heading", { name: "Tabular Reviews" });
+    await expect(heading).toBeVisible({ timeout: 10_000 });
+    /* Icon-only "new review" button: last button in the h1's actions sibling. */
+    await heading.locator("xpath=../div[1]").getByRole("button").last().click();
+    const titleInput = page.getByPlaceholder("Review name");
+    await expect(titleInput).toBeVisible({ timeout: 10_000 });
+    await titleInput.fill(`Visual Audit Review ${Date.now()}`);
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page
+        .locator('button[name="modalAction"][value="create-review"]')
+        .click();
+    await page.waitForURL(/\/tabular-reviews\/.+/, { timeout: 30_000 });
+}
+
 const detailRoutes = [
-    { name: "project-workspace", source: "/projects", url: /\/projects\/[^/]+$/ },
-    { name: "tabular-review-detail", source: "/tabular-reviews", url: /\/tabular-reviews\/[^/]+$/ },
+    { name: "project-workspace", source: "/projects", url: /\/projects\/[^/]+$/, seed: seedProject },
+    { name: "tabular-review-detail", source: "/tabular-reviews", url: /\/tabular-reviews\/[^/]+$/, seed: seedTabularReview },
 ] as const;
 
 for (const route of detailRoutes) {
     test(`captures ${route.name}`, async ({ page }) => {
+        /* Seeding adds a navigation + modal round-trip on top of the capture. */
+        test.setTimeout(90_000);
         await page.setViewportSize({ width: 1440, height: 900 });
+        await route.seed(page);
         await page.goto(route.source);
         const table = page.getByRole("table");
         await expect(table).toHaveAttribute("aria-busy", "false", { timeout: 15_000 });
