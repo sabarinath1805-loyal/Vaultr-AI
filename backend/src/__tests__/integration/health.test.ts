@@ -78,6 +78,10 @@ describe("GET /manifest-signing-key", () => {
     });
 
     it("returns null when the deployment does not sign manifests", async () => {
+        // A developer's backend/.env may set MANIFEST_SIGNING_KEY (dotenv loads
+        // it into this process via app.ts); unset it so the assertion holds in
+        // any environment, not just CI's env-less checkout.
+        delete process.env.MANIFEST_SIGNING_KEY;
         const res = await request(app).get("/manifest-signing-key");
         expect(res.status).toBe(200);
         expect(res.body).toBeNull();

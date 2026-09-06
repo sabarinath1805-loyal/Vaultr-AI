@@ -34,7 +34,7 @@ const ED25519_KEY_BYTES = 32;
  * signature over some other object that hashes to the same 32 bytes. Bump the
  * version suffix if the signed payload's shape changes.
  */
-const SIGNING_CONTEXT = "mike-project-manifest-v1";
+const SIGNING_CONTEXT = "vaultr-project-manifest-v1";
 
 function signedPayload(digestHex: string): Buffer {
     return Buffer.concat([

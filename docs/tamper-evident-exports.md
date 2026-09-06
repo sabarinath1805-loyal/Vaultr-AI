@@ -41,7 +41,7 @@ hashes can still be checked.
 
 The signature is calculated over:
 
-1. The bytes `mike-project-manifest-v1`.
+1. The bytes `vaultr-project-manifest-v1`.
 2. A NUL byte.
 3. The manifest digest bytes.
 
@@ -51,7 +51,7 @@ It can be checked with any Ed25519 implementation:
 crypto.verify(
   null,
   Buffer.concat([
-    Buffer.from("mike-project-manifest-v1\0"),
+    Buffer.from("vaultr-project-manifest-v1\0"),
     Buffer.from(manifest.digest.value, "hex"),
   ]),
   publicKey,
