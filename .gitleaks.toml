@@ -30,6 +30,10 @@ description = "Word add-in e2e fixture: mocked session token for the hermetic au
 regexes = ['''^valid-jwt-123$''']
 
 [[allowlists]]
+description = "Leaked-and-revoked Serper API key hardcoded in useChatStore.ts history (commit 4050d67, removed from the tree in Phase 20). The key is dead at the provider, so the value is safe to suppress; any OTHER live key would still fail the scan."
+regexes = ['''^4a998b3762951c8ce1f4ca43d1740af581d84f94$''']
+
+[[allowlists]]
 description = "Supabase's public demo JWTs (iss: supabase-demo, HS256-signed with the published demo secret — the well-known local-dev anon/service_role keys from Supabase's own docs) in .env.example / docker-compose.yml history"
 regexes = [
     '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9\.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0$''',
