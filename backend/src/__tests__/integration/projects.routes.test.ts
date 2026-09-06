@@ -553,6 +553,11 @@ describe("projects.routes", () => {
         });
 
         it("carries a digest and no signature when signing is not configured", async () => {
+            // A developer's backend/.env may set MANIFEST_SIGNING_KEY (dotenv
+            // loads it into this process via app.ts); unset it so the
+            // assertion holds in any environment, not just CI's env-less
+            // checkout.
+            delete process.env.MANIFEST_SIGNING_KEY;
             seedProjectWithOneVersion();
 
             const res = await request(app)
