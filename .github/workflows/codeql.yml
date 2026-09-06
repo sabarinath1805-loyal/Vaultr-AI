@@ -8,14 +8,16 @@
 # Findings land in the Security tab (code scanning), not as CI noise.
 name: CodeQL
 
+# No schedule trigger: code-scanning upload needs GitHub Advanced Security,
+# which private repos lack — every scheduled run failed and emailed the
+# owner, and a cron run carries no repository object to check visibility
+# against. Push/PR runs do, so the job guard below skips cleanly while the
+# repo is private and revives automatically if it is ever made public.
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
-  schedule:
-    # Mondays 04:30 UTC.
-    - cron: "30 4 * * 1"
 
 permissions:
   contents: read
@@ -23,6 +25,9 @@ permissions:
 jobs:
   analyze:
     name: Analyze (javascript-typescript)
+    # Uploading to code scanning needs Advanced Security (public repos have
+    # it; private ones need a paid plan) — skip (not fail) on private.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

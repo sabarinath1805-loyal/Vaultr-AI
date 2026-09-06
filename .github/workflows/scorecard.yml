@@ -8,18 +8,23 @@
 # id-token: write. Results also land in the Security tab as SARIF.
 name: Scorecard
 
+# No schedule trigger: repository visibility can't be checked on a cron run
+# (the schedule event payload carries no repository object), and Scorecard
+# only supports PUBLIC repositories — on a private repo every scheduled run
+# fails and emails the owner. Push runs carry the visibility flag, so the
+# job guard below skips cleanly while the repo is private and revives
+# automatically if it is ever made public.
 on:
   push:
     branches: [main, master]
-  schedule:
-    # Mondays 05:30 UTC.
-    - cron: "30 5 * * 1"
 
 permissions: read-all
 
 jobs:
   analysis:
     name: Scorecard analysis
+    # Scorecard supports public repositories only; skip (not fail) on private.
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     permissions:
       # Needed to sign the published results (OIDC).
