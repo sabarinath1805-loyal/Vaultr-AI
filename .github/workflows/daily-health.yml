@@ -1,0 +1,124 @@
+# Daily health report: run the core gates every morning and email the result.
+#
+# Unlike GitHub's built-in notifications (failure-only), this emails EVERY day
+# — pass or fail — so a quiet inbox never has to mean "green or broken cron".
+# 00:30 UTC is 08:30 Singapore time (the owner's timezone; no DST there).
+#
+# The email is sent with Gmail SMTP via two repository secrets the owner
+# creates once (Settings → Secrets and variables → Actions):
+#   MAIL_USERNAME      the Gmail address to send from
+#   MAIL_APP_PASSWORD  a Gmail "app password" (myaccount.google.com/apppasswords
+#                      — requires 2-Step Verification; NOT the account password)
+# Until those exist the run still executes the checks; the email step skips
+# with a notice instead of failing.
+name: Daily health report
+
+on:
+  schedule:
+    # 08:30 Asia/Singapore (UTC+8). Off the hour to dodge cron-pool congestion.
+    - cron: "30 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Needed to read other workflows' latest run conclusions for the summary.
+  actions: read
+
+jobs:
+  checks:
+    name: Core gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Schema drift gate
+        run: node scripts/check-schema-drift.mjs
+
+      - name: Backend deps
+        run: npm ci --prefix backend
+      - name: Backend tests
+        run: npm test --prefix backend
+      - name: Backend build
+        run: npm run build --prefix backend
+
+      - name: Frontend deps
+        run: npm ci --prefix frontend
+      - name: Frontend tests (coverage ratchet)
+        run: npm run test:coverage --prefix frontend
+      - name: Frontend lint
+        run: npm run lint --prefix frontend
+      - name: Frontend build
+        run: npm run build --prefix frontend
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY: sb_publishable_placeholder
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+
+  report:
+    name: Email the result
+    needs: checks
+    # Run on success AND failure — the whole point is a daily email either way.
+    if: always()
+    runs-on: ubuntu-latest
+    env:
+      HAS_MAIL_SECRETS: ${{ secrets.MAIL_USERNAME != '' && secrets.MAIL_APP_PASSWORD != '' }}
+    steps:
+      - name: Collect latest results of the other workflows
+        id: summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const wanted = ["CI", "e2e", "Secret scan", "Stack tests"];
+            const lines = [];
+            for (const name of wanted) {
+              try {
+                const { data } = await github.rest.actions.listWorkflowRunsForRepo({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  status: "completed",
+                  per_page: 50,
+                });
+                const run = data.workflow_runs.find(r => r.name === name);
+                lines.push(run
+                  ? `${name}: ${run.conclusion} (${run.event}, ${run.updated_at})`
+                  : `${name}: no completed runs yet`);
+              } catch (e) {
+                lines.push(`${name}: lookup failed (${e.message})`);
+              }
+            }
+            const gates = "${{ needs.checks.result }}";
+            const ok = gates === "success";
+            core.setOutput("subject", ok
+              ? "✅ Vaultr daily health: all core gates passed"
+              : `❌ Vaultr daily health: core gates ${gates}`);
+            core.setOutput("body", [
+              `Core gates (schema, backend tests+build, frontend tests+lint+build): ${gates}`,
+              "",
+              "Latest completed runs of the other workflows:",
+              ...lines,
+              "",
+              `Details: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            ].join("\n"));
+
+      - name: Send email
+        if: env.HAS_MAIL_SECRETS == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_APP_PASSWORD }}
+          subject: ${{ steps.summary.outputs.subject }}
+          to: sabarinath.1805@gmail.com
+          from: Vaultr CI <${{ secrets.MAIL_USERNAME }}>
+          body: ${{ steps.summary.outputs.body }}
+
+      - name: Explain missing mail secrets
+        if: env.HAS_MAIL_SECRETS != 'true'
+        run: |
+          echo "::warning::MAIL_USERNAME / MAIL_APP_PASSWORD secrets not set — checks ran but no email was sent. Add them in Settings → Secrets and variables → Actions."
