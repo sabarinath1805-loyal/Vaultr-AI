@@ -121,21 +121,22 @@ Prepared September 2026 by Sabarinath Babu, Founder, Vaultr.
     **YES.** `OPEN-SOURCE-POLICY.md` section 3 assigns every programme task to
     Sabarinath Babu.
 
-17. Do you have documented evidence that the persons performing those tasks
-    are competent?
-    **YES.** `OPEN-SOURCE-POLICY.md` section 3 records the qualifications and
-    experience relied on (see also the review note on question 4).
+17. Have you identified legal expertise to address internal and external open
+    source compliance matters?
+    **YES.** `OPEN-SOURCE-POLICY.md` section 12 ("Legal expertise") states
+    that routine questions are handled by Sabarinath Babu and that external
+    legal counsel is engaged as required for non-routine matters.
 
 18. Do you have a procedure for ensuring the programme is sufficiently staffed
     and funded?
-    **YES.** `OPEN-SOURCE-POLICY.md` section 12 records that the programme is
+    **YES.** `OPEN-SOURCE-POLICY.md` section 13 records that the programme is
     self-funded by the founder with time set aside for the pre-release check
     and annual review. **[REVIEW]** Confirm you are comfortable presenting
     founder self-funding as the resourcing procedure.
 
 19. Do you have a process for reviewing and updating the policy and its
     supporting procedures?
-    **YES.** `OPEN-SOURCE-POLICY.md` section 12 commits to an annual review and
+    **YES.** `OPEN-SOURCE-POLICY.md` section 13 commits to an annual review and
     to earlier review when a licence changes, with the date recorded in each
     file.
 
@@ -462,7 +463,7 @@ Prepared September 2026 by Sabarinath Babu, Founder, Vaultr.
 
 | Ref | Item | What to confirm |
 | --- | --- | --- |
-| 5230 Q4, Q17; 18974 Q4, Q24 | Competence evidence | You are comfortable citing the listed certifications plus maintenance experience as competence for licence review. |
+| 5230 Q4; 18974 Q4, Q24 | Competence evidence | You are comfortable citing the listed certifications plus maintenance experience as competence for licence review. |
 | 5230 Q18; 18974 Q25 | Resourcing | Founder self-funding is the resourcing procedure you want to declare. |
 | 5230 Q29 | Archiving | Git tags exist but no GitHub Releases pages; decide whether tags alone are the archive or publish Releases. |
 | 18974 Q12 | Dependabot and secret scanning | Both are enabled under the repository's Code security settings (not verifiable from the local checkout). |

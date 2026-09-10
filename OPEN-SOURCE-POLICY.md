@@ -163,7 +163,15 @@ https://vaultr-law.lovable.app. Sabarinath Babu is responsible for responding.
 There are no internal inquiries in a one-person project; decisions are recorded
 in commits and pull requests.
 
-## 12. Resourcing and review
+## 12. Legal expertise
+
+Vaultr identifies and engages external legal counsel as needed to address
+open source licence compliance matters. For routine compliance questions,
+Sabarinath Babu draws on his CISM certification and professional experience.
+External legal expertise is sourced as required for non-routine matters.
+Contact: Sabarinath.1805@gmail.com
+
+## 13. Resourcing and review
 
 Vaultr is self-funded by its founder, who allocates time for the pre-release
 licence check and for this policy's review. Sabarinath Babu reviews this
