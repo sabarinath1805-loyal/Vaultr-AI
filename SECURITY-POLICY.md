@@ -166,7 +166,15 @@ Evidence that this programme operates is held in:
 - published GitHub Security Advisories,
 - `NOTICES.md` for the component record of each release.
 
-## 10. Review
+## 10. Continuous improvement
+
+Vaultr documents evidence of programme reviews through GitHub commit history.
+Each annual review produces an updated version of this policy, committed to
+the repository with a dated commit message. Metrics reviewed annually include:
+number of open CVEs at release, mean time to remediate critical
+vulnerabilities, and number of dependency updates applied.
+
+## 11. Review
 
 Sabarinath Babu reviews this policy and the practices above at least once a
 year, and sooner after any critical vulnerability or change to the tooling.

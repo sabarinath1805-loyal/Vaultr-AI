@@ -302,6 +302,20 @@ Prepared September 2026 by Sabarinath Babu, Founder, Vaultr.
     **YES.** `SECURITY-POLICY.md` section 2 lists every component and
     dependency in scope and what is excluded.
 
+    The official checklist asks two further questions under 4.1.4:
+
+    - Do you have a set of metrics to measure programme performance?
+      **YES.** `SECURITY-POLICY.md` sections 8 and 10 define the metrics
+      (open CVEs at release, mean time to remediate critical
+      vulnerabilities, dependency updates applied) and when they are
+      reviewed.
+    - Do you have documented evidence from each review, update, or audit to
+      demonstrate continuous improvement?
+      **YES.** `SECURITY-POLICY.md` section 10 ("Continuous improvement")
+      records that each annual review produces an updated policy committed
+      with a dated commit message, so the GitHub commit history is the
+      evidence trail.
+
 **4.1.5 Standard practice implementation**
 
 11. Do you have a method for identifying structural and technical threats to
@@ -396,8 +410,9 @@ Prepared September 2026 by Sabarinath Babu, Founder, Vaultr.
 
 26. Do you have a process for reviewing and updating the policy and its
     supporting procedures?
-    **YES.** `SECURITY-POLICY.md` section 10 commits to an annual review and to
-    earlier review after any critical vulnerability or tooling change.
+    **YES.** `SECURITY-POLICY.md` section 11 commits to an annual review and to
+    earlier review after any critical vulnerability or tooling change, and
+    section 10 records how each review is evidenced.
 
 27. Do you have a process for handling internal security inquiries?
     **YES.** `SECURITY-POLICY.md` section 6 notes that with one participant
